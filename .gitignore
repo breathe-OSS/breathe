@@ -1,0 +1,46 @@
+# gradle
+.gradle/
+build/
+**/build/
+
+# android studio
+.idea/
+*.iml
+captures/
+local.properties
+
+# kotlin generated
+*/bin/
+*/out/
+
+# signing keys
+*.jks
+*.keystore
+*.pem
+*.p12
+
+# temporary files
+.DS_Store
+*.log
+*.tmp
+*.swp
+
+# OS junk
+Thumbs.db
+
+# gradle wrapper cache
+gradle/wrapper/gradle-wrapper.jar
+
+# apk / bundles
+*.apk
+*.ap_
+*.aab
+
+# cache
+app/.cxx/
+app/debug/
+app/release/
+
+# intermediate manifests
+app/src/main/AndroidManifest.xml~
+
