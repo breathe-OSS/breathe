@@ -33,7 +33,7 @@
 1. **Clone the repository:**
 
    ```bash
-   git clone [https://github.com/sidharthify/breathe-android.git](https://github.com/sidharthify/breathe-android.git)
+   git clone https://github.com/breathe-OSS/breathe
 
 3. **Open in Android Studio.**
 4. **Configure the API Endpoint:**
