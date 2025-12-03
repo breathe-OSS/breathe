@@ -40,6 +40,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 
 enum class AppScreen(val label: String, val iconFilled: ImageVector, val iconOutlined: ImageVector) {
     Home("Home", Icons.Filled.Home, Icons.Outlined.Home),
@@ -57,33 +59,36 @@ class BreatheViewModel : ViewModel() {
     fun init(context: Context) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            
+            val prefs = context.getSharedPreferences("breathe_prefs", Context.MODE_PRIVATE)
+            val pinnedSet = prefs.getStringSet("pinned_ids", emptySet()) ?: emptySet()
+
             try {
-                val zonesResp = RetrofitClient.api.getZones()
-                val zonesList = zonesResp.zones
-
-                val prefs = context.getSharedPreferences("breathe_prefs", Context.MODE_PRIVATE)
-                val pinnedSet = prefs.getStringSet("pinned_ids", emptySet()) ?: emptySet()
-
-                val pinnedAqiList = mutableListOf<AqiResponse>()
-                
-                for (id in pinnedSet) {
-                    try {
-                        pinnedAqiList.add(RetrofitClient.api.getZoneAqi(id))
-                    } catch (e: Exception) { }
+                val zonesDeferred = async { 
+                    try { RetrofitClient.api.getZones().zones } catch (e: Exception) { emptyList() }
                 }
+
+                val pinnedJobs = pinnedSet.map { id ->
+                    async {
+                        try { RetrofitClient.api.getZoneAqi(id) } catch (e: Exception) { null }
+                    }
+                }
+
+                val zonesList = zonesDeferred.await()
+                val pinnedResults = pinnedJobs.awaitAll().filterNotNull()
 
                 _uiState.value = AppState(
                     isLoading = false,
-                    error = null,
+                    error = if (zonesList.isEmpty() && pinnedResults.isEmpty()) "Could not connect to server." else null,
                     zones = zonesList,
-                    pinnedZones = pinnedAqiList,
+                    pinnedZones = pinnedResults,
                     pinnedIds = pinnedSet
                 )
 
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    error = "Could not connect to server.\n(${e.localizedMessage})"
+                    error = "Error: ${e.localizedMessage}"
                 )
             }
         }
@@ -95,14 +100,37 @@ class BreatheViewModel : ViewModel() {
 
     fun togglePin(context: Context, zoneId: String) {
         val currentSet = _uiState.value.pinnedIds.toMutableSet()
-        if (currentSet.contains(zoneId)) {
-            currentSet.remove(zoneId)
-        } else {
-            currentSet.add(zoneId)
-        }
+        val isAdding = !currentSet.contains(zoneId)
+
+        if (isAdding) currentSet.add(zoneId) else currentSet.remove(zoneId)
+
         context.getSharedPreferences("breathe_prefs", Context.MODE_PRIVATE)
             .edit().putStringSet("pinned_ids", currentSet).apply()
-        init(context)
+
+        _uiState.value = _uiState.value.copy(pinnedIds = currentSet)
+
+        if (!isAdding) {
+            val updatedList = _uiState.value.pinnedZones.filter { it.zoneId != zoneId }
+            _uiState.value = _uiState.value.copy(pinnedZones = updatedList)
+        } else {
+            viewModelScope.launch {
+                try {
+                    val newZone = RetrofitClient.api.getZoneAqi(zoneId)
+                    
+                    // check if user unpinned when fetching
+                    if (_uiState.value.pinnedIds.contains(zoneId)) {
+                        val currentList = _uiState.value.pinnedZones.toMutableList()
+                        // avoid dupes
+                        if (currentList.none { it.zoneId == newZone.zoneId }) {
+                            currentList.add(newZone)
+                            _uiState.value = _uiState.value.copy(pinnedZones = currentList)
+                        }
+                    }
+                } catch (e: Exception) {
+                    // if fetch fails, silent fail is usually better than error popup for a pin
+                }
+            }
+        }
     }
 }
 
