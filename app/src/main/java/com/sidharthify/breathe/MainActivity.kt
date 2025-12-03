@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -107,6 +108,9 @@ class BreatheViewModel : ViewModel() {
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        enableEdgeToEdge()
+        
         setContent {
             var isDarkTheme by remember { mutableStateOf(true) }
             val context = LocalContext.current
@@ -140,6 +144,7 @@ fun BreatheApp(isDarkTheme: Boolean, onThemeToggle: () -> Unit, viewModel: Breat
     }
 
     Scaffold(
+        contentWindowInsets = WindowInsets.systemBars,
         bottomBar = {
             NavigationBar(
                 containerColor = MaterialTheme.colorScheme.surfaceContainer,
