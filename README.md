@@ -10,6 +10,7 @@
 * **Real-time Monitoring**
 * **Indian NAQI Standards**
 * **Detailed Breakdown**
+* **A map with data laid across**
 
 ## Tech Stack
 
