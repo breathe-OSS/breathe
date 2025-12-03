@@ -29,6 +29,7 @@ data class AppState(
     val isLoading: Boolean = true,
     val error: String? = null,
     val zones: List<Zone> = emptyList(),
+    val allAqiData: List<AqiResponse> = emptyList(),
     val pinnedZones: List<AqiResponse> = emptyList(),
     val pinnedIds: Set<String> = emptySet()
 )

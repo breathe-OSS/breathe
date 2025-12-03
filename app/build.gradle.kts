@@ -58,7 +58,7 @@ dependencies {
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3:1.2.0")
-    
+    implementation("org.osmdroid:osmdroid-android:6.1.18")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0")
     implementation("androidx.compose.material:material-icons-extended:1.6.0")
     implementation("com.squareup.retrofit2:retrofit:2.9.0")

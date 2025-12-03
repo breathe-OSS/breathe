@@ -2,12 +2,16 @@ package com.sidharthify.breathe
 
 import android.app.Activity
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
-import androidx.core.view.WindowCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -26,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
@@ -34,17 +39,25 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
+import org.osmdroid.config.Configuration
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.GeoPoint
+import org.osmdroid.views.MapView
+import org.osmdroid.views.overlay.Marker
 
 enum class AppScreen(val label: String, val iconFilled: ImageVector, val iconOutlined: ImageVector) {
     Home("Home", Icons.Filled.Home, Icons.Outlined.Home),
+    Map("Map", Icons.Filled.Map, Icons.Outlined.Map),
     Explore("Explore", Icons.Filled.Search, Icons.Outlined.Search),
     Settings("Settings", Icons.Filled.Settings, Icons.Outlined.Settings)
 }
@@ -64,23 +77,23 @@ class BreatheViewModel : ViewModel() {
             val pinnedSet = prefs.getStringSet("pinned_ids", emptySet()) ?: emptySet()
 
             try {
-                val zonesDeferred = async { 
-                    try { RetrofitClient.api.getZones().zones } catch (e: Exception) { emptyList() }
-                }
+                val zonesList = RetrofitClient.api.getZones().zones
 
-                val pinnedJobs = pinnedSet.map { id ->
+                val allJobs = zonesList.map { zone ->
                     async {
-                        try { RetrofitClient.api.getZoneAqi(id) } catch (e: Exception) { null }
+                        try { RetrofitClient.api.getZoneAqi(zone.id) } catch (e: Exception) { null }
                     }
                 }
 
-                val zonesList = zonesDeferred.await()
-                val pinnedResults = pinnedJobs.awaitAll().filterNotNull()
+                val allResults = allJobs.awaitAll().filterNotNull()
+
+                val pinnedResults = allResults.filter { it.zoneId in pinnedSet }
 
                 _uiState.value = AppState(
                     isLoading = false,
-                    error = if (zonesList.isEmpty() && pinnedResults.isEmpty()) "Could not connect to server." else null,
+                    error = if (zonesList.isEmpty()) "Could not connect to server." else null,
                     zones = zonesList,
+                    allAqiData = allResults,
                     pinnedZones = pinnedResults,
                     pinnedIds = pinnedSet
                 )
@@ -107,30 +120,12 @@ class BreatheViewModel : ViewModel() {
         context.getSharedPreferences("breathe_prefs", Context.MODE_PRIVATE)
             .edit().putStringSet("pinned_ids", currentSet).apply()
 
-        _uiState.value = _uiState.value.copy(pinnedIds = currentSet)
+        val updatedPinnedList = _uiState.value.allAqiData.filter { it.zoneId in currentSet }
 
-        if (!isAdding) {
-            val updatedList = _uiState.value.pinnedZones.filter { it.zoneId != zoneId }
-            _uiState.value = _uiState.value.copy(pinnedZones = updatedList)
-        } else {
-            viewModelScope.launch {
-                try {
-                    val newZone = RetrofitClient.api.getZoneAqi(zoneId)
-                    
-                    // check if user unpinned when fetching
-                    if (_uiState.value.pinnedIds.contains(zoneId)) {
-                        val currentList = _uiState.value.pinnedZones.toMutableList()
-                        // avoid dupes
-                        if (currentList.none { it.zoneId == newZone.zoneId }) {
-                            currentList.add(newZone)
-                            _uiState.value = _uiState.value.copy(pinnedZones = currentList)
-                        }
-                    }
-                } catch (e: Exception) {
-                    // if fetch fails, silent fail is usually better than error popup for a pin
-                }
-            }
-        }
+        _uiState.value = _uiState.value.copy(
+            pinnedIds = currentSet,
+            pinnedZones = updatedPinnedList
+        )
     }
 }
 
@@ -234,6 +229,12 @@ fun BreatheApp(isDarkTheme: Boolean, onThemeToggle: () -> Unit, viewModel: Breat
                         onGoToExplore = { currentScreen = AppScreen.Explore },
                         onRetry = { viewModel.init(context) }
                     )
+                    AppScreen.Map -> MapScreen(
+                        zones = state.zones,
+                        allAqiData = state.allAqiData,
+                        pinnedIds = state.pinnedIds,
+                        onPinToggle = { id -> viewModel.togglePin(context, id) }
+                    )
                     AppScreen.Explore -> ExploreScreen(
                         isLoading = state.isLoading,
                         error = state.error,
@@ -249,6 +250,113 @@ fun BreatheApp(isDarkTheme: Boolean, onThemeToggle: () -> Unit, viewModel: Breat
             }
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MapScreen(
+    zones: List<Zone>,
+    allAqiData: List<AqiResponse>,
+    pinnedIds: Set<String>,
+    onPinToggle: (String) -> Unit
+) {
+    val context = LocalContext.current
+    val startPoint = GeoPoint(34.0837, 74.7973) 
+    
+    var selectedZoneData by remember { mutableStateOf<AqiResponse?>(null) }
+
+    LaunchedEffect(Unit) {
+        Configuration.getInstance().load(context, context.getSharedPreferences("osmdroid", Context.MODE_PRIVATE))
+    }
+
+    Scaffold { padding ->
+        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+            AndroidView(
+                modifier = Modifier.fillMaxSize(),
+                factory = { ctx ->
+                    MapView(ctx).apply {
+                        setTileSource(TileSourceFactory.MAPNIK)
+                        setMultiTouchControls(true)
+                        controller.setZoom(9.0)
+                        controller.setCenter(startPoint)
+                    }
+                },
+                update = { mapView ->
+                    mapView.overlays.clear()
+
+                    zones.forEach { zone ->
+                        if (zone.lat != null && zone.lon != null) {
+                            val marker = Marker(mapView)
+                            marker.position = GeoPoint(zone.lat, zone.lon)
+                            marker.title = zone.name
+                            marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+
+                            val data = allAqiData.find { it.zoneId == zone.id }
+                            
+                            val colorInt = if (data != null) {
+                                getAqiColor(data.nAqi).toArgb()
+                            } else {
+                                android.graphics.Color.GRAY
+                            }
+
+                            marker.icon = createBlobIcon(context, colorInt)
+
+                            marker.setOnMarkerClickListener { _, _ ->
+                                if (data != null) {
+                                    selectedZoneData = data
+                                }
+                                true
+                            }
+                            mapView.overlays.add(marker)
+                        }
+                    }
+                    mapView.invalidate()
+                }
+            )
+        }
+
+        if (selectedZoneData != null) {
+            ModalBottomSheet(
+                onDismissRequest = { selectedZoneData = null },
+                containerColor = MaterialTheme.colorScheme.surface
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(bottom = 48.dp)
+                ) {
+                    // Show full data
+                    MainDashboardDetail(selectedZoneData!!)
+                    
+                    // Pin/Unpin Button
+                    val isPinned = pinnedIds.contains(selectedZoneData!!.zoneId)
+                    Box(Modifier.padding(horizontal = 24.dp)) {
+                        OutlinedButton(
+                            onClick = { onPinToggle(selectedZoneData!!.zoneId) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(if (isPinned) Icons.Filled.PushPin else Icons.Outlined.PushPin, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(if (isPinned) "Unpin from Home" else "Pin to Home")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+fun createBlobIcon(context: Context, color: Int): Drawable {
+    val radius = 32f 
+    val bitmap = Bitmap.createBitmap((radius * 2).toInt(), (radius * 2).toInt(), Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    val paint = Paint().apply { isAntiAlias = true }
+
+    paint.color = color
+    canvas.drawCircle(radius, radius, radius, paint)
+
+    return BitmapDrawable(context.resources, bitmap)
 }
 
 @Composable
