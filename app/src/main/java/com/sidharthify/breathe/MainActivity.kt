@@ -9,6 +9,7 @@ import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
+import android.graphics.Typeface
 import android.widget.Toast
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -98,6 +99,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
@@ -127,6 +133,10 @@ import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import org.json.JSONObject
 import java.net.URL
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.Date
+import kotlin.math.roundToInt
 
 enum class AppScreen(val label: String, val iconFilled: ImageVector, val iconOutlined: ImageVector) {
     Home("Home", Icons.Filled.Home, Icons.Outlined.Home),
@@ -747,6 +757,11 @@ fun MainDashboardDetail(zone: AqiResponse, provider: String?) {
             }
         }
 
+        if (!zone.history.isNullOrEmpty()) {
+            Spacer(modifier = Modifier.height(24.dp))
+            AqiHistoryGraph(history = zone.history)
+        }
+
         Spacer(modifier = Modifier.height(32.dp))
         Text("Pollutants", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(16.dp))
@@ -1080,6 +1095,138 @@ fun PollutantCard(modifier: Modifier, name: String, value: String, unit: String)
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(unit, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(bottom = 4.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+        }
+    }
+}
+
+@Composable
+fun AqiHistoryGraph(history: List<HistoryPoint>, modifier: Modifier = Modifier) {
+    if (history.isEmpty()) return
+
+    val graphColor = MaterialTheme.colorScheme.primary
+    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant.toArgb()
+
+    Box(
+        modifier = modifier
+            .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(24.dp))
+            .padding(16.dp)
+    ) {
+        Column {
+            Text(
+                "24 Hour Trend",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            androidx.compose.foundation.Canvas(
+                modifier = Modifier.fillMaxWidth().height(150.dp)
+            ) {
+                val labelWidth = 35.dp.toPx() 
+                val width = size.width - labelWidth
+                val height = size.height
+
+                val maxAqi = history.maxOf { it.aqi }.toFloat().coerceAtLeast(100f)
+                val minAqi = history.minOf { it.aqi }.toFloat().coerceAtMost(0f)
+                val range = maxAqi - minAqi
+
+                fun getX(index: Int): Float = labelWidth + (index.toFloat() / (history.size - 1)) * width
+                fun getY(aqi: Int): Float = height - ((aqi - minAqi) / range * height)
+
+                val path = Path()
+                
+                history.forEachIndexed { i, point ->
+                    val x = getX(i)
+                    val y = getY(point.aqi)
+                    
+                    if (i == 0) {
+                        path.moveTo(x, y)
+                    } else {
+                        val prevX = getX(i - 1)
+                        val prevY = getY(history[i - 1].aqi)
+                        
+                        val controlX = prevX + (x - prevX) / 2
+                        path.cubicTo(controlX, prevY, controlX, y, x, y)
+                    }
+                }
+
+                val fillPath = Path()
+                fillPath.addPath(path)
+                fillPath.lineTo(size.width, height)
+                fillPath.lineTo(labelWidth, height)
+                fillPath.close()
+
+                drawPath(
+                    path = fillPath,
+                    brush = Brush.verticalGradient(
+                        colors = listOf(graphColor.copy(alpha = 0.3f), graphColor.copy(alpha = 0.0f))
+                    )
+                )
+
+                drawPath(
+                    path = path,
+                    color = graphColor,
+                    style = Stroke(width = 3.dp.toPx())
+                )
+
+                drawIntoCanvas { canvas ->
+                    val nativeCanvas = canvas.nativeCanvas
+                    
+                    val textPaint = Paint().apply {
+                        color = labelColor
+                        textSize = 30f
+                        typeface = Typeface.DEFAULT_BOLD
+                    }
+
+                    textPaint.textAlign = Paint.Align.LEFT
+                    
+                    // Max AQI
+                    nativeCanvas.drawText(
+                        "${maxAqi.toInt()}", 
+                        0f, 
+                        30f,
+                        textPaint
+                    )
+
+                    val midAqi = (maxAqi + minAqi) / 2
+                    nativeCanvas.drawText(
+                        "${midAqi.toInt()}",
+                        0f,
+                        height / 2 + 10f,
+                        textPaint
+                    )
+                    
+                    // Min AQI
+                    nativeCanvas.drawText(
+                        "${minAqi.toInt()}", 
+                        0f, 
+                        height - 10f,
+                        textPaint
+                    )
+
+                    textPaint.textAlign = Paint.Align.CENTER
+                    textPaint.typeface = Typeface.DEFAULT
+                    
+                    val indicesToLabel = listOf(0, history.size / 2, history.size - 1)
+                    indicesToLabel.forEach { i ->
+                        if (i < history.size) {
+                            val date = Date(history[i].ts * 1000)
+                            val label = SimpleDateFormat("HH:mm", Locale.getDefault()).format(date)
+
+                            textPaint.textAlign = when(i) {
+                                0 -> Paint.Align.LEFT
+                                history.size - 1 -> Paint.Align.RIGHT
+                                else -> Paint.Align.CENTER
+                            }
+                            
+                            val xPos = getX(i)
+                            nativeCanvas.drawText(label, xPos, height + 45f, textPaint)
+                        }
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
