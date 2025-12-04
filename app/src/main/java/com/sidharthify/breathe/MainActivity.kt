@@ -662,9 +662,11 @@ fun SettingsScreen(isDarkTheme: Boolean, onThemeToggle: () -> Unit) {
     ) {
         Text("Settings", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(32.dp))
-        
+
         Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -678,7 +680,7 @@ fun SettingsScreen(isDarkTheme: Boolean, onThemeToggle: () -> Unit) {
 
         SettingsItem("Data Standards", "Indian National Air Quality Index (NAQI)")
         SettingsItem("Sources", "CPCB (Govt. of India) & OpenMeteo")
-        
+
         SettingsItem(
             title = "Breathe OSS",
             subtitle = "View Source on GitHub",
@@ -686,6 +688,7 @@ fun SettingsScreen(isDarkTheme: Boolean, onThemeToggle: () -> Unit) {
         )
 
         Spacer(modifier = Modifier.height(24.dp))
+
         Text(
             "Developers",
             style = MaterialTheme.typography.titleMedium,
@@ -703,6 +706,22 @@ fun SettingsScreen(isDarkTheme: Boolean, onThemeToggle: () -> Unit) {
             title = "Aaditya Gupta",
             subtitle = "@Flashwreck",
             onClick = { uriHandler.openUri("https://github.com/Flashwreck") }
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(
+            "Contributors",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        SettingsItem(
+            title = "Veer P.S Singh - Logo designer",
+            subtitle = "@Lostless1907",
+            onClick = { uriHandler.openUri("https://github.com/Lostless1907") }
         )
     }
 }
