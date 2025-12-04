@@ -57,11 +57,25 @@
   - Sync Gradle files.
   - Select your device and click Run.
 
-## (WIP) AQI Data Provider:
-- **Open-Meteo**
-- **OpenAQ (Mirror to CPCB)**
+## AQI Data Providers
+### Why this exists
+Publicly available AQI data for the Jammu & Kashmir region is currently unreliable. Most standardized sources rely on sparse sensor networks or algorithmic modeling that does not accurately reflect ground-level realities. This results in widely varying values across different platforms. **Google**, for example, shows values that are insanely **low**, but they are usually off by a huge margin.
 
-We are looking to setup certain custom physical sensors in some areas of Jammu, anyone willing to contribute can send a mail to wednisegit@gmail.com
+**Breathe** aims to solve this by strictly curating sources and building a ground-truth network.
+
+The method that we use to convert the raw data in our API **(please do read the documentation)** was laid out by scanning past concentration trends from 2024-2022 of the J&K regions.
+
+### Current Data Sources
+* **Open-Meteo:** Used for most data, it's results show way more accuracy than any other API so far, expect about ~90-95% accuracy in reference to ground data. It stays within the range of the actual AQI.
+* **OpenAQ (CPCB Mirror):** Direct integration with Central Pollution Control Board data where available (Srinagar, for now)
+
+### Call for Contributors (Hardware)
+The limitations of our current project is that we do not have ground sensors and are mostly relying on satellite data, so the data is **not 100%** accurate.
+
+
+We are actively working to deploy custom physical sensors to improve data density in Jammu. If you are interested in hosting a sensor node, please contact us at: [wednisegit@gmail.com](mailto:wednisegit@gmail.com)
+
+We have emailed **AQI.in** (an Indian company with local ground community sensors) and **Caeli** (satellite based) for use of their API and free research plans if any.
 
 ## Credits & Developers
 This project is fully Free & Open Source Software (FOSS).
