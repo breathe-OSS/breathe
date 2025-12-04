@@ -194,7 +194,7 @@ fun SettingsScreen(
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
 
         SettingsItem("Data Standards", "Indian National Air Quality Index (NAQI)")
-        SettingsItem("Sources", "OpenMeteo")
+        SettingsItem("Sources", "OpenMeteo & OpenAQ")
 
         SettingsItem(
             title = "Breathe OSS",

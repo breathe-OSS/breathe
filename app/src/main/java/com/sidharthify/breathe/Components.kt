@@ -94,6 +94,9 @@ fun MainDashboardDetail(zone: AqiResponse, provider: String?) {
     val isOpenMeteo = provider?.contains("Open-Meteo", ignoreCase = true) == true ||
             provider?.contains("OpenMeteo", ignoreCase = true) == true
 
+    val isOpenAQ = provider?.contains("Open-AQ", ignoreCase = true) == true ||
+            provider?.contains("OpenAQ", ignoreCase = true) == true
+
     Column(modifier = Modifier.padding(horizontal = 24.dp)) {
 
         Row(
@@ -123,6 +126,17 @@ fun MainDashboardDetail(zone: AqiResponse, provider: String?) {
                     contentDescription = "Open-Meteo Data",
                     modifier = Modifier
                         .height(24.dp)
+                        .padding(start = 8.dp),
+                    alpha = 0.8f
+                )
+            }
+
+            if (isOpenAQ) {
+                Image(
+                    painter = painterResource(id = R.drawable.open_aq_logo),
+                    contentDescription = "Open-AQ Data",
+                    modifier = Modifier
+                        .height(64.dp)
                         .padding(start = 8.dp),
                     alpha = 0.8f
                 )

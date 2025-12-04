@@ -58,7 +58,8 @@
   - Select your device and click Run.
 
 ## (WIP) AQI Data Provider:
-- **Open-Meteo:**
+- **Open-Meteo**
+- **OpenAQ (Mirror to CPCB)**
 
 We are looking to setup certain custom physical sensors in some areas of Jammu, anyone willing to contribute can send a mail to wednisegit@gmail.com
 
