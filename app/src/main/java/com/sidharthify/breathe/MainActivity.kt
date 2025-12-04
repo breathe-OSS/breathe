@@ -14,24 +14,82 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.Image
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Map
+import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SmallFloatingActionButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,13 +98,13 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.res.painterResource
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -58,11 +116,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
-import org.osmdroid.util.GeoPoint
 import org.osmdroid.util.BoundingBox
+import org.osmdroid.util.GeoPoint
+import org.osmdroid.views.CustomZoomButtonsController
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
-import org.osmdroid.views.CustomZoomButtonsController
 
 enum class AppScreen(val label: String, val iconFilled: ImageVector, val iconOutlined: ImageVector) {
     Home("Home", Icons.Filled.Home, Icons.Outlined.Home),
@@ -228,7 +286,7 @@ fun BreatheApp(isDarkTheme: Boolean, onThemeToggle: () -> Unit, viewModel: Breat
         Box(modifier = Modifier.padding(padding)) {
             Crossfade(
                 targetState = currentScreen,
-                animationSpec = tween(durationMillis = 300),
+                animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
                 label = "ScreenTransition"
             ) { screen ->
                 when (screen) {
@@ -491,7 +549,12 @@ fun HomeScreen(
 
 @Composable
 fun PinnedMiniCard(zone: AqiResponse, isSelected: Boolean, onClick: () -> Unit) {
-    val aqiColor = getAqiColor(zone.nAqi)
+    val aqiColor by animateColorAsState(
+        targetValue = getAqiColor(zone.nAqi),
+        animationSpec = tween(durationMillis = 500),
+        label = "MiniCardColor"
+    )
+    
     val containerColor = if (isSelected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh
     
     Card(
@@ -527,7 +590,18 @@ fun PinnedMiniCard(zone: AqiResponse, isSelected: Boolean, onClick: () -> Unit) 
 
 @Composable
 fun MainDashboardDetail(zone: AqiResponse, provider: String?) {
-    val aqiColor = getAqiColor(zone.nAqi)
+    val aqiColor by animateColorAsState(
+        targetValue = getAqiColor(zone.nAqi),
+        animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing),
+        label = "DashboardColor"
+    )
+
+    val animatedAqi by animateIntAsState(
+        targetValue = zone.nAqi,
+        animationSpec = tween(durationMillis = 800, easing = FastOutSlowInEasing),
+        label = "DashboardNumber"
+    )
+    
     val aqiBgColor = aqiColor.copy(alpha = 0.15f)
     
     val isOpenMeteo = provider?.contains("Open-Meteo", ignoreCase = true) == true ||
@@ -535,7 +609,6 @@ fun MainDashboardDetail(zone: AqiResponse, provider: String?) {
 
     Column(modifier = Modifier.padding(horizontal = 24.dp)) {
         
-
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -591,7 +664,7 @@ fun MainDashboardDetail(zone: AqiResponse, provider: String?) {
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "${zone.nAqi}",
+                        text = "$animatedAqi",
                         style = MaterialTheme.typography.displayLarge.copy(fontSize = 90.sp),
                         fontWeight = FontWeight.Black,
                         color = aqiColor
@@ -643,6 +716,7 @@ fun MainDashboardDetail(zone: AqiResponse, provider: String?) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ExploreScreen(
     isLoading: Boolean,
@@ -684,17 +758,20 @@ fun ExploreScreen(
         } else {
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
-                contentPadding = PaddingValues(bottom = 80.dp)
+                contentPadding = PaddingValues(bottom = 80.dp),
+                modifier = Modifier.fillMaxSize()
             ) {
                 if (filteredZones.isEmpty()) {
                     item { Text("No zones found", modifier = Modifier.padding(8.dp)) }
                 }
-                items(filteredZones) { zone ->
-                    ZoneListItem(
-                        zone = zone,
-                        isPinned = pinnedIds.contains(zone.id),
-                        onPinClick = { onPinToggle(zone.id) }
-                    )
+                items(filteredZones, key = { it.id }) { zone ->
+                    Box(modifier = Modifier.animateItemPlacement(tween(durationMillis = 300))) {
+                        ZoneListItem(
+                            zone = zone,
+                            isPinned = pinnedIds.contains(zone.id),
+                            onPinClick = { onPinToggle(zone.id) }
+                        )
+                    }
                 }
             }
         }
@@ -822,7 +899,7 @@ fun SettingsItem(title: String, subtitle: String, onClick: (() -> Unit)? = null)
             Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         if(onClick != null) {
-            Icon(Icons.Filled.ArrowForward, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
