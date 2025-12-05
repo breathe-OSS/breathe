@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.LocationOn
@@ -307,7 +306,7 @@ fun AqiHistoryGraph(history: List<HistoryPoint>, modifier: Modifier = Modifier) 
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(150.dp)
-                    .pointerInput(Unit) {
+                    .pointerInput(history) {
                         detectTapGestures(
                             onPress = { offset ->
                                 val graphWidth = size.width.toFloat() - labelWidth
@@ -320,7 +319,7 @@ fun AqiHistoryGraph(history: List<HistoryPoint>, modifier: Modifier = Modifier) 
                             }
                         )
                     }
-                    .pointerInput(Unit) {
+                    .pointerInput(history) {
                         detectHorizontalDragGestures(
                             onDragStart = { offset ->
                                 val graphWidth = size.width.toFloat() - labelWidth
