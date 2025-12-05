@@ -136,7 +136,7 @@ fun MainDashboardDetail(zone: AqiResponse, provider: String?) {
                     painter = painterResource(id = R.drawable.open_aq_logo),
                     contentDescription = "Open-AQ Data",
                     modifier = Modifier
-                        .height(64.dp)
+                        .height(24.dp)
                         .padding(start = 8.dp),
                     alpha = 0.8f
                 )
