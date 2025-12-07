@@ -1,5 +1,3 @@
-package com.sidharthify.breathe
-
 import android.app.Activity
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -8,6 +6,11 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,7 +23,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.compose.viewMode
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -93,7 +96,7 @@ fun BreatheApp(isDarkTheme: Boolean, onThemeToggle: () -> Unit, viewModel: Breat
                         label = {
                             Text(
                                 screen.label,
-                                fontWeight = if(isSelected) FontWeight.Bold else FontWeight.Normal
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                             )
                         },
                         selected = isSelected,
@@ -111,10 +114,16 @@ fun BreatheApp(isDarkTheme: Boolean, onThemeToggle: () -> Unit, viewModel: Breat
         }
     ) { padding ->
         Box(modifier = Modifier.padding(padding)) {
-            Crossfade(
+            AnimatedContent(
                 targetState = currentScreen,
-                animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
-                label = "ScreenTransition"
+                label = "ScreenTransition",
+                transitionSpec = {
+                    (fadeIn(animationSpec = tween(150)) + 
+                     scaleIn(initialScale = 0.95f, animationSpec = tween(150))) 
+                    .togetherWith(
+                        fadeOut(animationSpec = tween(150))
+                    )
+                }
             ) { screen ->
                 when (screen) {
                     AppScreen.Home -> HomeScreen(
