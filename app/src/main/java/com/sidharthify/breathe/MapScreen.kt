@@ -1,8 +1,15 @@
 package com.sidharthify.breathe
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
+import android.graphics.Paint
+import android.graphics.Typeface
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -99,7 +106,9 @@ fun MapScreen(
                                 android.graphics.Color.GRAY
                             }
 
-                            marker.icon = createBlobIcon(context, colorInt)
+                            val aqiText = data?.nAqi?.toString() ?: ""
+
+                            marker.icon = createNumberedMarker(context, aqiText, colorInt)
 
                             marker.setOnMarkerClickListener { _, _ ->
                                 if (data != null) {
@@ -168,4 +177,38 @@ fun MapScreen(
             }
         }
     }
+}
+
+fun createNumberedMarker(context: Context, text: String, color: Int): Drawable {
+    val density = context.resources.displayMetrics.density
+    val sizePx = (40 * density).toInt() 
+    val textSizePx = 14f * density
+
+    val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+
+    val paint = Paint().apply {
+        this.color = color
+        isAntiAlias = true
+        style = Paint.Style.FILL
+    }
+    canvas.drawCircle(sizePx / 2f, sizePx / 2f, sizePx / 2f, paint)
+
+    if (text.isNotEmpty()) {
+        val textPaint = Paint().apply {
+            this.color = Color.BLACK
+            textSize = textSizePx
+            isAntiAlias = true
+            textAlign = Paint.Align.CENTER
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            setShadowLayer(1.5f, 0f, 0f, Color.DKGRAY)
+        }
+
+        val xPos = sizePx / 2f
+        val yPos = (sizePx / 2f) - ((textPaint.descent() + textPaint.ascent()) / 2)
+
+        canvas.drawText(text, xPos, yPos, textPaint)
+    }
+
+    return BitmapDrawable(context.resources, bitmap)
 }
