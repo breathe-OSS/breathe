@@ -3,10 +3,12 @@ package com.sidharthify.breathe
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -25,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
     isLoading: Boolean,
@@ -50,44 +53,56 @@ fun HomeScreen(
         return
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(bottom = 24.dp)
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = 24.dp)
     ) {
-        Text(
-            "Pinned Locations",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(start = 24.dp, top = 32.dp, bottom = 16.dp),
-            color = MaterialTheme.colorScheme.onSurface
-        )
-
-        if (pinnedZones.isNotEmpty()) {
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 24.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                items(pinnedZones) { zone ->
-                    PinnedMiniCard(
-                        zone = zone,
-                        isSelected = zone.zoneId == (selectedZone?.zoneId),
-                        onClick = { selectedZone = zone }
-                    )
-                }
-            }
-        } else if (error != null) {
-            ErrorCard(msg = error, onRetry = onRetry)
-        } else {
-            EmptyStateCard(onGoToExplore)
+        item {
+            Text(
+                "Pinned Locations",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(start = 24.dp, top = 32.dp, bottom = 16.dp),
+                color = MaterialTheme.colorScheme.onSurface
+            )
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
+        item {
+            if (pinnedZones.isNotEmpty()) {
+                val listState = rememberLazyListState()
+                
+                LazyRow(
+                    state = listState,
+                    flingBehavior = rememberSnapFlingBehavior(lazyListState = listState),
+                    contentPadding = PaddingValues(horizontal = 24.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    items(pinnedZones, key = { it.zoneId }) { zone ->
+                        PinnedMiniCard(
+                            zone = zone,
+                            isSelected = zone.zoneId == (selectedZone?.zoneId),
+                            onClick = { selectedZone = zone }
+                        )
+                    }
+                }
+            } else if (error != null) {
+                ErrorCard(msg = error, onRetry = onRetry)
+            } else {
+                EmptyStateCard(onGoToExplore)
+            }
+        }
+
+        item {
+            Spacer(modifier = Modifier.height(32.dp))
+        }
 
         if (selectedZone != null) {
-            val provider = zones.find { it.id == selectedZone!!.zoneId }?.provider
-            MainDashboardDetail(selectedZone!!, provider, isDarkTheme)
+            item(key = "dashboard_detail") {
+                val provider = remember(selectedZone, zones) {
+                    zones.find { it.id == selectedZone!!.zoneId }?.provider
+                }
+                MainDashboardDetail(selectedZone!!, provider, isDarkTheme)
+            }
         }
     }
 }
@@ -105,8 +120,10 @@ fun ExploreScreen(
     onPinToggle: (String) -> Unit,
     onRetry: () -> Unit
 ) {
-    val filteredZones = zones.filter {
-        it.name.contains(query, ignoreCase = true) || it.id.contains(query, ignoreCase = true)
+    val filteredZones = remember(query, zones) {
+        zones.filter {
+            it.name.contains(query, ignoreCase = true) || it.id.contains(query, ignoreCase = true)
+        }
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
@@ -141,6 +158,7 @@ fun ExploreScreen(
                 if (filteredZones.isEmpty()) {
                     item { Text("No zones found", modifier = Modifier.padding(8.dp)) }
                 }
+                
                 items(filteredZones, key = { it.id }) { zone ->
                     Box(modifier = Modifier.animateItemPlacement(tween(durationMillis = 300))) {
                         ZoneListItem(

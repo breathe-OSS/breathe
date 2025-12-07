@@ -52,7 +52,7 @@ import kotlin.math.roundToInt
 fun PinnedMiniCard(zone: AqiResponse, isSelected: Boolean, onClick: () -> Unit) {
     val aqiColor by animateColorAsState(
         targetValue = getAqiColor(zone.nAqi),
-        animationSpec = tween(durationMillis = 500),
+        animationSpec = tween(durationMillis = 300),
         label = "MiniCardColor"
     )
 
@@ -63,7 +63,7 @@ fun PinnedMiniCard(zone: AqiResponse, isSelected: Boolean, onClick: () -> Unit) 
         modifier = Modifier.width(160.dp).height(120.dp),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = containerColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = if(isSelected) 4.dp else 0.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -588,7 +588,8 @@ fun ZoneListItem(zone: Zone, isPinned: Boolean, onPinClick: () -> Unit) {
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isPinned) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer
-        )
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp) // Crucial for list performance
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 20.dp),
