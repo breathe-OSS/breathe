@@ -80,7 +80,7 @@ Weather forecasts & historical data: https://Open-Meteo.com
 
 Used for the Srinagar region, where government ground sensor data is available.
 
-Data publisher: Central Pollution Control Board (CPCB) – https://cpcb.nic.in/
+Data publisher: Central Pollution Control Board (CPCB) – https://cpcb.gov.in/
 
 Data access platform: OpenAQ – https://openaq.org
 

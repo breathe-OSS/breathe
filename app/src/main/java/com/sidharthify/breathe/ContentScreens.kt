@@ -232,10 +232,10 @@ fun SettingsScreen(
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                             Text(
-                                text = "cpcb.nic.in",
+                                text = "cpcb.gov.in/",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.clickable { uriHandler.openUri("https://cpcb.nic.in/") }
+                                modifier = Modifier.clickable { uriHandler.openUri("https://cpcb.gov.in/") }
                             )
                             Text(
                                 text = "openaq.org",
