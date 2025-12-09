@@ -155,6 +155,8 @@ class BreatheViewModel : ViewModel() {
             pinnedIds = currentSet,
             pinnedZones = updatedPinnedList
         )
+
+        forceWidgetUpdate(context)
     }
 
     fun checkForUpdates(context: Context, currentVersion: String) {
