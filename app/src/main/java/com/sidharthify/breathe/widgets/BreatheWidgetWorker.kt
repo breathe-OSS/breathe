@@ -43,41 +43,48 @@ class BreatheWidgetWorker(
         val pinnedIds = (appPrefs.getStringSet("pinned_ids", emptySet()) ?: emptySet()).sorted()
 
         glanceIds.forEach { glanceId ->
-            updateWidgetData(context, glanceId, pinnedIds)
+            try {
+                updateWidgetForId(context, glanceId, pinnedIds)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
 
         return Result.success()
     }
 
-    private suspend fun updateWidgetData(context: Context, glanceId: GlanceId, pinnedIds: List<String>) {
+    private suspend fun updateWidgetForId(context: Context, glanceId: GlanceId, pinnedIds: List<String>) {
+        var currentIndex = 0
         updateAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId) { prefs ->
-            if (pinnedIds.isEmpty()) {
-                return@updateAppWidgetState prefs.toMutablePreferences().apply {
-                    this[PREF_STATUS] = "Empty"
-                }
+            currentIndex = prefs[PREF_CURRENT_INDEX] ?: 0
+            prefs
+        }
+
+        if (pinnedIds.isEmpty()) {
+            updateAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId) { prefs ->
+                prefs.toMutablePreferences().apply { this[PREF_STATUS] = "Empty" }
             }
+            BreatheWidget().update(context, glanceId)
+            return
+        }
 
-            var index = prefs[PREF_CURRENT_INDEX] ?: 0
-            if (index >= pinnedIds.size) index = 0
-            if (index < 0) index = pinnedIds.size - 1
+        if (currentIndex >= pinnedIds.size) currentIndex = 0
+        val currentZoneId = pinnedIds[currentIndex]
 
-            val currentZoneId = pinnedIds[index]
+        try {
+            val response = RetrofitClient.api.getZoneAqi(currentZoneId)
+            val concentrations = response.concentrations ?: emptyMap()
+            
+            val providerName = if(currentZoneId.contains("srinagar", true)) "OpenAQ" else "OpenMeteo"
 
-            try {
-                // fetch data
-                val response = RetrofitClient.api.getZoneAqi(currentZoneId)
-                val concentrations = response.concentrations ?: emptyMap()
-                
-                // get provider name
-                val providerName = if(currentZoneId.contains("srinagar", true)) "OpenAQ" else "OpenMeteo"
-
+            updateAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId) { prefs ->
                 prefs.toMutablePreferences().apply {
                     this[PREF_ZONE_ID] = response.zoneId
                     this[PREF_AQI] = response.nAqi
                     this[PREF_ZONE_NAME] = response.zoneName
                     this[PREF_PROVIDER] = "Source: $providerName"
                     this[PREF_STATUS] = "Success"
-                    this[PREF_CURRENT_INDEX] = index
+                    this[PREF_CURRENT_INDEX] = currentIndex
                     this[PREF_TOTAL_PINS] = pinnedIds.size
 
                     this[PREF_PM25] = concentrations["pm2_5"] ?: -1.0
@@ -87,13 +94,13 @@ class BreatheWidgetWorker(
                     this[PREF_CO] = concentrations["co"] ?: -1.0
                     this[PREF_O3] = concentrations["o3"] ?: -1.0
                 }
-
-            } catch (e: Exception) {
-                prefs.toMutablePreferences().apply {
-                    this[PREF_STATUS] = "Error"
-                }
+            }
+        } catch (e: Exception) {
+            updateAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId) { prefs ->
+                prefs.toMutablePreferences().apply { this[PREF_STATUS] = "Error" }
             }
         }
+        
         BreatheWidget().update(context, glanceId)
     }
 }

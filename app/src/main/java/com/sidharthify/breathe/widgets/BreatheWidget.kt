@@ -11,20 +11,25 @@ import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
 import androidx.glance.LocalSize
+import androidx.glance.action.ActionParameters
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.SizeMode
+import androidx.glance.appwidget.action.ActionCallback
+import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
 import androidx.glance.layout.*
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
-import androidx.glance.text.TextStyle
 import androidx.glance.text.TextAlign
+import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
+import androidx.glance.appwidget.state.updateAppWidgetState
+import androidx.glance.state.PreferencesGlanceStateDefinition
 import com.sidharthify.breathe.MainActivity
 import com.sidharthify.breathe.util.getAqiColor
 import com.sidharthify.breathe.widgets.BreatheWidgetWorker.Companion.PREF_AQI
@@ -62,35 +67,34 @@ class BreatheWidget : GlanceAppWidget() {
         val prefs = androidx.glance.currentState<androidx.datastore.preferences.core.Preferences>()
         val size = LocalSize.current
         val status = prefs[PREF_STATUS] ?: "Loading"
+        val isLoading = status == "Loading"
+
+        val bgColor = GlanceTheme.colors.surface
+        val onSurface = GlanceTheme.colors.onSurface
+        val onSurfaceVariant = GlanceTheme.colors.onSurfaceVariant
+        val outline = GlanceTheme.colors.outline
+        val surfaceVariant = GlanceTheme.colors.surfaceVariant
 
         if (status == "Empty") {
-            EmptyStateWidget()
+            EmptyStateWidget(bgColor, onSurface)
             return
         }
 
-        // data
         val zoneName = prefs[PREF_ZONE_NAME] ?: "..."
         val aqi = prefs[PREF_AQI] ?: 0
-        val provider = prefs[PREF_PROVIDER] ?: ""
+        val rawProvider = prefs[PREF_PROVIDER] ?: ""
+        val providerText = rawProvider.replace("Source: ", "").replace("-", " ")
+        
         val totalPins = prefs[PREF_TOTAL_PINS] ?: 1
-
-        val aqiColor = getAqiColor(aqi)
-
-        // colors
-        val bgColor = ColorProvider(Color(0xFF1E1F24))
-        val textColor = ColorProvider(Color.White)
-        val secondaryTextColor = ColorProvider(Color(0xFFC4C7D0))
-        val attributionColor = ColorProvider(Color(0xFFC4C7D0).copy(alpha = 0.7f))
-
+        val aqiColor = ColorProvider(getAqiColor(aqi))
 
         val isTiny = size.width < 90.dp || size.height < 90.dp
         val isNarrow = size.width < 160.dp
-        val showPollutants = size.height >= 140.dp
+        val showPollutants = size.height >= 130.dp && !isNarrow
 
         val bigTextSize = when {
-            isNarrow -> 36.sp
-            showPollutants -> 48.sp
-            else -> 60.sp
+            isNarrow -> 42.sp
+            else -> 56.sp
         }
 
         Box(
@@ -99,116 +103,108 @@ class BreatheWidget : GlanceAppWidget() {
                 .background(bgColor)
                 .cornerRadius(24.dp)
                 .clickable(actionStartActivity<MainActivity>())
+                .padding(16.dp)
         ) {
-
             if (isTiny) {
-                // 1x1 tiny
                 Column(
-                    modifier = GlanceModifier.fillMaxSize().padding(4.dp),
+                    modifier = GlanceModifier.fillMaxSize(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(
-                        text = "$aqi",
-                        style = TextStyle(fontSize = 28.sp, fontWeight = FontWeight.Bold, color = ColorProvider(aqiColor))
-                    )
-                    Spacer(GlanceModifier.height(2.dp))
-                    Text("AQI", style = TextStyle(fontSize = 10.sp, color = secondaryTextColor))
+                    Text("$aqi", style = TextStyle(fontSize = 26.sp, fontWeight = FontWeight.Bold, color = aqiColor))
+                    Text("AQI", style = TextStyle(fontSize = 11.sp, color = onSurfaceVariant))
                 }
             } else {
-                // regular / wide
-                Column(
-                    modifier = GlanceModifier
-                        .fillMaxSize()
-                        .padding(horizontal = 12.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.Top,
-                    horizontalAlignment = Alignment.Start
-                ) {
-                    
-                    // header
+                Column(modifier = GlanceModifier.fillMaxSize()) {
+
                     Row(
                         modifier = GlanceModifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = zoneName,
-                            style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = textColor),
-                            maxLines = 1,
-                            modifier = GlanceModifier.defaultWeight()
-                        )
-                        if (totalPins > 1) {
-                            Row {
-                                Text(
-                                    text = "◄",
-                                    style = TextStyle(color = secondaryTextColor, fontSize = 16.sp),
-                                    modifier = GlanceModifier.padding(horizontal = 6.dp).clickable(androidx.glance.appwidget.action.actionRunCallback<PrevLocationAction>())
-                                )
-                                Text(
-                                    text = "►",
-                                    style = TextStyle(color = secondaryTextColor, fontSize = 16.sp),
-                                    modifier = GlanceModifier.padding(horizontal = 6.dp).clickable(androidx.glance.appwidget.action.actionRunCallback<NextLocationAction>())
-                                )
+                        Column(modifier = GlanceModifier.defaultWeight()) {
+                            Text(
+                                text = zoneName,
+                                style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, color = onSurface),
+                                maxLines = 1
+                            )
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            WidgetIconButton(
+                                symbol = if (isLoading) "..." else "↻",
+                                contentColor = if (isLoading) outline else onSurface,
+                                containerColor = surfaceVariant,
+                                actionClass = RefreshCallback::class.java
+                            )
+
+                            if (totalPins > 1) {
+                                Spacer(GlanceModifier.width(8.dp))
+                                WidgetIconButton("◄", onSurface, surfaceVariant, PrevLocationAction::class.java)
+                                Spacer(GlanceModifier.width(4.dp))
+                                WidgetIconButton("►", onSurface, surfaceVariant, NextLocationAction::class.java)
                             }
                         }
                     }
 
-                    Spacer(GlanceModifier.height(4.dp))
+                    Spacer(GlanceModifier.defaultWeight())
 
-                    // aqi number row
-                    Row(verticalAlignment = Alignment.Bottom) {
+                    Row(
+                        modifier = GlanceModifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.Bottom
+                    ) {
                         Text(
                             text = "$aqi",
-                            maxLines = 1,
-                            style = TextStyle(
-                                fontSize = bigTextSize,
-                                fontWeight = FontWeight.Medium,
-                                color = ColorProvider(aqiColor)
-                            )
+                            style = TextStyle(fontSize = bigTextSize, fontWeight = FontWeight.Medium, color = aqiColor),
+                            modifier = GlanceModifier.padding(bottom = (-6).dp)
                         )
-                        Spacer(GlanceModifier.width(6.dp))
-                        Text(
-                            text = "NAQI",
-                            maxLines = 1,
-                            style = TextStyle(
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = ColorProvider(aqiColor)
-                            ),
-                            modifier = GlanceModifier.padding(bottom = if(showPollutants) 10.dp else 12.dp)
-                        )
+                        Spacer(GlanceModifier.width(8.dp))
+                        Column(modifier = GlanceModifier.padding(bottom = 6.dp)) {
+                            Text("NAQI", style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = aqiColor))
+                        }
                     }
 
-                    // pollutant grid
+                    Spacer(GlanceModifier.defaultWeight())
+
                     if (showPollutants) {
                         Spacer(GlanceModifier.height(12.dp))
-                        PollutantGrid(prefs, textColor, secondaryTextColor)
+                        PollutantGrid(prefs, onSurface, onSurfaceVariant)
+                    }
+                    if (providerText.isNotEmpty()) {
+                        Spacer(GlanceModifier.height(8.dp))
+                        Text(
+                            text = providerText,
+                            style = TextStyle(fontSize = 10.sp, color = outline, fontWeight = FontWeight.Medium)
+                        )
                     }
                 }
             }
+        }
+    }
 
-            // attributions
-            if (provider.isNotEmpty() && !isTiny) {
-                Box(
-                    modifier = GlanceModifier.fillMaxSize().padding(bottom = 6.dp),
-                    contentAlignment = Alignment.BottomCenter
-                ) {
-                    Text(
-                        text = provider.replace("Source: ", ""),
-                        style = TextStyle(
-                            fontSize = 9.sp, 
-                            color = attributionColor,
-                            textAlign = TextAlign.Center
-                        )
-                    )
-                }
-            }
-            
-            // loading overlay
-            if (status == "Loading") {
-                Box(modifier = GlanceModifier.fillMaxSize().padding(12.dp), contentAlignment = Alignment.TopEnd) {
-                    Text("...", style = TextStyle(color = secondaryTextColor, fontSize = 20.sp))
-                }
-            }
+    @Composable
+    private fun WidgetIconButton(
+        symbol: String, 
+        contentColor: ColorProvider,
+        containerColor: ColorProvider,
+        actionClass: Class<out ActionCallback>
+    ) {
+        Box(
+            modifier = GlanceModifier
+                .size(32.dp) 
+                .background(containerColor)
+                .cornerRadius(12.dp)
+                .clickable(actionRunCallback(actionClass)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = symbol,
+                style = TextStyle(
+                    color = contentColor, 
+                    fontSize = 18.sp, 
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+            )
         }
     }
 
@@ -216,7 +212,7 @@ class BreatheWidget : GlanceAppWidget() {
     private fun PollutantGrid(
         prefs: androidx.datastore.preferences.core.Preferences,
         textColor: ColorProvider,
-        subColor: ColorProvider
+        labelColor: ColorProvider
     ) {
         val pm25 = prefs[PREF_PM25] ?: -1.0
         val pm10 = prefs[PREF_PM10] ?: -1.0
@@ -224,58 +220,64 @@ class BreatheWidget : GlanceAppWidget() {
         val so2 = prefs[PREF_SO2] ?: -1.0
         val co = prefs[PREF_CO] ?: -1.0
         val o3 = prefs[PREF_O3] ?: -1.0
-
-        // helper to format values
-        fun fmt(valDouble: Double): String = if (valDouble < 0) "-" else valDouble.toString()
+        
+        fun fmt(d: Double) = if (d < 0) "--" else d.toInt().toString()
 
         Column(modifier = GlanceModifier.fillMaxWidth()) {
-            Row(modifier = GlanceModifier.fillMaxWidth()) {
-                PollutantItem("PM2.5", fmt(pm25), textColor, subColor, GlanceModifier.defaultWeight())
-                PollutantItem("PM10", fmt(pm10), textColor, subColor, GlanceModifier.defaultWeight())
-                PollutantItem("NO₂", fmt(no2), textColor, subColor, GlanceModifier.defaultWeight())
-            }
+            Box(modifier = GlanceModifier.fillMaxWidth().height(1.dp).background(GlanceTheme.colors.outline)) {}
             Spacer(GlanceModifier.height(8.dp))
+            
             Row(modifier = GlanceModifier.fillMaxWidth()) {
-                PollutantItem("SO₂", fmt(so2), textColor, subColor, GlanceModifier.defaultWeight())
-                PollutantItem("CO", fmt(co), textColor, subColor, GlanceModifier.defaultWeight())
-                PollutantItem("O₃", fmt(o3), textColor, subColor, GlanceModifier.defaultWeight())
+                PollutantItem("PM2.5", fmt(pm25), textColor, labelColor, GlanceModifier.defaultWeight())
+                PollutantItem("PM10", fmt(pm10), textColor, labelColor, GlanceModifier.defaultWeight())
+                PollutantItem("NO₂", fmt(no2), textColor, labelColor, GlanceModifier.defaultWeight())
+            }
+            Spacer(GlanceModifier.height(4.dp))
+            Row(modifier = GlanceModifier.fillMaxWidth()) {
+                PollutantItem("SO₂", fmt(so2), textColor, labelColor, GlanceModifier.defaultWeight())
+                PollutantItem("CO", fmt(co), textColor, labelColor, GlanceModifier.defaultWeight())
+                PollutantItem("O₃", fmt(o3), textColor, labelColor, GlanceModifier.defaultWeight())
             }
         }
     }
 
     @Composable
-    private fun PollutantItem(
-        label: String, 
-        value: String, 
-        textColor: ColorProvider, 
-        subColor: ColorProvider,
-        modifier: GlanceModifier
-    ) {
+    private fun PollutantItem(label: String, value: String, textColor: ColorProvider, labelColor: ColorProvider, modifier: GlanceModifier) {
         Column(modifier = modifier, horizontalAlignment = Alignment.Start) {
-            Text(
-                text = label,
-                style = TextStyle(fontSize = 10.sp, color = subColor, fontWeight = FontWeight.Bold)
-            )
-            Text(
-                text = value,
-                style = TextStyle(fontSize = 13.sp, color = textColor, fontWeight = FontWeight.Medium)
-            )
+            Text(text = label, style = TextStyle(fontSize = 10.sp, color = labelColor, fontWeight = FontWeight.Medium))
+            Text(text = value, style = TextStyle(fontSize = 13.sp, color = textColor, fontWeight = FontWeight.Bold))
         }
     }
 
     @Composable
-    private fun EmptyStateWidget() {
+    private fun EmptyStateWidget(bgColor: ColorProvider, textColor: ColorProvider) {
         Box(
             modifier = GlanceModifier
                 .fillMaxSize()
-                .background(ColorProvider(Color(0xFF1E1F24)))
+                .background(bgColor)
                 .cornerRadius(24.dp)
                 .clickable(actionStartActivity<MainActivity>())
-                .padding(8.dp),
+                .padding(16.dp),
             contentAlignment = Alignment.Center
         ) {
-            Text("Tap to setup", style = TextStyle(color = ColorProvider(Color.White), fontSize = 12.sp))
+            Text("Tap to setup", style = TextStyle(color = textColor, fontSize = 14.sp, fontWeight = FontWeight.Medium))
         }
+    }
+}
+
+class RefreshCallback : ActionCallback {
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        updateAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId) { prefs ->
+             prefs.toMutablePreferences().apply {
+                 this[BreatheWidgetWorker.PREF_STATUS] = "Loading"
+             }
+        }
+        BreatheWidget().update(context, glanceId)
+        
+        androidx.work.WorkManager.getInstance(context)
+            .enqueue(
+                androidx.work.OneTimeWorkRequest.Builder(BreatheWidgetWorker::class.java).build()
+            )
     }
 }
 
@@ -302,8 +304,7 @@ class BreatheWidgetReceiver : GlanceAppWidgetReceiver() {
     private fun triggerWorker(context: Context) {
         androidx.work.WorkManager.getInstance(context)
             .enqueue(
-                androidx.work.OneTimeWorkRequest.Builder(BreatheWidgetWorker::class.java)
-                    .build()
+                androidx.work.OneTimeWorkRequest.Builder(BreatheWidgetWorker::class.java).build()
             )
     }
 }

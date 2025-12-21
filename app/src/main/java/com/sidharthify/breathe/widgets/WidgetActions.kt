@@ -22,17 +22,26 @@ class PrevLocationAction : ActionCallback {
 }
 
 private suspend fun cycleLocation(context: Context, glanceId: GlanceId, direction: Int) {
+    val appPrefs = context.getSharedPreferences("breathe_prefs", Context.MODE_PRIVATE)
+    val pinnedIds = appPrefs.getStringSet("pinned_ids", emptySet()) ?: emptySet()
+    val size = pinnedIds.size
+
+    if (size <= 1) return
+
     updateAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId) { prefs ->
         val currentIndex = prefs[BreatheWidgetWorker.PREF_CURRENT_INDEX] ?: 0
-        val newIndex = (currentIndex + direction).coerceAtLeast(0)
+
+        var newIndex = currentIndex + direction
         
+        if (newIndex >= size) newIndex = 0
+        if (newIndex < 0) newIndex = size - 1
+
         prefs.toMutablePreferences().apply {
             this[BreatheWidgetWorker.PREF_CURRENT_INDEX] = newIndex
-            // Set status to loading to give instant feedback
-            this[BreatheWidgetWorker.PREF_STATUS] = "Loading"
+            this[BreatheWidgetWorker.PREF_STATUS] = "Loading" // Trigger "..." on refresh button
         }
     }
-    // refresh UI immediately to show "Loading..."
+
     BreatheWidget().update(context, glanceId)
 
     WorkManager.getInstance(context).enqueue(
