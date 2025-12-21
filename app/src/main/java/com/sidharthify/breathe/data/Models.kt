@@ -14,6 +14,11 @@ data class Zone(
     val lon: Double?
 )
 
+data class Trends(
+    @SerializedName("change_1h") val change1h: Int?,
+    @SerializedName("change_24h") val change24h: Int?
+)
+
 data class AqiResponse(
     @SerializedName("zone_id") val zoneId: String,
     @SerializedName("zone_name") val zoneName: String,
@@ -23,7 +28,8 @@ data class AqiResponse(
     @SerializedName("concentrations_us_units") val concentrations: Map<String, Double>?,
     @SerializedName("timestamp_unix") val timestampUnix: Double?,
     @SerializedName("last_update") val lastUpdateStr: String?,
-    @SerializedName("history") val history: List<HistoryPoint>? = emptyList()
+    @SerializedName("history") val history: List<HistoryPoint>? = emptyList(),
+    @SerializedName("trends") val trends: Trends? = null
 )
 
 data class HistoryPoint(

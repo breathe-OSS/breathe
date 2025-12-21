@@ -10,6 +10,8 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -155,6 +157,29 @@ fun MainDashboardDetail(zone: AqiResponse, provider: String?, isDarkTheme: Boole
                         color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Medium
                     )
+
+                    val change1h = zone.trends?.change1h
+                    if (change1h != null && change1h != 0) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            val isWorse = change1h > 0
+                            val icon = if (isWorse) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown
+                            val trendColor = if (isWorse) Color(0xFFFF5252) else Color(0xFF4CAF50) // Red/Green
+                            
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                tint = trendColor,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                text = "${if(isWorse) "+" else ""}$change1h (1h)",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(8.dp))
 
