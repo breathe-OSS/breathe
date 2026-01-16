@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import com.sidharthify.breathe.data.Zone
 import com.sidharthify.breathe.ui.components.ErrorCard
 import com.sidharthify.breathe.ui.components.ZoneListItem
+import com.sidharthify.breathe.expressiveClickable // Import
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -38,15 +39,19 @@ fun ExploreScreen(
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp)) {
+        Spacer(modifier = Modifier.height(24.dp))
+        Text("Explore", style = MaterialTheme.typography.displayMedium)
         Spacer(modifier = Modifier.height(16.dp))
-        OutlinedTextField(
+
+        // Search Bar
+        TextField(
             value = query,
             onValueChange = onSearchChange,
             modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("Search J&K...") },
-            leadingIcon = { Icon(Icons.Default.Search, null) },
-            shape = RoundedCornerShape(24.dp),
+            placeholder = { Text("Search city or station ID...") },
+            leadingIcon = { Icon(Icons.Filled.Search, null) },
+            shape = RoundedCornerShape(100),
             colors = TextFieldDefaults.colors(
                 focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
                 unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -72,11 +77,15 @@ fun ExploreScreen(
                 }
                 
                 items(filteredZones, key = { it.id }) { zone ->
-                    Box(modifier = Modifier.animateItemPlacement(tween(durationMillis = 300))) {
+                    Box(
+                        modifier = Modifier
+                            .animateItemPlacement(tween(durationMillis = 300))
+                            .expressiveClickable     { onPinToggle(zone.id) }
+                    ) {
                         ZoneListItem(
                             zone = zone,
                             isPinned = pinnedIds.contains(zone.id),
-                            onPinClick = { onPinToggle(zone.id) }
+                            onPinClick = {}
                         )
                     }
                 }

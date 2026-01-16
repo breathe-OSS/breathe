@@ -1,13 +1,11 @@
 package com.sidharthify.breathe.ui.components
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateIntAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -20,16 +18,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sidharthify.breathe.R
 import com.sidharthify.breathe.data.AqiResponse
+import com.sidharthify.breathe.expressiveClickable // Make sure this import works
 import com.sidharthify.breathe.util.getAqiColor
 import com.sidharthify.breathe.util.getTimeAgo
 import com.sidharthify.breathe.util.formatPollutantName
+import kotlin.math.ceil
 
 @Composable
 fun MainDashboardDetail(zone: AqiResponse, provider: String?, isDarkTheme: Boolean) {
@@ -45,215 +48,274 @@ fun MainDashboardDetail(zone: AqiResponse, provider: String?, isDarkTheme: Boole
         label = "DashboardNumber"
     )
 
-    val aqiBgColor = aqiColor.copy(alpha = 0.15f)
+    // Breathe! Breathe in the air, don't be afraid to care! (this is kinda ass)
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val breatheScale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.02f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(4000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "breatheScale"
+    )
+
+    val aqiBgColor = aqiColor.copy(alpha = 0.12f)
+    val uriHandler = LocalUriHandler.current
 
     val isOpenMeteo = provider?.contains("Open-Meteo", ignoreCase = true) == true ||
             provider?.contains("OpenMeteo", ignoreCase = true) == true
-
     val isAirGradient = provider?.contains("AirGradient", ignoreCase = true) == true ||
             provider?.contains("AirGradient", ignoreCase = true) == true
 
-    val uriHandler = LocalUriHandler.current
+    Column(modifier = Modifier.padding(vertical = 12.dp)) {
 
-    Column(modifier = Modifier.padding(horizontal = 24.dp)) {
-
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                Icons.Filled.LocationOn,
-                null,
-                tint = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.size(18.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                "Now Viewing",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.secondary
-            )
-        }
-
-        Spacer(modifier = Modifier.height(4.dp))
-
+        // --- Header ---
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.Top 
         ) {
-            Text(
-                text = zone.zoneName,
-                style = MaterialTheme.typography.displaySmall,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                lineHeight = 40.sp,
-                modifier = Modifier.weight(1f, fill = false)
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                // Location Pill
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    shape = RoundedCornerShape(100),
+                    modifier = Modifier
+                        .padding(bottom = 12.dp)
+                        .expressiveClickable {}
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Filled.LocationOn,
+                            null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            "Now Viewing",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                
+                Text(
+                    text = zone.zoneName,
+                    style = MaterialTheme.typography.headlineLarge.copy(fontSize = 36.sp), 
+                    fontWeight = FontWeight.Black,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    lineHeight = 40.sp
+                )
 
-            // Provider Info Group
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(start = 16.dp)
-            ) {
                 if (isOpenMeteo) {
-                    val logo = if (isDarkTheme) R.drawable.open_meteo_logo else R.drawable.open_meteo_logo_light
-                    Image(
-                        painter = painterResource(id = logo),
-                        contentDescription = "Open-Meteo Data",
-                        modifier = Modifier
-                            .height(24.dp)
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null
-                            ) { uriHandler.openUri("https://open-meteo.com/") },
-                        alpha = 0.8f
-                    )
-                }
-
-                if (isAirGradient) {
                     Text(
-                        text = "Realtime ground sensor data",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                        modifier = Modifier.padding(end = 8.dp)
+                        "Satellite & Model Data",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp)
                     )
-
-                    Image(
-                        painter = painterResource(id = R.drawable.air_gradient_logo),
-                        contentDescription = "AirGradient Data",
-                        modifier = Modifier
-                            .height(24.dp)
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null
-                            ) { uriHandler.openUri("https://www.airgradient.com/") },
-                        alpha = 0.8f
-                    )
+                } else if (isAirGradient) {
+                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .background(Color(0xFF4CAF50), CircleShape)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            "Live Ground Sensors",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
+            }
+
+            if (isOpenMeteo || isAirGradient) {
+                val logoRes = if (isAirGradient) R.drawable.air_gradient_logo else if (isDarkTheme) R.drawable.open_meteo_logo else R.drawable.open_meteo_logo_light
+                val url = if (isAirGradient) "https://www.airgradient.com/" else "https://open-meteo.com/"
+                
+                Image(
+                    painter = painterResource(id = logoRes),
+                    contentDescription = "Source",
+                    modifier = Modifier
+                        .padding(top = 8.dp)
+                        .height(28.dp)
+                        .expressiveClickable { uriHandler.openUri(url) },
+                    alpha = 0.9f
+                )
             }
         }
         
         Spacer(modifier = Modifier.height(24.dp))
 
-        Card(
-            shape = RoundedCornerShape(32.dp),
-            colors = CardDefaults.cardColors(containerColor = aqiBgColor),
-            modifier = Modifier.fillMaxWidth().height(260.dp)
+        // --- Hero Card ---
+        Box(
+            modifier = Modifier
+                .padding(horizontal = 24.dp)
+                .fillMaxWidth()
+                .height(220.dp)
+                .expressiveClickable {}
         ) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
+            Surface(
+                shape = MaterialTheme.shapes.large,
+                color = aqiBgColor,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { 
+                        scaleX = breatheScale
+                        scaleY = breatheScale
+                    }
+            ) {} 
+
+            // Content
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.Center
+                ) {
                     Text(
                         text = "$animatedAqi",
-                        style = MaterialTheme.typography.displayLarge.copy(fontSize = 90.sp),
+                        style = MaterialTheme.typography.displayLarge.copy(fontSize = 84.sp),
                         fontWeight = FontWeight.Black,
-                        color = aqiColor
+                        color = aqiColor,
+                        letterSpacing = (-3).sp,
+                        lineHeight = 84.sp
                     )
                     Surface(
                         color = aqiColor,
                         shape = RoundedCornerShape(100),
-                        modifier = Modifier.padding(top = 8.dp)
+                        modifier = Modifier.padding(top = 4.dp)
                     ) {
                         Text(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                             text = "NAQI",
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                             color = Color.Black
                         )
                     }
-                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                Column(
+                    modifier = Modifier
+                        .weight(0.8f)
+                        .fillMaxHeight(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.End
+                ) {
                     Text(
-                        "Primary: ${zone.mainPollutant.uppercase()}",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Medium
+                        "Primary",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
+                    Text(
+                        zone.mainPollutant.uppercase(),
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     val change1h = zone.trends?.change1h
                     if (change1h != null && change1h != 0) {
-                        Spacer(modifier = Modifier.height(8.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             val isWorse = change1h > 0
+                            val trendColor = if (isWorse) Color(0xFFFF5252) else Color(0xFF4CAF50)
                             val icon = if (isWorse) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown
-                            val trendColor = if (isWorse) Color(0xFFFF5252) else Color(0xFF4CAF50) // Red/Green
                             
-                            Icon(
-                                imageVector = icon,
-                                contentDescription = null,
-                                tint = trendColor,
-                                modifier = Modifier.size(20.dp)
-                            )
+                            Icon(icon, null, tint = trendColor, modifier = Modifier.size(16.dp))
                             Text(
-                                text = "${if(isWorse) "+" else ""}$change1h (1h)",
+                                text = "${if(isWorse) "+" else ""}$change1h /hr",
                                 style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontWeight = FontWeight.SemiBold
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontWeight = FontWeight.Bold
                             )
                         }
+                        Spacer(modifier = Modifier.height(4.dp))
                     }
-
-                    Spacer(modifier = Modifier.height(8.dp))
 
                     val statusText = when {
-                        zone.timestampUnix != null -> "Updated ${getTimeAgo(zone.timestampUnix.toLong())}"
-                        !zone.lastUpdateStr.isNullOrEmpty() -> "Updated: ${zone.lastUpdateStr}"
+                        zone.timestampUnix != null -> getTimeAgo(zone.timestampUnix.toLong())
                         else -> "Live"
                     }
-
                     Text(
                         text = statusText,
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                        textAlign = TextAlign.End
                     )
                 }
             }
         }
 
-        if (!zone.history.isNullOrEmpty()) {
-            Spacer(modifier = Modifier.height(24.dp))
-            AqiHistoryGraph(history = zone.history)
-        }
-
-        Spacer(modifier = Modifier.height(32.dp))
-        Text("Pollutants", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         val pollutants = zone.concentrations ?: emptyMap()
-        if (pollutants.isEmpty()) Text("No detailed data.") else FlowRowGrid(pollutants)
+        if (pollutants.isNotEmpty()) {
+            Text(
+                "Concentrations",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 0.dp)
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            SimpleFlowGrid(
+                items = pollutants.entries.toList(),
+                modifier = Modifier.padding(horizontal = 24.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // --- History Graph ---
+        if (!zone.history.isNullOrEmpty()) {
+            Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+                AqiHistoryGraph(history = zone.history)
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(100.dp))
     }
 }
 
 @Composable
-fun FlowRowGrid(pollutants: Map<String, Double>) {
-    // Convert map to list once when pollutants change
-    val items = remember(pollutants) { pollutants.entries.toList() }
+fun SimpleFlowGrid(
+    items: List<Map.Entry<String, Double>>, 
+    modifier: Modifier = Modifier
+) {
+    val rows = ceil(items.size / 2f).toInt()
     
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        // Iterate by step 2 to avoid allocation overhead
-        for (i in items.indices step 2) {
-            Row(
-                modifier = Modifier.fillMaxWidth(), 
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                val (key1, value1) = items[i]
-                PollutantCard(
-                    modifier = Modifier.weight(1f), 
-                    name = formatPollutantName(key1), 
-                    value = "$value1", 
-                    unit = if (key1.lowercase() == "co") "mg/m³" else "µg/m³"
-                )
-
-                if (i + 1 < items.size) {
-                    val (key2, value2) = items[i + 1]
-                    PollutantCard(
-                        modifier = Modifier.weight(1f), 
-                        name = formatPollutantName(key2), 
-                        value = "$value2", 
-                        unit = if (key2.lowercase() == "co") "mg/m³" else "µg/m³"
-                    )
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        for (i in 0 until rows) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                val firstIndex = i * 2
+                val secondIndex = firstIndex + 1
+                
+                if (firstIndex < items.size) {
+                    val (k1, v1) = items[firstIndex]
+                    PollutantChip(k1, v1, Modifier.weight(1f))
+                }
+                
+                if (secondIndex < items.size) {
+                    val (k2, v2) = items[secondIndex]
+                    PollutantChip(k2, v2, Modifier.weight(1f))
                 } else {
-                    // Spacer for odd number of items
                     Spacer(modifier = Modifier.weight(1f))
                 }
             }
@@ -262,19 +324,51 @@ fun FlowRowGrid(pollutants: Map<String, Double>) {
 }
 
 @Composable
-fun PollutantCard(modifier: Modifier, name: String, value: String, unit: String) {
-    Card(
-        modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        shape = RoundedCornerShape(20.dp)
+fun PollutantChip(key: String, value: Double, modifier: Modifier = Modifier) {
+    val unit = if (key.lowercase() == "co") "mg/m³" else "µg/m³"
+    
+    // apply expressiveClickable
+    Box(
+        modifier = modifier
+            .height(80.dp)
+            .expressiveClickable {}
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Text(name, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(unit, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(bottom = 4.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            tonalElevation = 2.dp
+        ) {
+            Row(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Box(
+                    modifier = Modifier
+                        .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape)
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        formatPollutantName(key),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
+                
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        "$value",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        unit,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     }

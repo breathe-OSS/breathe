@@ -4,6 +4,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudOff
@@ -22,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import com.sidharthify.breathe.data.AqiResponse
 import com.sidharthify.breathe.data.Zone
 import com.sidharthify.breathe.util.getAqiColor
+import com.sidharthify.breathe.expressiveClickable // Ensure this matches your package structure
 
 @Composable
 fun PinnedMiniCard(zone: AqiResponse, isSelected: Boolean, onClick: () -> Unit) {
@@ -31,33 +33,82 @@ fun PinnedMiniCard(zone: AqiResponse, isSelected: Boolean, onClick: () -> Unit) 
         label = "MiniCardColor"
     )
 
-    val containerColor = if (isSelected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh
+    val containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh
+    val contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
 
-    Card(
-        onClick = onClick,
-        modifier = Modifier.width(160.dp).height(120.dp),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = containerColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    // Expressive wrapper
+    Box(
+        modifier = Modifier
+            .width(170.dp)
+            .height(140.dp)
+            .expressiveClickable { onClick() }
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
-            verticalArrangement = Arrangement.SpaceBetween
+        Card(
+            shape = MaterialTheme.shapes.medium, // 24dp
+            colors = CardDefaults.cardColors(containerColor = containerColor),
+            modifier = Modifier.fillMaxSize()
         ) {
-            Text(
-                text = zone.zoneName,
-                style = MaterialTheme.typography.titleSmall,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                fontWeight = FontWeight.SemiBold
-            )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(modifier = Modifier.size(12.dp).clip(RoundedCornerShape(4.dp)).background(aqiColor))
-                Spacer(modifier = Modifier.width(8.dp))
+            Column(
+                modifier = Modifier.fillMaxSize().padding(20.dp),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
                 Text(
-                    text = "${zone.nAqi}",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold
+                    text = zone.zoneName,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    fontWeight = FontWeight.Bold,
+                    color = contentColor
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.size(12.dp).clip(CircleShape).background(aqiColor))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "${zone.nAqi}",
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.Black,
+                        color = contentColor
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ZoneListItem(zone: Zone, isPinned: Boolean, onPinClick: () -> Unit) {
+    Card(
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(
+            containerColor = if (isPinned) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 24.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(zone.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(
+                    zone.provider ?: "Unknown",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            // Pin Button with Expressive Click
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .expressiveClickable { onPinClick() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    if (isPinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
+                    contentDescription = "Pin",
+                    tint = if(isPinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -69,7 +120,7 @@ fun ErrorCard(msg: String, onRetry: () -> Unit) {
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
         modifier = Modifier.fillMaxWidth().padding(16.dp),
-        shape = RoundedCornerShape(24.dp)
+        shape = MaterialTheme.shapes.medium
     ) {
         Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(Icons.Filled.CloudOff, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(32.dp))
@@ -94,43 +145,26 @@ fun EmptyStateCard(onGoToExplore: () -> Unit) {
         Spacer(modifier = Modifier.height(8.dp))
         Text("Pin locations to see them here", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(modifier = Modifier.height(24.dp))
-        FilledTonalButton(onClick = onGoToExplore) { Text("Go to Explore") }
+        
+        // Expressive Button
+        Box(modifier = Modifier.expressiveClickable { onGoToExplore() }) {
+            Surface(
+                color = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                shape = CircleShape
+            ) {
+                Text(
+                    "Go to Explore",
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
     }
 }
 
 @Composable
 fun LoadingScreen() {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-}
-
-@Composable
-fun ZoneListItem(zone: Zone, isPinned: Boolean, onPinClick: () -> Unit) {
-    Card(
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isPinned) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 20.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(zone.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text(
-                    zone.provider ?: "Unknown",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            IconButton(onClick = onPinClick) {
-                Icon(
-                    if (isPinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
-                    contentDescription = "Pin",
-                    tint = if(isPinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    }
 }
