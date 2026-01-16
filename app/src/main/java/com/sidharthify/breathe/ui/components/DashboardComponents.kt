@@ -214,14 +214,36 @@ fun MainDashboardDetail(zone: AqiResponse, provider: String?, isDarkTheme: Boole
 
 @Composable
 fun FlowRowGrid(pollutants: Map<String, Double>) {
-    val items = pollutants.entries.toList()
+    // Convert map to list once when pollutants change
+    val items = remember(pollutants) { pollutants.entries.toList() }
+    
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        items.chunked(2).forEach { rowItems ->
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                rowItems.forEach { (key, value) ->
-                    PollutantCard(Modifier.weight(1f), formatPollutantName(key), "$value", if (key.lowercase() == "co") "mg/m³" else "µg/m³")
+        // Iterate by step 2 to avoid allocation overhead
+        for (i in items.indices step 2) {
+            Row(
+                modifier = Modifier.fillMaxWidth(), 
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                val (key1, value1) = items[i]
+                PollutantCard(
+                    modifier = Modifier.weight(1f), 
+                    name = formatPollutantName(key1), 
+                    value = "$value1", 
+                    unit = if (key1.lowercase() == "co") "mg/m³" else "µg/m³"
+                )
+
+                if (i + 1 < items.size) {
+                    val (key2, value2) = items[i + 1]
+                    PollutantCard(
+                        modifier = Modifier.weight(1f), 
+                        name = formatPollutantName(key2), 
+                        value = "$value2", 
+                        unit = if (key2.lowercase() == "co") "mg/m³" else "µg/m³"
+                    )
+                } else {
+                    // Spacer for odd number of items
+                    Spacer(modifier = Modifier.weight(1f))
                 }
-                if (rowItems.size == 1) Spacer(modifier = Modifier.weight(1f))
             }
         }
     }
