@@ -10,6 +10,7 @@ import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
+import android.util.LruCache
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -24,8 +25,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.BoundingBox
@@ -48,13 +52,30 @@ fun MapScreen(
     onPinToggle: (String) -> Unit
 ) {
     val context = LocalContext.current
-    val startPoint = GeoPoint(34.0837, 74.7973)
+    val lifecycleOwner = LocalLifecycleOwner.current
+    
+    // Cache for marker bitmaps to prevent allocation churn.
+    val bitmapCache = remember { LruCache<String, Bitmap>(50) }
 
+    val startPoint = remember { GeoPoint(34.0837, 74.7973) }
     var selectedZoneData by remember { mutableStateOf<AqiResponse?>(null) }
     var mapViewRef by remember { mutableStateOf<MapView?>(null) }
 
+    // Initialize OSMDroid config once
     LaunchedEffect(Unit) {
         Configuration.getInstance().load(context, context.getSharedPreferences("osmdroid", Context.MODE_PRIVATE))
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) mapViewRef?.onResume()
+            if (event == Lifecycle.Event.ON_PAUSE) mapViewRef?.onPause()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            mapViewRef?.onDetach()
+        }
     }
 
     Scaffold { padding ->
@@ -78,8 +99,12 @@ fun MapScreen(
                         mapViewRef = this
                     }
                 },
-                update = { mapView ->
-                    val tilesOverlay = mapView.overlayManager.tilesOverlay
+                update = { _ -> }
+            )
+
+            LaunchedEffect(mapViewRef, isDarkTheme) {
+                mapViewRef?.let { map ->
+                    val tilesOverlay = map.overlayManager.tilesOverlay
                     if (isDarkTheme) {
                         val inverseMatrix = ColorMatrix(
                             floatArrayOf(
@@ -93,39 +118,54 @@ fun MapScreen(
                     } else {
                         tilesOverlay.setColorFilter(null)
                     }
-
-                    mapView.overlays.clear()
-                    zones.forEach { zone ->
-                        if (zone.lat != null && zone.lon != null) {
-                            val marker = Marker(mapView)
-                            marker.position = GeoPoint(zone.lat, zone.lon)
-                            marker.title = zone.name
-                            marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-
-                            val data = allAqiData.find { it.zoneId == zone.id }
-
-                            val colorInt = if (data != null) {
-                                getAqiColor(data.nAqi).toArgb()
-                            } else {
-                                android.graphics.Color.GRAY
-                            }
-
-                            val aqiText = data?.nAqi?.toString() ?: ""
-
-                            marker.icon = createNumberedMarker(context, aqiText, colorInt)
-
-                            marker.setOnMarkerClickListener { _, _ ->
-                                if (data != null) {
-                                    selectedZoneData = data
-                                }
-                                true
-                            }
-                            mapView.overlays.add(marker)
-                        }
-                    }
-                    mapView.invalidate()
+                    map.invalidate()
                 }
-            )
+            }
+
+            // Update Markers only when data changes
+            LaunchedEffect(mapViewRef, zones, allAqiData) {
+                val map = mapViewRef ?: return@LaunchedEffect
+
+                map.overlays.clear()
+
+                zones.forEach { zone ->
+                    if (zone.lat != null && zone.lon != null) {
+                        val marker = Marker(map)
+                        marker.position = GeoPoint(zone.lat, zone.lon)
+                        marker.title = zone.name
+                        marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+
+                        val data = allAqiData.find { it.zoneId == zone.id }
+                        val aqiText = data?.nAqi?.toString() ?: ""
+                        
+                        val colorInt = if (data != null) {
+                            getAqiColor(data.nAqi).toArgb()
+                        } else {
+                            android.graphics.Color.GRAY
+                        }
+
+                        // Check cache first
+                        val cacheKey = "$aqiText-$colorInt"
+                        var bitmap = bitmapCache.get(cacheKey)
+
+                        if (bitmap == null) {
+                            bitmap = createMarkerBitmap(context, aqiText, colorInt)
+                            bitmapCache.put(cacheKey, bitmap)
+                        }
+
+                        marker.icon = BitmapDrawable(context.resources, bitmap)
+
+                        marker.setOnMarkerClickListener { _, _ ->
+                            if (data != null) {
+                                selectedZoneData = data
+                            }
+                            true
+                        }
+                        map.overlays.add(marker)
+                    }
+                }
+                map.invalidate()
+            }
 
             // Custom MD3 Zoom Controls
             Column(
@@ -183,9 +223,10 @@ fun MapScreen(
     }
 }
 
-fun createNumberedMarker(context: Context, text: String, color: Int): Drawable {
+// Separated Bitmap generation from Drawable creation for caching
+fun createMarkerBitmap(context: Context, text: String, color: Int): Bitmap {
     val density = context.resources.displayMetrics.density
-    val sizePx = (40 * density).toInt() 
+    val sizePx = (40 * density).toInt()
     val textSizePx = 14f * density
 
     val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
@@ -213,6 +254,5 @@ fun createNumberedMarker(context: Context, text: String, color: Int): Drawable {
 
         canvas.drawText(text, xPos, yPos, textPaint)
     }
-
-    return BitmapDrawable(context.resources, bitmap)
+    return bitmap
 }
