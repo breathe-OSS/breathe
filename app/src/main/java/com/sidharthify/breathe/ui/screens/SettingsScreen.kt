@@ -54,7 +54,7 @@ fun SettingsScreen(
     var isMadness by remember { mutableStateOf(false) }
     var versionLabel by remember { mutableStateOf("Current Version: v2.4-7") }
     
-    val currentVersion = "v2.4-7" 
+    val currentVersion = "v3.0-8" 
 
     // Reset tap counter if inactive
     LaunchedEffect(easterEggCounter) {
