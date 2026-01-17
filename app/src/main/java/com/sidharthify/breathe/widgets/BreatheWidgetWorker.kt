@@ -8,6 +8,7 @@ import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.doublePreferencesKey
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.ListenableWorker.Result
@@ -26,6 +27,7 @@ class BreatheWidgetWorker(
         val PREF_STATUS = stringPreferencesKey("status")
         val PREF_CURRENT_INDEX = intPreferencesKey("current_index")
         val PREF_TOTAL_PINS = intPreferencesKey("total_pins")
+        val PREF_IS_US_AQI = booleanPreferencesKey("is_us_aqi")
 
         val PREF_PM25 = doublePreferencesKey("pm25")
         val PREF_PM10 = doublePreferencesKey("pm10")
@@ -41,10 +43,11 @@ class BreatheWidgetWorker(
 
         val appPrefs = context.getSharedPreferences("breathe_prefs", Context.MODE_PRIVATE)
         val pinnedIds = (appPrefs.getStringSet("pinned_ids", emptySet()) ?: emptySet()).sorted()
+        val isUsAqi = appPrefs.getBoolean("is_us_aqi", false) // READ PREF
 
         glanceIds.forEach { glanceId ->
             try {
-                updateWidgetForId(context, glanceId, pinnedIds)
+                updateWidgetForId(context, glanceId, pinnedIds, isUsAqi)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -53,7 +56,12 @@ class BreatheWidgetWorker(
         return Result.success()
     }
 
-    private suspend fun updateWidgetForId(context: Context, glanceId: GlanceId, pinnedIds: List<String>) {
+    private suspend fun updateWidgetForId(
+        context: Context, 
+        glanceId: GlanceId, 
+        pinnedIds: List<String>,
+        isUsAqi: Boolean
+    ) {
         var currentIndex = 0
         updateAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId) { prefs ->
             currentIndex = prefs[PREF_CURRENT_INDEX] ?: 0
@@ -86,6 +94,7 @@ class BreatheWidgetWorker(
                     this[PREF_STATUS] = "Success"
                     this[PREF_CURRENT_INDEX] = currentIndex
                     this[PREF_TOTAL_PINS] = pinnedIds.size
+                    this[PREF_IS_US_AQI] = isUsAqi // STORE IN WIDGET STATE
 
                     this[PREF_PM25] = concentrations["pm2_5"] ?: -1.0
                     this[PREF_PM10] = concentrations["pm10"] ?: -1.0

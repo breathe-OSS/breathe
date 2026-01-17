@@ -32,11 +32,13 @@ import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.state.PreferencesGlanceStateDefinition
 import com.sidharthify.breathe.MainActivity
 import com.sidharthify.breathe.util.getAqiColor
+import com.sidharthify.breathe.util.calculateUsAqi
 import com.sidharthify.breathe.widgets.BreatheWidgetWorker.Companion.PREF_AQI
 import com.sidharthify.breathe.widgets.BreatheWidgetWorker.Companion.PREF_PROVIDER
 import com.sidharthify.breathe.widgets.BreatheWidgetWorker.Companion.PREF_STATUS
 import com.sidharthify.breathe.widgets.BreatheWidgetWorker.Companion.PREF_ZONE_NAME
 import com.sidharthify.breathe.widgets.BreatheWidgetWorker.Companion.PREF_TOTAL_PINS
+import com.sidharthify.breathe.widgets.BreatheWidgetWorker.Companion.PREF_IS_US_AQI
 import com.sidharthify.breathe.widgets.BreatheWidgetWorker.Companion.PREF_PM25
 import com.sidharthify.breathe.widgets.BreatheWidgetWorker.Companion.PREF_PM10
 import com.sidharthify.breathe.widgets.BreatheWidgetWorker.Companion.PREF_NO2
@@ -81,12 +83,19 @@ class BreatheWidget : GlanceAppWidget() {
         }
 
         val zoneName = prefs[PREF_ZONE_NAME] ?: "..."
-        val aqi = prefs[PREF_AQI] ?: 0
+        val rawAqi = prefs[PREF_AQI] ?: 0
+        val isUsAqi = prefs[PREF_IS_US_AQI] ?: false
+        val pm25 = prefs[PREF_PM25] ?: 0.0
+        
+        // Calculate AQI based on preference
+        val displayAqi = if (isUsAqi && pm25 > 0) calculateUsAqi(pm25) else rawAqi
+        val aqiLabel = if (isUsAqi) "US AQI" else "NAQI"
+
         val rawProvider = prefs[PREF_PROVIDER] ?: ""
         val providerText = rawProvider.replace("Source: ", "").replace("-", " ")
         
         val totalPins = prefs[PREF_TOTAL_PINS] ?: 1
-        val aqiColor = ColorProvider(getAqiColor(aqi))
+        val aqiColor = ColorProvider(getAqiColor(displayAqi, isUsAqi))
 
         val isTiny = size.width < 90.dp || size.height < 90.dp
         val isNarrow = size.width < 160.dp
@@ -111,7 +120,7 @@ class BreatheWidget : GlanceAppWidget() {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text("$aqi", style = TextStyle(fontSize = 26.sp, fontWeight = FontWeight.Bold, color = aqiColor))
+                    Text("$displayAqi", style = TextStyle(fontSize = 26.sp, fontWeight = FontWeight.Bold, color = aqiColor))
                     Text("AQI", style = TextStyle(fontSize = 11.sp, color = onSurfaceVariant))
                 }
             } else {
@@ -153,13 +162,13 @@ class BreatheWidget : GlanceAppWidget() {
                         verticalAlignment = Alignment.Bottom
                     ) {
                         Text(
-                            text = "$aqi",
+                            text = "$displayAqi",
                             style = TextStyle(fontSize = bigTextSize, fontWeight = FontWeight.Medium, color = aqiColor),
                             modifier = GlanceModifier.padding(bottom = (-6).dp)
                         )
                         Spacer(GlanceModifier.width(8.dp))
                         Column(modifier = GlanceModifier.padding(bottom = 6.dp)) {
-                            Text("NAQI", style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = aqiColor))
+                            Text(aqiLabel, style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = aqiColor))
                         }
                     }
 
