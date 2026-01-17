@@ -14,7 +14,7 @@ interface BreatheApi {
 }
 
 object RetrofitClient {
-    private const val BASE_URL = "https://breathe-oss-5248fe612dbc.herokuapp.com/" 
+    private const val BASE_URL = "https://breathe-oss-5248fe612dbc.herokuapp.com/"
 
     val api: BreatheApi by lazy {
         Retrofit.Builder()

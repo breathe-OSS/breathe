@@ -23,6 +23,7 @@ data class AqiResponse(
     @SerializedName("zone_id") val zoneId: String,
     @SerializedName("zone_name") val zoneName: String,
     @SerializedName("aqi") val nAqi: Int,
+    @SerializedName("us_aqi") val usAqi: Int?,
     @SerializedName("main_pollutant") val mainPollutant: String,
     @SerializedName("aqi_breakdown") val aqiBreakdown: Map<String, Int>?,
     @SerializedName("concentrations_us_units") val concentrations: Map<String, Double>?,
@@ -34,7 +35,8 @@ data class AqiResponse(
 
 data class HistoryPoint(
     @SerializedName("ts") val ts: Long,
-    @SerializedName("aqi") val aqi: Int
+    @SerializedName("aqi") val aqi: Int,
+    @SerializedName("us_aqi") val usAqi: Int?
 )
 
 data class AppState(
