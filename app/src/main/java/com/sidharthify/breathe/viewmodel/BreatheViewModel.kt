@@ -1,7 +1,6 @@
 package com.sidharthify.breathe.viewmodel
 
 import android.content.Context
-import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
@@ -13,18 +12,14 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import org.json.JSONObject
-import java.net.URL
 import com.sidharthify.breathe.data.AqiResponse
 import com.sidharthify.breathe.data.AppState
 import com.sidharthify.breathe.data.RetrofitClient
 import com.sidharthify.breathe.data.Zone
 import com.sidharthify.breathe.forceWidgetUpdate
-import com.sidharthify.breathe.MainActivity
-import com.sidharthify.breathe.util.getAqiColor
 
 class BreatheViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(AppState())
@@ -32,11 +27,11 @@ class BreatheViewModel : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery = _searchQuery.asStateFlow()
-    
+
     // US AQI State
     private val _isUsAqi = MutableStateFlow(false)
     val isUsAqi = _isUsAqi.asStateFlow()
-    
+
     private val gson = Gson()
     private var pollingJob: Job? = null
     private var isInitialLoad = true
@@ -76,7 +71,7 @@ class BreatheViewModel : ViewModel() {
     fun refreshData(context: Context, isAutoRefresh: Boolean = false) {
         viewModelScope.launch {
             if (!isAutoRefresh) {
-                _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+                _uiState.update { it.copy(isLoading = true, error = null) }
             }
 
             val prefs = context.getSharedPreferences("breathe_prefs", Context.MODE_PRIVATE)
@@ -84,47 +79,53 @@ class BreatheViewModel : ViewModel() {
 
             try {
                 val zonesList = RetrofitClient.api.getZones().zones
-                _uiState.value = _uiState.value.copy(zones = zonesList)
+                _uiState.update { it.copy(zones = zonesList) }
 
                 val (pinnedZones, unpinnedZones) = zonesList.partition { it.id in pinnedSet }
 
-                val pinnedJobs = pinnedZones.map { zone ->
+                val pinnedResults = pinnedZones.map { zone ->
                     async(Dispatchers.IO) {
                         try { RetrofitClient.api.getZoneAqi(zone.id) } catch (e: Exception) { null }
                     }
+                }.awaitAll().filterNotNull()
+
+                _uiState.update { current ->
+                    val unpinnedIds = unpinnedZones.map { it.id }.toSet()
+                    val preservedUnpinned = current.allAqiData.filter { it.zoneId in unpinnedIds }
+                    
+                    current.copy(
+                        allAqiData = pinnedResults + preservedUnpinned,
+                        pinnedZones = pinnedResults,
+                        pinnedIds = pinnedSet
+                    )
                 }
-                
-                val pinnedResults = pinnedJobs.awaitAll().filterNotNull()
 
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false, // loading finishes here
-                    allAqiData = pinnedResults, 
-                    pinnedZones = pinnedResults,
-                    pinnedIds = pinnedSet
-                )
-
-                if (unpinnedZones.isNotEmpty()) {
-                    val unpinnedJobs = unpinnedZones.map { zone ->
+                val unpinnedResults = if (unpinnedZones.isNotEmpty()) {
+                    unpinnedZones.map { zone ->
                         async(Dispatchers.IO) {
                             try { RetrofitClient.api.getZoneAqi(zone.id) } catch (e: Exception) { null }
                         }
-                    }
-
-                    val unpinnedResults = unpinnedJobs.awaitAll().filterNotNull()
-                    val completeList = pinnedResults + unpinnedResults
-
-                    _uiState.value = _uiState.value.copy(allAqiData = completeList)
-                    saveToCache(context, zonesList, completeList)
+                    }.awaitAll().filterNotNull()
                 } else {
-                    saveToCache(context, zonesList, pinnedResults)
+                    emptyList()
                 }
+
+                val completeList = pinnedResults + unpinnedResults
+
+                _uiState.update { 
+                    it.copy(
+                        isLoading = false,
+                        allAqiData = completeList
+                    )
+                }
+
+                saveToCache(context, zonesList, completeList)
 
             } catch (e: Exception) {
                 if (!isAutoRefresh) {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = "Error: ${e.localizedMessage}"
-                    )
+                    _uiState.update { 
+                        it.copy(isLoading = false, error = "Error: ${e.localizedMessage}") 
+                    }
                 }
             }
         }
@@ -145,7 +146,7 @@ class BreatheViewModel : ViewModel() {
             val prefs = context.getSharedPreferences("breathe_cache", Context.MODE_PRIVATE)
             val zonesJson = prefs.getString("cached_zones", null)
             val aqiJson = prefs.getString("cached_aqi", null)
-            
+
             val pinPrefs = context.getSharedPreferences("breathe_prefs", Context.MODE_PRIVATE)
             val pinnedSet = pinPrefs.getStringSet("pinned_ids", emptySet()) ?: emptySet()
 
@@ -165,7 +166,9 @@ class BreatheViewModel : ViewModel() {
                     pinnedIds = pinnedSet
                 )
             }
-        } catch (e: Exception) { }
+        } catch (e: Exception) {
+            // Fail silently on cache load error
+        }
     }
 
     fun onSearchQueryChanged(query: String) {
@@ -182,11 +185,13 @@ class BreatheViewModel : ViewModel() {
             .edit().putStringSet("pinned_ids", currentSet).apply()
 
         val updatedPinnedList = _uiState.value.allAqiData.filter { it.zoneId in currentSet }
-
-        _uiState.value = _uiState.value.copy(
-            pinnedIds = currentSet,
-            pinnedZones = updatedPinnedList
-        )
+        
+        _uiState.update {
+            it.copy(
+                pinnedIds = currentSet,
+                pinnedZones = updatedPinnedList
+            )
+        }
 
         forceWidgetUpdate(context)
     }
