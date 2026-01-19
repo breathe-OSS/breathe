@@ -94,6 +94,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun BreatheApp(
     isDarkTheme: Boolean,

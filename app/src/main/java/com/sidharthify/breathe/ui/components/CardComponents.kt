@@ -5,12 +5,15 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.*
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -27,15 +30,16 @@ import com.sidharthify.breathe.expressiveClickable
 import com.sidharthify.breathe.util.calculateUsAqi
 
 @Composable
+@ExperimentalMaterial3ExpressiveApi
 fun PinnedMiniCard(
-    zone: AqiResponse, 
-    isSelected: Boolean, 
+    zone: AqiResponse,
+    isSelected: Boolean,
     isUsAqi: Boolean = false,
     onClick: () -> Unit
 ) {
     // Calculate display AQI based on standard
-    val pm25 = zone.concentrations?.get("pm2.5") 
-        ?: zone.concentrations?.get("pm2_5") 
+    val pm25 = zone.concentrations?.get("pm2.5")
+        ?: zone.concentrations?.get("pm2_5")
         ?: 0.0
 
     val displayAqi = if (isUsAqi) {
@@ -51,64 +55,64 @@ fun PinnedMiniCard(
     )
 
     val containerColor = if (isSelected) {
-        MaterialTheme.colorScheme.secondaryContainer 
+        MaterialTheme.colorScheme.secondaryContainer
     } else {
         MaterialTheme.colorScheme.surface
     }
-    
+
     val contentColor = if (isSelected) {
-        MaterialTheme.colorScheme.onSecondaryContainer 
+        MaterialTheme.colorScheme.onSecondaryContainer
     } else {
         MaterialTheme.colorScheme.onSurface
     }
-    
+
     val borderStroke = if (isSelected) {
-        null 
+        null
     } else {
-        BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+        BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     }
     // Expressive wrapper
-    Box(
-        modifier = Modifier
-            .width(170.dp)
-            .height(140.dp)
-            .expressiveClickable { onClick() }
+    Button(
+        onClick = onClick,
+        shape = RoundedCornerShape(16),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = containerColor,
+            contentColor = contentColor
+        ),
+        border = borderStroke,
+        modifier = Modifier.wrapContentSize()
     ) {
-        Card(
-            shape = MaterialTheme.shapes.medium, // 24dp
-            colors = CardDefaults.cardColors(
-                containerColor = containerColor,
-                contentColor = contentColor
-            ),
-            border = borderStroke,
-            modifier = Modifier.fillMaxSize()
-        ) {
-            Column(
-                modifier = Modifier.fillMaxSize().padding(20.dp),
-                verticalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = zone.zoneName,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    fontWeight = FontWeight.Bold,
-                    color = contentColor
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(modifier = Modifier.size(12.dp).clip(CircleShape).background(aqiColor))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "$displayAqi",
-                        style = MaterialTheme.typography.headlineLarge,
-                        fontWeight = FontWeight.Black,
-                        color = contentColor
-                    )
-                }
-            }
+        Box(
+            modifier = Modifier
+                .padding(top = 2.dp) // aligns with zone name
+                .size(10.dp)
+                .clip(CircleShape)
+                .background(aqiColor)
+        )
+
+        Spacer(modifier = Modifier.width(10.dp))
+
+        Column {
+            Text(
+                text = zone.zoneName,
+                style = MaterialTheme.typography.labelMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                fontWeight = FontWeight.SemiBold,
+                color = contentColor
+            )
+
+            Text(
+                text = "$displayAqi",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = contentColor
+            )
         }
     }
+
 }
+
 
 @Composable
 fun ZoneListItem(zone: Zone, isPinned: Boolean, onPinClick: () -> Unit) {
@@ -197,7 +201,8 @@ fun EmptyStateCard(onGoToExplore: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun LoadingScreen() {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { LoadingIndicator() }
 }

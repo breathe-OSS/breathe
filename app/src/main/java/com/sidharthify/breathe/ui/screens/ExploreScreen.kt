@@ -79,7 +79,7 @@ fun ExploreScreen(
                 items(filteredZones, key = { it.id }) { zone ->
                     Box(
                         modifier = Modifier
-                            .animateItemPlacement(tween(durationMillis = 300))
+                            .animateItem(tween(durationMillis = 300))
                             .expressiveClickable     { onPinToggle(zone.id) }
                     ) {
                         ZoneListItem(
