@@ -41,6 +41,7 @@ import com.sidharthify.breathe.data.Zone
 import com.sidharthify.breathe.ui.components.MainDashboardDetail
 import com.sidharthify.breathe.util.getAqiColor
 import com.sidharthify.breathe.util.calculateUsAqi
+import com.sidharthify.breathe.util.IndiaBoundaryOverlay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -117,6 +118,10 @@ fun MapScreen(
                     } else {
                         tilesOverlay.setColorFilter(null)
                     }
+
+                    IndiaBoundaryOverlay.removeBoundaryOverlays(map)
+                    IndiaBoundaryOverlay.addBoundaryOverlay(context, map, isDarkTheme)
+                    
                     map.invalidate()
                 }
             }
@@ -125,7 +130,8 @@ fun MapScreen(
             LaunchedEffect(mapViewRef, zones, allAqiData, isUsAqi) {
                 val map = mapViewRef ?: return@LaunchedEffect
 
-                map.overlays.clear()
+                val markersToRemove = map.overlays.filterIsInstance<Marker>()
+                markersToRemove.forEach { map.overlays.remove(it) }
 
                 zones.forEach { zone ->
                     if (zone.lat != null && zone.lon != null) {

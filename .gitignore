@@ -29,6 +29,9 @@ local.properties
 # OS junk
 Thumbs.db
 
+# nixos
+shell.nix
+
 # gradle wrapper cache
 gradle/wrapper/gradle-wrapper.jar
 
