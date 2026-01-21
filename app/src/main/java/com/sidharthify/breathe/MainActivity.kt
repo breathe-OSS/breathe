@@ -219,6 +219,7 @@ fun BreatheApp(
                                     HomeScreen(
                                         isLoading = uiState.isLoading,
                                         isDarkTheme = isDarkTheme,
+                                        isAmoled = isAmoled,
                                         error = uiState.error,
                                         pinnedZones = uiState.pinnedZones,
                                         zones = uiState.zones,

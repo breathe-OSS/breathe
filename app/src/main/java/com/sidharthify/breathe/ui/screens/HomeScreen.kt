@@ -38,7 +38,7 @@ import com.sidharthify.breathe.ui.components.EmptyStateCard
 import com.sidharthify.breathe.ui.components.ErrorCard
 import com.sidharthify.breathe.ui.components.LoadingScreen
 import com.sidharthify.breathe.ui.components.MainDashboardDetail
-import com.sidharthify.breathe.ui.components.PinnedMiniCard
+import com.sidharthify.breathe.ui.components.PinnedZonesButtonGroup
 import com.sidharthify.breathe.viewmodel.BreatheViewModel
 
 @ExperimentalMaterial3ExpressiveApi
@@ -46,6 +46,7 @@ import com.sidharthify.breathe.viewmodel.BreatheViewModel
 fun HomeScreen(
     isLoading: Boolean,
     isDarkTheme: Boolean,
+    isAmoled: Boolean = false,
     error: String?,
     pinnedZones: List<AqiResponse>,
     zones: List<Zone>,
@@ -113,14 +114,15 @@ fun HomeScreen(
                             state = listState,
                             flingBehavior = rememberSnapFlingBehavior(lazyListState = listState),
                             contentPadding = PaddingValues(horizontal = 24.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(0.dp),
                         ) {
-                            items(pinnedZones, key = { it.zoneId }) { zone ->
-                                PinnedMiniCard(
-                                    zone = zone,
-                                    isSelected = zone.zoneId == (selectedZone?.zoneId),
+                            item {
+                                PinnedZonesButtonGroup(
+                                    zones = pinnedZones,
+                                    selectedZoneId = selectedZone?.zoneId,
                                     isUsAqi = isUsAqi,
-                                    onClick = { selectedZone = zone },
+                                    isAmoled = isAmoled,
+                                    onZoneSelected = { selectedZone = it },
                                 )
                             }
                         }

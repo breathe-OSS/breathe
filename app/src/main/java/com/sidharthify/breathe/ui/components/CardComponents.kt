@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.PushPin
@@ -19,6 +20,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -32,96 +36,92 @@ import com.sidharthify.breathe.util.getAqiColor
 
 @Composable
 @ExperimentalMaterial3ExpressiveApi
-fun PinnedMiniCard(
-    zone: AqiResponse,
-    isSelected: Boolean,
-    isUsAqi: Boolean = false,
-    onClick: () -> Unit,
+fun PinnedZonesButtonGroup(
+    zones: List<AqiResponse>,
+    selectedZoneId: String?,
+    isUsAqi: Boolean,
+    isAmoled: Boolean = false,
+    onZoneSelected: (AqiResponse) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    // Calculate display AQI based on standard
-    val pm25 =
-        zone.concentrations?.get("pm2.5")
-            ?: zone.concentrations?.get("pm2_5")
-            ?: 0.0
+    if (zones.isEmpty()) return
 
-    val displayAqi =
-        if (isUsAqi) {
-            zone.usAqi ?: if (pm25 > 0) calculateUsAqi(pm25) else 0
-        } else {
-            zone.nAqi
-        }
-
-    val animationSettings = LocalAnimationSettings.current
-
-    val aqiColor by animateColorAsState(
-        targetValue = getAqiColor(displayAqi, isUsAqi),
-        animationSpec = if (animationSettings.colorTransitions) {
-            tween(durationMillis = 300)
-        } else {
-            tween(durationMillis = 0)
-        },
-        label = "MiniCardColor",
-    )
-
-    val containerColor =
-        if (isSelected) {
-            MaterialTheme.colorScheme.secondaryContainer
-        } else {
-            MaterialTheme.colorScheme.surface
-        }
-
-    val contentColor =
-        if (isSelected) {
-            MaterialTheme.colorScheme.onSecondaryContainer
-        } else {
-            MaterialTheme.colorScheme.onSurface
-        }
-
-    val borderStroke =
-        if (isSelected) {
-            null
-        } else {
-            BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-        }
-    // Expressive wrapper
-    Button(
-        onClick = onClick,
-        shape = RoundedCornerShape(16),
-        colors =
-            ButtonDefaults.buttonColors(
-                containerColor = containerColor,
-                contentColor = contentColor,
-            ),
-        border = borderStroke,
-        modifier = Modifier.wrapContentSize(),
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
     ) {
-        Box(
-            modifier =
-                Modifier
-                    .padding(top = 2.dp) // aligns with zone name
-                    .size(10.dp)
-                    .clip(CircleShape)
-                    .background(aqiColor),
-        )
+        zones.forEachIndexed { index, zone ->
+            val isSelected = zone.zoneId == selectedZoneId
 
-        Spacer(modifier = Modifier.width(10.dp))
+            // Calculate display AQI
+            val pm25 = zone.concentrations?.get("pm2.5")
+                ?: zone.concentrations?.get("pm2_5")
+                ?: 0.0
+            val displayAqi = if (isUsAqi) {
+                zone.usAqi ?: if (pm25 > 0) calculateUsAqi(pm25) else 0
+            } else {
+                zone.nAqi
+            }
 
-        Column {
-            Text(
-                text = zone.zoneName,
-                style = MaterialTheme.typography.labelMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                fontWeight = FontWeight.SemiBold,
-                color = contentColor,
+            val animationSettings = LocalAnimationSettings.current
+            val aqiColor by animateColorAsState(
+                targetValue = getAqiColor(displayAqi, isUsAqi),
+                animationSpec = if (animationSettings.colorTransitions) {
+                    tween(durationMillis = 500)
+                } else {
+                    tween(durationMillis = 0)
+                },
+                label = "ButtonGroupAqiColor",
             )
 
-            Text(
-                text = "$displayAqi",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = contentColor,
-            )
+            // Border for AMOLED mode
+            val borderStroke = if (isAmoled && !isSelected) {
+                BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+            } else {
+                null
+            }
+
+            ToggleButton(
+                checked = isSelected,
+                onCheckedChange = { onZoneSelected(zone) },
+                modifier = Modifier
+                    .heightIn(min = 48.dp)
+                    .semantics { role = Role.RadioButton },
+                shapes = when (index) {
+                    0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+                    zones.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
+                    else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
+                },
+                border = borderStroke,
+            ) {
+                // Checkmark icon for selected state
+                if (isSelected) {
+                    Icon(
+                        Icons.Filled.Check,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                    )
+                    Spacer(Modifier.size(8.dp))
+                }
+
+                // AQI indicator dot
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .clip(CircleShape)
+                        .background(aqiColor),
+                )
+                Spacer(Modifier.width(8.dp))
+
+                // Zone name
+                Text(
+                    text = zone.zoneName,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+            }
         }
     }
 }
