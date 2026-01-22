@@ -7,6 +7,7 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.sidharthify.breathe.data.AppState
 import com.sidharthify.breathe.data.AqiResponse
+import com.sidharthify.breathe.data.DailyAqi
 import com.sidharthify.breathe.data.RetrofitClient
 import com.sidharthify.breathe.data.Zone
 import com.sidharthify.breathe.forceWidgetUpdate
@@ -16,6 +17,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
@@ -28,9 +30,11 @@ class BreatheViewModel : ViewModel() {
     private val _searchQuery = MutableStateFlow("")
     val searchQuery = _searchQuery.asStateFlow()
 
-    // US AQI State
     private val _isUsAqi = MutableStateFlow(false)
     val isUsAqi = _isUsAqi.asStateFlow()
+
+    private val _dailyAqi = MutableStateFlow<List<DailyAqi>>(emptyList())
+    val dailyAqi: StateFlow<List<DailyAqi>> = _dailyAqi.asStateFlow()
 
     private val gson = Gson()
     private var pollingJob: Job? = null
@@ -54,7 +58,7 @@ class BreatheViewModel : ViewModel() {
         pollingJob =
             viewModelScope.launch {
                 while (isActive) {
-                    delay(60000) // auto refresh every 60 seconds
+                    delay(60000)
                     refreshData(context, isAutoRefresh = true)
                 }
             }
@@ -98,12 +102,14 @@ class BreatheViewModel : ViewModel() {
                                     null
                                 }
                             }
-                        }.awaitAll()
+                        }
+                        .awaitAll()
                         .filterNotNull()
 
                 _uiState.update { current ->
                     val unpinnedIds = unpinnedZones.map { it.id }.toSet()
-                    val preservedUnpinned = current.allAqiData.filter { it.zoneId in unpinnedIds }
+                    val preservedUnpinned =
+                        current.allAqiData.filter { it.zoneId in unpinnedIds }
 
                     current.copy(
                         allAqiData = pinnedResults + preservedUnpinned,
@@ -123,7 +129,8 @@ class BreatheViewModel : ViewModel() {
                                         null
                                     }
                                 }
-                            }.awaitAll()
+                            }
+                            .awaitAll()
                             .filterNotNull()
                     } else {
                         emptyList()
@@ -169,7 +176,8 @@ class BreatheViewModel : ViewModel() {
             val zonesJson = prefs.getString("cached_zones", null)
             val aqiJson = prefs.getString("cached_aqi", null)
 
-            val pinPrefs = context.getSharedPreferences("breathe_prefs", Context.MODE_PRIVATE)
+            val pinPrefs =
+                context.getSharedPreferences("breathe_prefs", Context.MODE_PRIVATE)
             val pinnedSet = pinPrefs.getStringSet("pinned_ids", emptySet()) ?: emptySet()
 
             if (zonesJson != null && aqiJson != null) {
@@ -189,8 +197,7 @@ class BreatheViewModel : ViewModel() {
                         pinnedIds = pinnedSet,
                     )
             }
-        } catch (e: Exception) {
-            // Fail silently on cache load error
+        } catch (_: Exception) {
         }
     }
 
@@ -213,7 +220,8 @@ class BreatheViewModel : ViewModel() {
             .putStringSet("pinned_ids", currentSet)
             .apply()
 
-        val updatedPinnedList = _uiState.value.allAqiData.filter { it.zoneId in currentSet }
+        val updatedPinnedList =
+            _uiState.value.allAqiData.filter { it.zoneId in currentSet }
 
         _uiState.update {
             it.copy(
@@ -223,5 +231,34 @@ class BreatheViewModel : ViewModel() {
         }
 
         forceWidgetUpdate(context)
+    }
+
+    fun buildWeeklyTrend(
+        zoneId: String,
+        history: List<AqiResponse>,
+    ) {
+        val grouped =
+            history
+                .filter { it.zoneId == zoneId }
+                .groupBy { it.timestamp.take(10) }
+
+        val daily =
+            grouped.entries
+                .sortedBy { it.key }
+                .takeLast(7)
+                .map { (date, values) ->
+                    val aqiValues =
+                        values.mapNotNull {
+                            if (_isUsAqi.value) it.usAqi else it.nAqi
+                        }
+
+                    if (aqiValues.size < 3) {
+                        DailyAqi(date, null)
+                    } else {
+                        DailyAqi(date, aqiValues.sorted()[aqiValues.size / 2])
+                    }
+                }
+
+        _dailyAqi.value = daily
     }
 }

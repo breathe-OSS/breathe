@@ -14,7 +14,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -34,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sidharthify.breathe.data.AqiResponse
 import com.sidharthify.breathe.data.Zone
+import com.sidharthify.breathe.ui.components.AqiTrendGraph
 import com.sidharthify.breathe.ui.components.EmptyStateCard
 import com.sidharthify.breathe.ui.components.ErrorCard
 import com.sidharthify.breathe.ui.components.LoadingScreen
@@ -55,6 +55,7 @@ fun HomeScreen(
     viewModel: BreatheViewModel = viewModel(),
 ) {
     val isUsAqi by viewModel.isUsAqi.collectAsState()
+    val dailyTrend by viewModel.dailyAqi.collectAsState()
 
     val pullRefreshState = rememberPullToRefreshState()
 
@@ -64,15 +65,17 @@ fun HomeScreen(
         if (selectedZone == null && pinnedZones.isNotEmpty()) {
             selectedZone = pinnedZones.first()
         } else if (pinnedZones.isNotEmpty()) {
-            // Find the updated version of the currently selected zone
             val updatedZone = pinnedZones.find { it.zoneId == selectedZone?.zoneId }
-            if (updatedZone != null) {
-                // Update with fresh data
-                selectedZone = updatedZone
-            } else {
-                // Select first available
-                selectedZone = pinnedZones.first()
-            }
+            selectedZone = updatedZone ?: pinnedZones.first()
+        }
+    }
+
+    LaunchedEffect(selectedZone) {
+        selectedZone?.let { zone ->
+            viewModel.buildWeeklyTrend(
+                zoneId = zone.zoneId,
+                history = pinnedZones
+            )
         }
     }
 
@@ -98,7 +101,7 @@ fun HomeScreen(
             ) {
                 item {
                     Text(
-                        "Pinned Locations",
+                        text = "Pinned Locations",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(start = 24.dp, top = 32.dp, bottom = 16.dp),
@@ -112,7 +115,7 @@ fun HomeScreen(
 
                         LazyRow(
                             state = listState,
-                            flingBehavior = rememberSnapFlingBehavior(lazyListState = listState),
+                            flingBehavior = rememberSnapFlingBehavior(listState),
                             contentPadding = PaddingValues(horizontal = 24.dp),
                             horizontalArrangement = Arrangement.spacedBy(0.dp),
                         ) {
@@ -149,12 +152,19 @@ fun HomeScreen(
                             remember(selectedZone, zones) {
                                 zones.find { it.id == selectedZone!!.zoneId }?.provider
                             }
+
                         MainDashboardDetail(
                             zone = selectedZone!!,
                             provider = provider,
                             isDarkTheme = isDarkTheme,
                             isUsAqi = isUsAqi,
                         )
+                    }
+                }
+
+                if (dailyTrend.isNotEmpty()) {
+                    item(key = "aqi_trend") {
+                        AqiTrendGraph(daily = dailyTrend)
                     }
                 }
             }
