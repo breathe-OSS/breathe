@@ -355,14 +355,14 @@ fun SettingsScreen(
         // #### general #### //
         SettingsGroup(title = "General", isAmoled = isAmoled) {
             SettingsSwitch(
-                title = "US AQI Standard",
-                subtitle = "Use United States EPA calculation",
+                title = "Indian NAQI",
+                subtitle = "Switch to Indian National AQI",
                 checked = isUsAqi,
                 onCheckedChange = { viewModel.toggleAqiStandard(context) },
                 showDivider = true,
             )
 
-            val standardText = if (isUsAqi) "US EPA (2024 Standard)" else "Indian National Air Quality Index (NAQI)"
+            val standardText = if (isUsAqi) "Indian National Air Quality Index (NAQI)" else "US EPA (2024 Standard)"
 
             SettingsItem("Data Standards", standardText, showDivider = true)
             SettingsItem(

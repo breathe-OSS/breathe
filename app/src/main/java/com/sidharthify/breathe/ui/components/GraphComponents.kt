@@ -38,7 +38,7 @@ fun AqiHistoryGraph(
     // Pre-calculate values based on selected standard
     val values =
         remember(history, isUsAqi) {
-            history.map { if (isUsAqi) (it.usAqi ?: it.aqi) else it.aqi }
+            history.map { if (!isUsAqi) (it.usAqi ?: it.aqi) else it.aqi }
         }
 
     val graphColor = MaterialTheme.colorScheme.primary

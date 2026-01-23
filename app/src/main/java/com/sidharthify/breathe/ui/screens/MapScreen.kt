@@ -169,7 +169,7 @@ fun MapScreen(
                                     ?: 0.0
 
                             displayAqi =
-                                if (isUsAqi) {
+                                if (!isUsAqi) {
                                     data.usAqi ?: if (pm25 > 0) calculateUsAqi(pm25) else 0
                                 } else {
                                     data.nAqi
@@ -180,7 +180,7 @@ fun MapScreen(
 
                         val colorInt =
                             if (data != null) {
-                                getAqiColor(displayAqi, isUsAqi).toArgb()
+                                getAqiColor(displayAqi, !isUsAqi).toArgb()
                             } else {
                                 android.graphics.Color.GRAY
                             }

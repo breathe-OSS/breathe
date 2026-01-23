@@ -106,13 +106,13 @@ fun MainDashboardDetail(
             ?: 0.0
 
     val displayAqi =
-        if (isUsAqi) {
+        if (!isUsAqi) {
             zone.usAqi ?: if (pm25 > 0) calculateUsAqi(pm25) else 0
         } else {
             zone.nAqi
         }
 
-    val aqiLabel = if (isUsAqi) "US AQI" else "NAQI"
+    val aqiLabel = if (!isUsAqi) "US AQI" else "NAQI"
     val cigarettes = if (pm25 > 0) calculateCigarettes(pm25) else 0.0
 
     val configuration = LocalConfiguration.current
@@ -124,7 +124,7 @@ fun MainDashboardDetail(
     val animationSettings = LocalAnimationSettings.current
 
     val aqiColor by animateColorAsState(
-        targetValue = getAqiColor(displayAqi, isUsAqi),
+        targetValue = getAqiColor(displayAqi, !isUsAqi),
         animationSpec = if (animationSettings.colorTransitions) {
             tween(durationMillis = 600, easing = FastOutSlowInEasing)
         } else {
@@ -420,10 +420,10 @@ fun MainDashboardDetail(
         Spacer(modifier = Modifier.height(16.dp))
 
         // AQI Category Card with Spectrum
-        val aqiCategory = getAqiCategory(displayAqi, isUsAqi)
+        val aqiCategory = getAqiCategory(displayAqi, !isUsAqi)
         
         // Calculate position on spectrum (0-500 for US, 0-500 for NAQI)
-        val maxAqi = if (isUsAqi) 500f else 500f
+        val maxAqi = if (!isUsAqi) 500f else 500f
         val targetIndicatorPosition = (displayAqi.coerceIn(0, 500) / maxAqi).coerceIn(0f, 1f)
         
         // Animate indicator position
@@ -437,7 +437,7 @@ fun MainDashboardDetail(
             label = "IndicatorPosition",
         )
         
-        val spectrumColorStops = if (isUsAqi) {
+        val spectrumColorStops = if (!isUsAqi) {
             // US AQI breakpoints
             arrayOf(
                 0.00f to Color(0xFF00E400),

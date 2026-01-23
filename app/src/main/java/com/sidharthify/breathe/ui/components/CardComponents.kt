@@ -57,7 +57,7 @@ fun PinnedZonesButtonGroup(
             val pm25 = zone.concentrations?.get("pm2.5")
                 ?: zone.concentrations?.get("pm2_5")
                 ?: 0.0
-            val displayAqi = if (isUsAqi) {
+            val displayAqi = if (!isUsAqi) {
                 zone.usAqi ?: if (pm25 > 0) calculateUsAqi(pm25) else 0
             } else {
                 zone.nAqi
@@ -65,7 +65,7 @@ fun PinnedZonesButtonGroup(
 
             val animationSettings = LocalAnimationSettings.current
             val aqiColor by animateColorAsState(
-                targetValue = getAqiColor(displayAqi, isUsAqi),
+                targetValue = getAqiColor(displayAqi, !isUsAqi),
                 animationSpec = if (animationSettings.colorTransitions) {
                     tween(durationMillis = 500)
                 } else {

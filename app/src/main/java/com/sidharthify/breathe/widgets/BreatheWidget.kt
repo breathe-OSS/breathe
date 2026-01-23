@@ -91,14 +91,14 @@ class BreatheWidget : GlanceAppWidget() {
         val pm25 = prefs[PREF_PM25] ?: 0.0
 
         // Calculate AQI based on preference
-        val displayAqi = (if (isUsAqi && pm25 > 0) calculateUsAqi(pm25) else rawAqi).coerceAtMost(500)
-        val aqiLabel = if (isUsAqi) "US AQI" else "NAQI"
+        val displayAqi = (if (!isUsAqi && pm25 > 0) calculateUsAqi(pm25) else rawAqi).coerceAtMost(500)
+        val aqiLabel = if (!isUsAqi) "US AQI" else "NAQI"
 
         val rawProvider = prefs[PREF_PROVIDER] ?: ""
         val providerText = rawProvider.replace("Source: ", "").replace("-", " ")
 
         val totalPins = prefs[PREF_TOTAL_PINS] ?: 1
-        val aqiColor = ColorProvider(getAqiColor(displayAqi, isUsAqi))
+        val aqiColor = ColorProvider(getAqiColor(displayAqi, !isUsAqi))
 
         val isTiny = size.width < 90.dp || size.height < 90.dp
         val isNarrow = size.width < 160.dp

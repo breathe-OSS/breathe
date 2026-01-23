@@ -28,7 +28,7 @@ class BreatheViewModel : ViewModel() {
     private val _searchQuery = MutableStateFlow("")
     val searchQuery = _searchQuery.asStateFlow()
 
-    // US AQI State
+    // AQI Standard: false = US AQI (default), true = Indian NAQI
     private val _isUsAqi = MutableStateFlow(false)
     val isUsAqi = _isUsAqi.asStateFlow()
 
