@@ -61,9 +61,9 @@ fun SettingsScreen(
     var isMadness by remember { mutableStateOf(false) }
     var madnessIntensity by remember { mutableIntStateOf(0) }
     val isUsAqi by viewModel.isUsAqi.collectAsState()
-    var versionLabel by remember { mutableStateOf("Current Version: v3.1-13") }
+    var versionLabel by remember { mutableStateOf("Current Version: v3.1-14") }
 
-    val currentVersion = "v3.1-13"
+    val currentVersion = "v3.1-14"
 
     // Reset tap counter if inactive
     LaunchedEffect(easterEggCounter) {
@@ -509,7 +509,7 @@ fun SettingsScreen(
 
         // #### updates #### //
         Text(
-            "Updates",
+            "Updates (from GitHub)",
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(start = 12.dp, bottom = 8.dp),
