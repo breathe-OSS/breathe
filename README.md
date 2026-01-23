@@ -22,9 +22,12 @@
 - **AMOLED Dark Theme Support**
 - **Supports devices running Android 8.1 and above**
 - **Fluid Animations and interactive UI**
+- **Advanced animation options**
+- **AQI Spectrum**
 - **Real-time Monitoring**
-- **Indian NAQI Standards**
+- **US and Indian AQI standards**
 - **Detailed Breakdown**
+- **Cigarette equivalence**
 - **A map with data laid across**
 - **24 Hour graph of AQI Data**
 - **Widget Support**
