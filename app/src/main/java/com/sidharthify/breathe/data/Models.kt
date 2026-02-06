@@ -30,6 +30,8 @@ data class AqiResponse(
     @SerializedName("timestamp_unix") val timestampUnix: Double?,
     @SerializedName("last_update") val lastUpdateStr: String?,
     @SerializedName("history") val history: List<HistoryPoint>? = emptyList(),
+    @SerializedName("daily_history") val dailyHistory: List<DailyHistoryPoint>? = emptyList(),
+    @SerializedName("monthly_history") val monthlyHistory: List<DailyHistoryPoint>? = emptyList(),
     @SerializedName("trends") val trends: Trends? = null,
     @SerializedName("warning") val warning: String? = null,
     @SerializedName("source") val source: String? = null,
@@ -39,6 +41,12 @@ data class HistoryPoint(
     @SerializedName("ts") val ts: Long,
     @SerializedName("aqi") val aqi: Int,
     @SerializedName("us_aqi") val usAqi: Int?,
+)
+
+data class DailyHistoryPoint(
+    @SerializedName("date") val date: String,
+    @SerializedName("avg_aqi") val avgAqi: Int,
+    @SerializedName("avg_us_aqi") val avgUsAqi: Int?,
 )
 
 data class AppState(

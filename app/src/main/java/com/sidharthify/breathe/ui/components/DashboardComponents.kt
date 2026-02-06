@@ -628,6 +628,26 @@ fun MainDashboardDetail(
             }
         }
 
+        if (!zone.dailyHistory.isNullOrEmpty()) {
+            Spacer(modifier = Modifier.height(24.dp))
+            Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+                AqiWeeklyGraph(
+                    dailyHistory = zone.dailyHistory.takeLast(7),
+                    isUsAqi = isUsAqi,
+                )
+            }
+        }
+
+        if (!zone.monthlyHistory.isNullOrEmpty()) {
+            Spacer(modifier = Modifier.height(24.dp))
+            Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+                AqiMonthlyGrid(
+                    monthlyHistory = zone.monthlyHistory,
+                    isUsAqi = isUsAqi,
+                )
+            }
+        }
+
         Spacer(modifier = Modifier.height(100.dp))
     }
 }

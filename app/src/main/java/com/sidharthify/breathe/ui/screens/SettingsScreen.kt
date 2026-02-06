@@ -497,9 +497,9 @@ fun SettingsScreen(
             SettingsItem("Aaditya Gupta", "Developer (@Flashwreck)", onClick = {
                 uriHandler.openUri("https://github.com/Flashwreck")
             }, showDivider = true)
-            SettingsItem("Veer P.S Singh", "Contributor (@Lostless1907)", onClick = {
+            SettingsItem("Veer P.S Sambyal", "Developer (@Lostless1907)", onClick = {
                 uriHandler.openUri("https://github.com/Lostless1907")
-            }, showDivider = false)
+            }, showDivider = true)
             SettingsItem("Suvesh Moza", "Contributor (@suveshmoza)", onClick = {
                 uriHandler.openUri("https://github.com/suveshmoza")
             }, showDivider = false)

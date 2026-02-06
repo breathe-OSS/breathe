@@ -122,7 +122,7 @@ The method that we use to convert the raw data in our API **(please do read the 
 
 ### Open-Meteo
 
-Used for all pollutant values for **most regions** in Jammu & Kashmir (excluding Srinagar and Jammu).
+Used for all pollutant values for **most regions** in Jammu & Kashmir (excluding Srinagar, Jammu and Rajouri).
 Open-Meteo's satellite-based air quality model provides stable and consistent values that generally fall within the expected range of nearby ground measurements.
 
 - Air quality & pollutant data: [Open-Meteo Air Quality API](https://open-meteo.com/en/docs/air-quality-api)
@@ -131,7 +131,7 @@ Open-Meteo's satellite-based air quality model provides stable and consistent va
 
 ### AirGradient
 
-Used for the **Srinagar** and **Jammu** region, where the sensors are deployed in real time.
+Used for the **Srinagar**, **Jammu** and **Rajouri** regions, where the sensors are deployed in real time.
 
 - Their website: [AirGradient](https://www.airgradient.com/)
 
@@ -143,8 +143,8 @@ The limitations of our current project is that we do not have ground sensors in 
 
 We are actively working to deploy custom physical sensors to improve data density in Jammu. If you are interested in hosting a sensor node, please contact us at: [wednisegit@gmail.com](mailto:wednisegit@gmail.com)
 
-We have deployed two **AirGradient** sensors in Jammu and Srinagar which provide an accurate measurement of PM10 and PM2.5 values. We are working
-to deploy them in two other regions; Kishtwar and Reasi.
+We have deployed two **AirGradient** sensors in Jammu, Srinagar and Rajouri which provide an accurate measurement of PM10 and PM2.5 values. We are working
+to deploy them in three other regions.
 
 ## Credits & Developers
 
@@ -154,3 +154,4 @@ This project is fully Free & Open Source Software (FOSS).
 
 1. [sidharthify](https://github.com/sidharthify) (Lead Dev)
 2. [Flashwreck](https://github.com/Flashwreck) (Co-lead and Devops maintainer)
+3. [Veer](https://github.com/Lostless1907) (Developer)
