@@ -150,8 +150,9 @@ to deploy them in three other regions.
 
 This project is fully Free & Open Source Software (FOSS).
 
-1. [sidharthify](https://github.com/sidharthify) (Lead Dev #1)
-2. [Flashwreck](https://github.com/Flashwreck) (Lead dev #2 and devops maintainer)
-3. [Lostless1907](https://github.com/Lostless1907) (Logo designer)
-4. [suveshmoza](https://github.com/suveshmoza) (Contributor and developer)
-5. [empirea9](https://github.com/empirea9) (Contributor)
+1. [sidharthify](https://github.com/sidharthify) (Lead Dev)
+2. [Flashwreck](https://github.com/Flashwreck) (Lead dev and devops maintainer)
+3. [SleeperOfSaturn](https://github.com/SleeperOfSaturn) (iOS app co-lead)
+4. [Lostless1907](https://github.com/Lostless1907) (Logo designer)
+5. [suveshmoza](https://github.com/suveshmoza) (Contributor and developer)
+6. [empirea9](https://github.com/empirea9) (Contributor)
