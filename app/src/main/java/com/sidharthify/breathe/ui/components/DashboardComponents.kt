@@ -136,6 +136,13 @@ fun MainDashboardDetail(
         label = "DashboardColor",
     )
 
+    val isModerateAqi =
+        if (!isUsAqi) {
+            displayAqi in 51..100
+        } else {
+            displayAqi in 101..200
+        }
+
     val animatedAqi by animateIntAsState(
         targetValue = displayAqi,
         animationSpec = if (animationSettings.numberAnimations) {
@@ -159,6 +166,12 @@ fun MainDashboardDetail(
     )
 
     val aqiBgColor = aqiColor.copy(alpha = 0.12f)
+    val aqiTextColor =
+        if (!isDarkTheme && isModerateAqi) {
+            Color(0xFF5C4300)
+        } else {
+            aqiColor
+        }
     val uriHandler = LocalUriHandler.current
 
     val isOpenMeteo =
@@ -346,7 +359,7 @@ fun MainDashboardDetail(
                         text = "$animatedAqi",
                         style = MaterialTheme.typography.displayLarge.copy(fontSize = aqiFontSize),
                         fontWeight = FontWeight.Black,
-                        color = aqiColor,
+                        color = aqiTextColor,
                         letterSpacing = (-3).sp,
                         lineHeight = aqiLineHeight,
                     )
@@ -505,7 +518,7 @@ fun MainDashboardDetail(
                         text = aqiCategory.label,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = aqiColor,
+                        color = aqiTextColor,
                     )
                 }
 
