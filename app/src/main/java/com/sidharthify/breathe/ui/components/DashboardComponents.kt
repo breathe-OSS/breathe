@@ -31,6 +31,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.shape.CircleShape
@@ -39,12 +40,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.SmokingRooms
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -55,6 +59,9 @@ import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.asComposePath
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
@@ -72,6 +79,7 @@ import androidx.graphics.shapes.toPath
 import com.sidharthify.breathe.R
 import com.sidharthify.breathe.data.AqiResponse
 import com.sidharthify.breathe.data.LocalAnimationSettings
+import com.sidharthify.breathe.data.NodeReading
 import com.sidharthify.breathe.expressiveClickable
 import com.sidharthify.breathe.util.PollutantText
 import com.sidharthify.breathe.util.calculateChange1h
@@ -668,11 +676,20 @@ fun MainDashboardDetail(
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // Individual Node Readings section (below pollutants, above graph)
+        if (!zone.nodes.isNullOrEmpty()) {
+            IndividualNodeReadingsSection(
+                nodes = zone.nodes,
+                isUsAqi = isUsAqi,
+            )
+        }
+
         if (!zone.history.isNullOrEmpty()) {
             Column(modifier = Modifier.padding(horizontal = 24.dp)) {
                 AqiHistoryGraph(
                     history = zone.history,
                     isUsAqi = isUsAqi,
+                    nodes = zone.nodes,
                 )
             }
         }
@@ -707,6 +724,262 @@ fun SimpleFlowGrid(
                 }
             }
         }
+    }
+}
+
+// ──────────────────────────────────────────────
+// Individual Node Readings Section
+// ──────────────────────────────────────────────
+
+@Composable
+fun IndividualNodeReadingsSection(
+    nodes: Map<String, NodeReading>,
+    isUsAqi: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.padding(horizontal = 24.dp)) {
+        Text(
+            "Individual Node Readings",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+
+        val nodeList = nodes.entries.toList()
+        val rows = ceil(nodeList.size / 2f).toInt()
+
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            for (i in 0 until rows) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    val firstIndex = i * 2
+                    val secondIndex = firstIndex + 1
+
+                    if (firstIndex < nodeList.size) {
+                        val (name, reading) = nodeList[firstIndex]
+                        NodeReadingCard(
+                            nodeName = name,
+                            reading = reading,
+                            isUsAqi = isUsAqi,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+
+                    if (secondIndex < nodeList.size) {
+                        val (name, reading) = nodeList[secondIndex]
+                        NodeReadingCard(
+                            nodeName = name,
+                            reading = reading,
+                            isUsAqi = isUsAqi,
+                            modifier = Modifier.weight(1f),
+                        )
+                    } else {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
+            }
+        }
+    }
+    Spacer(modifier = Modifier.height(24.dp))
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun NodeReadingCard(
+    nodeName: String,
+    reading: NodeReading,
+    isUsAqi: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val isDown = reading.pm25 == null
+    val displayAqi: Int? =
+        if (isDown) null
+        else if (!isUsAqi) reading.usAqi ?: reading.aqi
+        else reading.aqi
+    val aqiLabel = if (!isUsAqi) "US AQI" else "NAQI"
+
+    var menuExpanded by remember { mutableStateOf(false) }
+    var sheetVisible by remember { mutableStateOf(false) }
+
+    // Bottom sheet for sensor info
+    if (sheetVisible) {
+        ModalBottomSheet(onDismissRequest = { sheetVisible = false }) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    nodeName,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                if (isDown) {
+                    Text(
+                        "Sensor is currently offline.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                } else {
+                    NodeInfoRow("AQI", displayAqi?.toString() ?: "—")
+                    NodeInfoRow("AQI Standard", aqiLabel)
+                    NodeInfoRow("PM2.5", reading.pm25?.let { "${it} µg/m³" } ?: "—")
+                    NodeInfoRow("PM10", reading.pm10?.let { "${it} µg/m³" } ?: "—")
+                    NodeInfoRow("Temperature", reading.temp?.let { "${it} °C" } ?: "—")
+                    NodeInfoRow("Humidity", reading.humidity?.let { "${it}%" } ?: "—")
+                }
+            }
+        }
+    }
+
+    val animationSettings = LocalAnimationSettings.current
+    val haptic = LocalHapticFeedback.current
+    var isPressed by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed && animationSettings.pressFeedback) 0.93f else 1f,
+        animationSpec = spring(dampingRatio = 0.4f, stiffness = 400f),
+        label = "NodeCardSquish",
+    )
+
+    Surface(
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        tonalElevation = 2.dp,
+        modifier = modifier
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onPress = {
+                        isPressed = true
+                        tryAwaitRelease()
+                        isPressed = false
+                    },
+                    onLongPress = {
+                        isPressed = false
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        sheetVisible = true
+                    },
+                )
+            },
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            // Header row: name + hamburger
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    nodeName,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                Box {
+                    IconButton(
+                        onClick = { menuExpanded = true },
+                        modifier = Modifier.size(28.dp),
+                    ) {
+                        Icon(
+                            Icons.Filled.Menu,
+                            contentDescription = "Node options",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = menuExpanded,
+                        onDismissRequest = { menuExpanded = false },
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Sensor Info") },
+                            onClick = {
+                                menuExpanded = false
+                                sheetVisible = true
+                            },
+                        )
+                    }
+                }
+            }
+
+            // AQI value
+            if (isDown) {
+                Text(
+                    "N/A",
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                Text(
+                    "${displayAqi ?: "—"}",
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Black,
+                    color = getAqiColor(displayAqi ?: 0, !isUsAqi),
+                )
+            }
+            Text(
+                aqiLabel,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // PM2.5 and PM10
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "PM2.5",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        if (isDown) "N/A" else reading.pm25?.let { "${it}" } ?: "—",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "PM10",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        if (isDown) "N/A" else reading.pm10?.let { "${it}" } ?: "—",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NodeInfoRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            value,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
     }
 }
 

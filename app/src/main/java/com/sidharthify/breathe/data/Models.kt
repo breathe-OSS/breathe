@@ -60,12 +60,31 @@ data class AqiResponse(
     @SerializedName("trends") val trends: Trends? = null,
     @SerializedName("warning") val warning: String? = null,
     @SerializedName("source") val source: String? = null,
+    @SerializedName("nodes") val nodes: Map<String, NodeReading>? = null,
 )
 
 data class HistoryPoint(
     @SerializedName("ts") val ts: Long,
     @SerializedName("aqi") val aqi: Int,
     @SerializedName("us_aqi") val usAqi: Int?,
+)
+
+data class NodeHistoryPoint(
+    @SerializedName("ts") val ts: Long,
+    @SerializedName("aqi") val aqi: Int,
+    @SerializedName("us_aqi") val usAqi: Int?,
+    @SerializedName("pm2_5") val pm25: Double?,
+    @SerializedName("pm10") val pm10: Double?,
+)
+
+data class NodeReading(
+    @SerializedName("pm2_5") val pm25: Double?,
+    @SerializedName("pm10") val pm10: Double?,
+    @SerializedName("temp") val temp: Double?,
+    @SerializedName("humidity") val humidity: Double?,
+    @SerializedName("aqi") val aqi: Int?,
+    @SerializedName("us_aqi") val usAqi: Int?,
+    @SerializedName("history") val history: List<NodeHistoryPoint>? = emptyList(),
 )
 
 data class AppState(
