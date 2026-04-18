@@ -30,7 +30,8 @@ local.properties
 Thumbs.db
 
 # gradle wrapper cache
-gradle/wrapper/gradle-wrapper.jar
+# (Commented out so we can check it in for GitHub Actions)
+# gradle/wrapper/gradle-wrapper.jar
 
 # apk / bundles
 *.apk
