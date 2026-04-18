@@ -28,6 +28,22 @@ package com.sidharthify.breathe.data
 
 import com.google.gson.annotations.SerializedName
 
+data class SensorInfoResponse(
+    val sensors: List<SensorInfo>
+)
+
+data class SensorInfo(
+    val name: String,
+    val zone: String,
+    @SerializedName("location_id") val locationId: Int,
+    val provider: String,
+    val model: String,
+    @SerializedName("is_kit") val isKit: Boolean,
+    val latitude: Double,
+    val longitude: Double,
+    @SerializedName("installation_date") val installationDate: String
+)
+
 data class ZonesResponse(
     val zones: List<Zone>,
 )
@@ -94,4 +110,5 @@ data class AppState(
     val allAqiData: List<AqiResponse> = emptyList(),
     val pinnedZones: List<AqiResponse> = emptyList(),
     val pinnedIds: Set<String> = emptySet(),
+    val sensorInfos: List<SensorInfo> = emptyList(),
 )

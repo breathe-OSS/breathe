@@ -61,6 +61,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sidharthify.breathe.data.AqiResponse
 import com.sidharthify.breathe.data.Zone
+import com.sidharthify.breathe.data.SensorInfo
 import com.sidharthify.breathe.ui.components.EmptyStateCard
 import com.sidharthify.breathe.ui.components.ErrorCard
 import com.sidharthify.breathe.ui.components.LoadingScreen
@@ -77,6 +78,7 @@ fun HomeScreen(
     error: String?,
     pinnedZones: List<AqiResponse>,
     zones: List<Zone>,
+    sensorInfos: List<SensorInfo>,
     onGoToExplore: () -> Unit,
     onRetry: () -> Unit,
     viewModel: BreatheViewModel = viewModel(),
@@ -181,6 +183,7 @@ fun HomeScreen(
                             provider = provider,
                             isDarkTheme = isDarkTheme,
                             isUsAqi = isUsAqi,
+                            sensorInfos = sensorInfos,
                         )
                     }
                 }

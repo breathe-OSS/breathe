@@ -39,6 +39,9 @@ interface BreatheApi {
     suspend fun getZoneAqi(
         @Path("zone_id") zoneId: String,
     ): AqiResponse
+
+    @GET("/sensor-info")
+    suspend fun getSensorInfo(): SensorInfoResponse
 }
 
 object RetrofitClient {

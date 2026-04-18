@@ -250,6 +250,7 @@ fun BreatheApp(
                                         error = uiState.error,
                                         pinnedZones = uiState.pinnedZones,
                                         zones = uiState.zones,
+                                        sensorInfos = uiState.sensorInfos,
                                         onGoToExplore = { currentScreen = AppScreen.Explore },
                                         onRetry = { viewModel.refreshData(context) },
                                     )
@@ -262,6 +263,7 @@ fun BreatheApp(
                                         pinnedIds = uiState.pinnedIds,
                                         isDarkTheme = isDarkTheme,
                                         isUsAqi = isUsAqi,
+                                        sensorInfos = uiState.sensorInfos,
                                         onPinToggle = { id -> viewModel.togglePin(context, id) },
                                     )
                                 }

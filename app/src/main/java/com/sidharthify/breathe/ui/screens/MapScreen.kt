@@ -58,6 +58,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import com.sidharthify.breathe.data.AqiResponse
 import com.sidharthify.breathe.data.Zone
 import com.sidharthify.breathe.ui.components.MainDashboardDetail
+import com.sidharthify.breathe.data.SensorInfo
 import com.sidharthify.breathe.util.IndiaBoundaryOverlay
 import com.sidharthify.breathe.util.calculateUsAqi
 import com.sidharthify.breathe.util.getAqiColor
@@ -77,6 +78,7 @@ fun MapScreen(
     pinnedIds: Set<String>,
     isDarkTheme: Boolean,
     isUsAqi: Boolean,
+    sensorInfos: List<SensorInfo>,
     onPinToggle: (String) -> Unit,
 ) {
     val context = LocalContext.current
@@ -280,6 +282,7 @@ fun MapScreen(
                         provider = provider,
                         isDarkTheme = isDarkTheme,
                         isUsAqi = isUsAqi,
+                        sensorInfos = sensorInfos,
                     )
 
                     val isPinned = pinnedIds.contains(selectedZoneData!!.zoneId)

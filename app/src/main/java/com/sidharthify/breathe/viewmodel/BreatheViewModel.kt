@@ -34,6 +34,7 @@ import com.google.gson.reflect.TypeToken
 import com.sidharthify.breathe.data.AppState
 import com.sidharthify.breathe.data.AqiResponse
 import com.sidharthify.breathe.data.RetrofitClient
+import com.sidharthify.breathe.data.SensorInfo
 import com.sidharthify.breathe.data.Zone
 import com.sidharthify.breathe.forceWidgetUpdate
 import kotlinx.coroutines.Dispatchers
@@ -109,8 +110,15 @@ class BreatheViewModel : ViewModel() {
             val pinnedSet = prefs.getStringSet("pinned_ids", emptySet()) ?: emptySet()
 
             try {
-                val zonesList = RetrofitClient.api.getZones().zones
-                _uiState.update { it.copy(zones = zonesList) }
+                val zonesDeferred = async(Dispatchers.IO) { RetrofitClient.api.getZones().zones }
+                val sensorsDeferred = async(Dispatchers.IO) {
+                    try { RetrofitClient.api.getSensorInfo().sensors } catch (e: Exception) { emptyList() }
+                }
+
+                val zonesList = zonesDeferred.await()
+                val sensorsList = sensorsDeferred.await()
+
+                _uiState.update { it.copy(zones = zonesList, sensorInfos = sensorsList) }
 
                 val (pinnedZones, unpinnedZones) = zonesList.partition { it.id in pinnedSet }
 
@@ -161,10 +169,11 @@ class BreatheViewModel : ViewModel() {
                     it.copy(
                         isLoading = false,
                         allAqiData = completeList,
+                        sensorInfos = sensorsList,
                     )
                 }
 
-                saveToCache(context, zonesList, completeList)
+                saveToCache(context, zonesList, completeList, sensorsList)
             } catch (e: Exception) {
                 if (!isAutoRefresh) {
                     _uiState.update {
@@ -179,12 +188,14 @@ class BreatheViewModel : ViewModel() {
         context: Context,
         zones: List<Zone>,
         aqiData: List<AqiResponse>,
+        sensors: List<SensorInfo>,
     ) {
         viewModelScope.launch(Dispatchers.IO) {
             val prefs = context.getSharedPreferences("breathe_cache", Context.MODE_PRIVATE)
             val editor = prefs.edit()
             editor.putString("cached_zones", gson.toJson(zones))
             editor.putString("cached_aqi", gson.toJson(aqiData))
+            editor.putString("cached_sensors", gson.toJson(sensors))
             editor.apply()
         }
     }
@@ -194,6 +205,7 @@ class BreatheViewModel : ViewModel() {
             val prefs = context.getSharedPreferences("breathe_cache", Context.MODE_PRIVATE)
             val zonesJson = prefs.getString("cached_zones", null)
             val aqiJson = prefs.getString("cached_aqi", null)
+            val sensorsJson = prefs.getString("cached_sensors", null)
 
             val pinPrefs = context.getSharedPreferences("breathe_prefs", Context.MODE_PRIVATE)
             val pinnedSet = pinPrefs.getStringSet("pinned_ids", emptySet()) ?: emptySet()
@@ -201,9 +213,11 @@ class BreatheViewModel : ViewModel() {
             if (zonesJson != null && aqiJson != null) {
                 val zonesType = object : TypeToken<List<Zone>>() {}.type
                 val aqiType = object : TypeToken<List<AqiResponse>>() {}.type
+                val sensorsType = object : TypeToken<List<SensorInfo>>() {}.type
 
                 val zones: List<Zone> = gson.fromJson(zonesJson, zonesType)
                 val aqiData: List<AqiResponse> = gson.fromJson(aqiJson, aqiType)
+                val sensors: List<SensorInfo> = if (sensorsJson != null) gson.fromJson(sensorsJson, sensorsType) else emptyList()
                 val pinnedResults = aqiData.filter { it.zoneId in pinnedSet }
 
                 _uiState.value =
@@ -213,6 +227,7 @@ class BreatheViewModel : ViewModel() {
                         allAqiData = aqiData,
                         pinnedZones = pinnedResults,
                         pinnedIds = pinnedSet,
+                        sensorInfos = sensors,
                     )
             }
         } catch (e: Exception) {

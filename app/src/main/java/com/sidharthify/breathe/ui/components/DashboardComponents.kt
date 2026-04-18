@@ -27,6 +27,8 @@
 
 package com.sidharthify.breathe.ui.components
 
+
+
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
@@ -80,6 +82,7 @@ import com.sidharthify.breathe.R
 import com.sidharthify.breathe.data.AqiResponse
 import com.sidharthify.breathe.data.LocalAnimationSettings
 import com.sidharthify.breathe.data.NodeReading
+import com.sidharthify.breathe.data.SensorInfo
 import com.sidharthify.breathe.expressiveClickable
 import com.sidharthify.breathe.util.PollutantText
 import com.sidharthify.breathe.util.calculateChange1h
@@ -137,6 +140,7 @@ fun MainDashboardDetail(
     provider: String?,
     isDarkTheme: Boolean,
     isUsAqi: Boolean = false,
+    sensorInfos: List<SensorInfo> = emptyList(),
 ) {
     val pm25 =
         zone.concentrations?.get("pm2.5")
@@ -681,6 +685,7 @@ fun MainDashboardDetail(
             IndividualNodeReadingsSection(
                 nodes = zone.nodes,
                 isUsAqi = isUsAqi,
+                sensorInfos = sensorInfos,
             )
         }
 
@@ -735,6 +740,7 @@ fun SimpleFlowGrid(
 fun IndividualNodeReadingsSection(
     nodes: Map<String, NodeReading>,
     isUsAqi: Boolean,
+    sensorInfos: List<SensorInfo> = emptyList(),
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.padding(horizontal = 24.dp)) {
@@ -760,6 +766,7 @@ fun IndividualNodeReadingsSection(
                             nodeName = name,
                             reading = reading,
                             isUsAqi = isUsAqi,
+                            sensorInfo = sensorInfos.find { it.name == name },
                             modifier = Modifier.weight(1f),
                         )
                     }
@@ -770,6 +777,7 @@ fun IndividualNodeReadingsSection(
                             nodeName = name,
                             reading = reading,
                             isUsAqi = isUsAqi,
+                            sensorInfo = sensorInfos.find { it.name == name },
                             modifier = Modifier.weight(1f),
                         )
                     } else {
@@ -788,6 +796,7 @@ fun NodeReadingCard(
     nodeName: String,
     reading: NodeReading,
     isUsAqi: Boolean,
+    sensorInfo: SensorInfo? = null,
     modifier: Modifier = Modifier,
 ) {
     val isDown = reading.pm25 == null
@@ -829,6 +838,12 @@ fun NodeReadingCard(
                     NodeInfoRow("PM10", reading.pm10?.let { "${it} µg/m³" } ?: "—")
                     NodeInfoRow("Temperature", reading.temp?.let { "${it} °C" } ?: "—")
                     NodeInfoRow("Humidity", reading.humidity?.let { "${it}%" } ?: "—")
+                    if (sensorInfo != null) {
+                        NodeInfoRow("Provider", sensorInfo.provider)
+                        NodeInfoRow("Model", sensorInfo.model)
+                        NodeInfoRow("Location ID", sensorInfo.locationId.toString())
+                        NodeInfoRow("Install Date", sensorInfo.installationDate)
+                    }
                 }
             }
         }
