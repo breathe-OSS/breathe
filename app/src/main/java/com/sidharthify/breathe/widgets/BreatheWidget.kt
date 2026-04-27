@@ -7,6 +7,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.glance.ColorFilter
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
@@ -16,6 +17,8 @@ import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
+import androidx.glance.Image
+import androidx.glance.ImageProvider
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.action.actionRunCallback
@@ -31,6 +34,7 @@ import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.sidharthify.breathe.MainActivity
+import com.sidharthify.breathe.R
 import com.sidharthify.breathe.util.calculateUsAqi
 import com.sidharthify.breathe.util.getAqiColor
 import com.sidharthify.breathe.widgets.BreatheWidgetWorker.Companion.PREF_AQI
@@ -144,7 +148,7 @@ class BreatheWidget : GlanceAppWidget() {
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             WidgetIconButton(
-                                symbol = if (isLoading) "..." else "↻",
+                                symbol = if (isLoading) R.drawable.outline_pending_24 else R.drawable.outline_refresh_24,
                                 contentColor = if (isLoading) outline else onSurface,
                                 containerColor = surfaceVariant,
                                 actionClass = RefreshCallback::class.java,
@@ -152,9 +156,9 @@ class BreatheWidget : GlanceAppWidget() {
 
                             if (totalPins > 1) {
                                 Spacer(GlanceModifier.width(8.dp))
-                                WidgetIconButton("◄", onSurface, surfaceVariant, PrevLocationAction::class.java)
+                                WidgetIconButton(R.drawable.outline_arrow_left_24, onSurface, surfaceVariant, PrevLocationAction::class.java)
                                 Spacer(GlanceModifier.width(4.dp))
-                                WidgetIconButton("►", onSurface, surfaceVariant, NextLocationAction::class.java)
+                                WidgetIconButton(R.drawable.outline_arrow_right_24, onSurface, surfaceVariant, NextLocationAction::class.java)
                             }
                         }
                     }
@@ -196,7 +200,7 @@ class BreatheWidget : GlanceAppWidget() {
 
     @Composable
     private fun WidgetIconButton(
-        symbol: String,
+        symbol: Int,
         contentColor: ColorProvider,
         containerColor: ColorProvider,
         actionClass: Class<out ActionCallback>,
@@ -210,15 +214,10 @@ class BreatheWidget : GlanceAppWidget() {
                     .clickable(actionRunCallback(actionClass)),
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                text = symbol,
-                style =
-                    TextStyle(
-                        color = contentColor,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                    ),
+            Image(
+                provider = ImageProvider(symbol),
+                contentDescription = contentColor.toString(),
+                colorFilter = ColorFilter.tint(contentColor)
             )
         }
     }
