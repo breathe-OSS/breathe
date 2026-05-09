@@ -73,6 +73,7 @@ data class AqiResponse(
     @SerializedName("timestamp_unix") val timestampUnix: Double?,
     @SerializedName("last_update") val lastUpdateStr: String?,
     @SerializedName("history") val history: List<HistoryPoint>? = emptyList(),
+    @SerializedName("averages_24h") val averages24h: Map<String, Double>? = null,
     @SerializedName("trends") val trends: Trends? = null,
     @SerializedName("warning") val warning: String? = null,
     @SerializedName("source") val source: String? = null,

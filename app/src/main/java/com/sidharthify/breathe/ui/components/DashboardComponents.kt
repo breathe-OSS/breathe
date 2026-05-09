@@ -155,7 +155,8 @@ fun MainDashboardDetail(
         }
 
     val aqiLabel = if (!isUsAqi) "US AQI" else "NAQI"
-    val cigarettes = if (pm25 > 0) calculateCigarettes(pm25) else 0.0
+    val pm25For24h = zone.averages24h?.get("pm2_5") ?: zone.averages24h?.get("pm2.5") ?: pm25
+    val cigarettes = if (pm25For24h > 0) calculateCigarettes(pm25For24h) else 0.0
 
     val configuration = LocalConfiguration.current
     val screenWidth = configuration.screenWidthDp
