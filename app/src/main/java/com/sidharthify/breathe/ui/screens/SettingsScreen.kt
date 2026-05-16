@@ -401,6 +401,9 @@ fun SettingsScreen(
             SettingsItem("Breathe OSS", "View Source on GitHub", onClick = {
                 uriHandler.openUri("https://github.com/breathe-OSS/breathe")
             }, showDivider = false)
+            SettingsItem("About Breathe", "View our philosophy and vision", onClick = {
+                uriHandler.openUri("https://about.breatheoss.app")
+            }, showDivider = false)
         }
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -628,6 +631,13 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.expressiveClickable { uriHandler.openUri("https://github.com/breathe-OSS/breathe/releases/") },
                 )
+                // #### updates #### //
+        Text(
+            "Updates (from GitHub)",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(start = 12.dp, bottom = 8.dp),
+        )
             }
         }
     }
