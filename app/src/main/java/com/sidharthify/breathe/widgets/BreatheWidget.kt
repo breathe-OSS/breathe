@@ -1,3 +1,29 @@
+// SPDX-License-Identifier: MIT
+/*
+ * BreatheWidget.kt
+ *
+ * Copyright (C) 2026 The Breathe Open Source Project
+ * Copyright (C) 2026 sidharthify <wednisegit@gmail.com>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 package com.sidharthify.breathe.widgets
 
 import android.content.Context
@@ -36,7 +62,7 @@ import androidx.glance.unit.ColorProvider
 import com.sidharthify.breathe.MainActivity
 import com.sidharthify.breathe.R
 import com.sidharthify.breathe.util.calculateUsAqi
-import com.sidharthify.breathe.util.getAqiColor
+import com.sidharthify.breathe.util.getAqiCategory
 import com.sidharthify.breathe.widgets.BreatheWidgetWorker.Companion.PREF_AQI
 import com.sidharthify.breathe.widgets.BreatheWidgetWorker.Companion.PREF_CO
 import com.sidharthify.breathe.widgets.BreatheWidgetWorker.Companion.PREF_IS_US_AQI
@@ -50,255 +76,401 @@ import com.sidharthify.breathe.widgets.BreatheWidgetWorker.Companion.PREF_STATUS
 import com.sidharthify.breathe.widgets.BreatheWidgetWorker.Companion.PREF_TOTAL_PINS
 import com.sidharthify.breathe.widgets.BreatheWidgetWorker.Companion.PREF_ZONE_NAME
 
+// MARK: - Palette
+
+private val surface      = ColorProvider(Color(0xFF1A1C22))
+private val onSurface    = ColorProvider(Color(0xFFE3E5EC))
+private val onSurfaceSub = ColorProvider(Color(0xFF9AA0B4))
+private val chipBg       = ColorProvider(Color(0x22FFFFFF))
+
+// MARK: - BreatheWidget
+
 class BreatheWidget : GlanceAppWidget() {
     override val sizeMode =
         SizeMode.Responsive(
             setOf(
-                DpSize(40.dp, 40.dp),
+                DpSize(40.dp,  40.dp),
                 DpSize(100.dp, 100.dp),
                 DpSize(200.dp, 140.dp),
             ),
         )
 
-    override suspend fun provideGlance(
-        context: Context,
-        id: GlanceId,
-    ) {
+    override suspend fun provideGlance(context: Context, id: GlanceId) {
         provideContent {
-            GlanceTheme {
-                WidgetContent()
-            }
+            GlanceTheme { WidgetContent() }
         }
     }
+
+    // MARK: Root
 
     @Composable
     private fun WidgetContent() {
-        val prefs = androidx.glance.currentState<androidx.datastore.preferences.core.Preferences>()
-        val size = LocalSize.current
-        val status = prefs[PREF_STATUS] ?: "Loading"
+        val prefs     = androidx.glance.currentState<androidx.datastore.preferences.core.Preferences>()
+        val size      = LocalSize.current
+        val status    = prefs[PREF_STATUS] ?: "Loading"
         val isLoading = status == "Loading"
 
-        val bgColor = GlanceTheme.colors.surface
-        val onSurface = GlanceTheme.colors.onSurface
-        val onSurfaceVariant = GlanceTheme.colors.onSurfaceVariant
-        val outline = GlanceTheme.colors.outline
-        val surfaceVariant = GlanceTheme.colors.surfaceVariant
-
         if (status == "Empty") {
-            EmptyStateWidget(bgColor, onSurface)
+            EmptyStateWidget()
             return
         }
 
-        val zoneName = prefs[PREF_ZONE_NAME] ?: "..."
-        val rawAqi = prefs[PREF_AQI] ?: 0
-        val isUsAqi = prefs[PREF_IS_US_AQI] ?: false
-        val pm25 = prefs[PREF_PM25] ?: 0.0
+        val zoneName    = prefs[PREF_ZONE_NAME]  ?: "…"
+        val rawAqi      = prefs[PREF_AQI]        ?: 0
+        val isUsAqi     = prefs[PREF_IS_US_AQI]  ?: false
+        val pm25        = prefs[PREF_PM25]        ?: 0.0
+        val totalPins   = prefs[PREF_TOTAL_PINS]  ?: 1
+        val rawProvider = prefs[PREF_PROVIDER]    ?: ""
 
-        // Calculate AQI based on preference
-        val displayAqi = (if (!isUsAqi && pm25 > 0) calculateUsAqi(pm25) else rawAqi).coerceAtMost(500)
-        val aqiLabel = if (!isUsAqi) "US AQI" else "NAQI"
+        // is_us_aqi: false = US AQI (default), true = Indian NAQI
+        val isNaqi        = isUsAqi
+        val displayAqi    = (if (!isNaqi && pm25 > 0) calculateUsAqi(pm25) else rawAqi).coerceAtMost(500)
+        val aqiStd        = if (isNaqi) "NAQI" else "US AQI"
+        val category      = getAqiCategory(displayAqi, !isNaqi).label
+        val providerName  = if (rawProvider.contains("airgradient", ignoreCase = true)) "airgradient" else "openmeteo"
 
-        val rawProvider = prefs[PREF_PROVIDER] ?: ""
-        val providerText = rawProvider.replace("Source: ", "").replace("-", " ")
-
-        val totalPins = prefs[PREF_TOTAL_PINS] ?: 1
-        val aqiColor = ColorProvider(getAqiColor(displayAqi, !isUsAqi))
-
-        val isTiny = size.width < 90.dp || size.height < 90.dp
+        val isTiny   = size.width < 90.dp || size.height < 90.dp
         val isNarrow = size.width < 160.dp
-        val showPollutants = size.height >= 130.dp && !isNarrow
-
-        val bigTextSize =
-            when {
-                isNarrow -> 42.sp
-                else -> 56.sp
-            }
 
         Box(
-            modifier =
-                GlanceModifier
-                    .fillMaxSize()
-                    .background(bgColor)
-                    .cornerRadius(24.dp)
-                    .clickable(actionStartActivity<MainActivity>())
-                    .padding(16.dp),
+            modifier = GlanceModifier
+                .fillMaxSize()
+                .background(surface)
+                .cornerRadius(28.dp)
+                .clickable(actionStartActivity<MainActivity>()),
         ) {
             if (isTiny) {
-                Column(
-                    modifier = GlanceModifier.fillMaxSize(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text("$displayAqi", style = TextStyle(fontSize = 26.sp, fontWeight = FontWeight.Bold, color = aqiColor))
-                    Text("AQI", style = TextStyle(fontSize = 11.sp, color = onSurfaceVariant))
-                }
+                TinyWidget(displayAqi, isLoading)
+            } else if (isNarrow) {
+                SmallWidget(
+                    zoneName     = zoneName,
+                    displayAqi   = displayAqi,
+                    aqiStd       = aqiStd,
+                    providerName = providerName,
+                    pm25         = prefs[PREF_PM25] ?: -1.0,
+                    pm10         = prefs[PREF_PM10] ?: -1.0,
+                    totalPins    = totalPins,
+                    isLoading    = isLoading,
+                )
             } else {
-                Column(modifier = GlanceModifier.fillMaxSize()) {
-                    Row(
-                        modifier = GlanceModifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(modifier = GlanceModifier.defaultWeight()) {
-                            Text(
-                                text = zoneName,
-                                style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, color = onSurface),
-                                maxLines = 1,
-                            )
-                        }
-
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            WidgetIconButton(
-                                symbol = if (isLoading) R.drawable.outline_pending_24 else R.drawable.outline_refresh_24,
-                                contentColor = if (isLoading) outline else onSurface,
-                                containerColor = surfaceVariant,
-                                actionClass = RefreshCallback::class.java,
-                            )
-
-                            if (totalPins > 1) {
-                                Spacer(GlanceModifier.width(8.dp))
-                                WidgetIconButton(R.drawable.outline_arrow_left_24, onSurface, surfaceVariant, PrevLocationAction::class.java)
-                                Spacer(GlanceModifier.width(4.dp))
-                                WidgetIconButton(R.drawable.outline_arrow_right_24, onSurface, surfaceVariant, NextLocationAction::class.java)
-                            }
-                        }
-                    }
-
-                    Spacer(GlanceModifier.defaultWeight())
-
-                    Row(
-                        modifier = GlanceModifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.Bottom,
-                    ) {
-                        Text(
-                            text = "$displayAqi",
-                            style = TextStyle(fontSize = bigTextSize, fontWeight = FontWeight.Medium, color = aqiColor),
-                            modifier = GlanceModifier.padding(bottom = (-6).dp),
-                        )
-                        Spacer(GlanceModifier.width(8.dp))
-                        Column(modifier = GlanceModifier.padding(bottom = 6.dp)) {
-                            Text(aqiLabel, style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = aqiColor))
-                        }
-                    }
-
-                    Spacer(GlanceModifier.defaultWeight())
-
-                    if (showPollutants) {
-                        Spacer(GlanceModifier.height(12.dp))
-                        PollutantGrid(prefs, onSurface, onSurfaceVariant)
-                    }
-                    if (providerText.isNotEmpty()) {
-                        Spacer(GlanceModifier.height(8.dp))
-                        Text(
-                            text = providerText,
-                            style = TextStyle(fontSize = 10.sp, color = outline, fontWeight = FontWeight.Medium),
-                        )
-                    }
-                }
+                MediumWidget(
+                    zoneName     = zoneName,
+                    displayAqi   = displayAqi,
+                    aqiStd       = aqiStd,
+                    category     = category,
+                    providerName = providerName,
+                    pm25         = prefs[PREF_PM25] ?: -1.0,
+                    pm10         = prefs[PREF_PM10] ?: -1.0,
+                    no2          = prefs[PREF_NO2]  ?: -1.0,
+                    so2          = prefs[PREF_SO2]  ?: -1.0,
+                    co           = prefs[PREF_CO]   ?: -1.0,
+                    o3           = prefs[PREF_O3]   ?: -1.0,
+                    totalPins    = totalPins,
+                    isLoading    = isLoading,
+                )
             }
         }
     }
 
+    // MARK: TinyWidget
+
     @Composable
-    private fun WidgetIconButton(
-        symbol: Int,
-        contentColor: ColorProvider,
-        containerColor: ColorProvider,
-        actionClass: Class<out ActionCallback>,
-    ) {
-        Box(
-            modifier =
-                GlanceModifier
-                    .size(32.dp)
-                    .background(containerColor)
-                    .cornerRadius(12.dp)
-                    .clickable(actionRunCallback(actionClass)),
-            contentAlignment = Alignment.Center,
+    private fun TinyWidget(aqi: Int, isLoading: Boolean) {
+        Column(
+            modifier            = GlanceModifier.fillMaxSize().padding(12.dp),
+            verticalAlignment   = Alignment.CenterVertically,
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Image(
-                provider = ImageProvider(symbol),
-                contentDescription = contentColor.toString(),
-                colorFilter = ColorFilter.tint(contentColor)
+            Text(
+                text  = if (isLoading) "…" else "$aqi",
+                style = TextStyle(fontSize = 28.sp, fontWeight = FontWeight.Bold, color = onSurface),
+            )
+            Text(
+                text  = "AQI",
+                style = TextStyle(fontSize = 10.sp, color = onSurfaceSub, fontWeight = FontWeight.Medium),
             )
         }
     }
 
+    // MARK: SmallWidget
+
     @Composable
-    private fun PollutantGrid(
-        prefs: androidx.datastore.preferences.core.Preferences,
-        textColor: ColorProvider,
-        labelColor: ColorProvider,
+    private fun SmallWidget(
+        zoneName: String,
+        displayAqi: Int,
+        aqiStd: String,
+        providerName: String,
+        pm25: Double,
+        pm10: Double,
+        totalPins: Int,
+        isLoading: Boolean,
     ) {
-        val pm25 = prefs[PREF_PM25] ?: -1.0
-        val pm10 = prefs[PREF_PM10] ?: -1.0
-        val no2 = prefs[PREF_NO2] ?: -1.0
-        val so2 = prefs[PREF_SO2] ?: -1.0
-        val co = prefs[PREF_CO] ?: -1.0
-        val o3 = prefs[PREF_O3] ?: -1.0
-
-        fun fmt(d: Double) = if (d < 0) "--" else d.toInt().toString()
-
-        Column(modifier = GlanceModifier.fillMaxWidth()) {
-            Box(modifier = GlanceModifier.fillMaxWidth().height(1.dp).background(GlanceTheme.colors.outline)) {}
-            Spacer(GlanceModifier.height(8.dp))
-
-            Row(modifier = GlanceModifier.fillMaxWidth()) {
-                PollutantItem("PM2.5", fmt(pm25), textColor, labelColor, GlanceModifier.defaultWeight())
-                PollutantItem("PM10", fmt(pm10), textColor, labelColor, GlanceModifier.defaultWeight())
-                PollutantItem("NO₂", fmt(no2), textColor, labelColor, GlanceModifier.defaultWeight())
+        Column(
+            modifier = GlanceModifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 14.dp),
+        ) {
+            Row(
+                modifier          = GlanceModifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text     = zoneName,
+                    style    = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = onSurface),
+                    maxLines = 1,
+                    modifier = GlanceModifier.defaultWeight(),
+                )
+                NavControls(totalPins, isLoading)
+                Spacer(GlanceModifier.width(6.dp))
+                ProviderBadge(providerName)
             }
-            Spacer(GlanceModifier.height(4.dp))
-            Row(modifier = GlanceModifier.fillMaxWidth()) {
-                PollutantItem("SO₂", fmt(so2), textColor, labelColor, GlanceModifier.defaultWeight())
-                PollutantItem("CO", fmt(co), textColor, labelColor, GlanceModifier.defaultWeight())
-                PollutantItem("O₃", fmt(o3), textColor, labelColor, GlanceModifier.defaultWeight())
+
+            Spacer(GlanceModifier.defaultWeight())
+
+            Text(
+                text  = "$displayAqi",
+                style = TextStyle(fontSize = 52.sp, fontWeight = FontWeight.Medium, color = onSurface),
+            )
+
+            Spacer(GlanceModifier.defaultWeight())
+
+            Row(
+                modifier          = GlanceModifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    PollutantChip("PM2.5", pm25)
+                    Spacer(GlanceModifier.width(10.dp))
+                    PollutantChip("PM10",  pm10)
+                }
+                Spacer(GlanceModifier.defaultWeight())
+                Text(
+                    text  = aqiStd,
+                    style = TextStyle(
+                        fontSize   = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        color      = onSurfaceSub,
+                        textAlign  = TextAlign.End,
+                    ),
+                )
             }
         }
     }
 
+    // MARK: MediumWidget
+
     @Composable
-    private fun PollutantItem(
-        label: String,
-        value: String,
-        textColor: ColorProvider,
-        labelColor: ColorProvider,
-        modifier: GlanceModifier,
+    private fun MediumWidget(
+        zoneName: String,
+        displayAqi: Int,
+        aqiStd: String,
+        category: String,
+        providerName: String,
+        pm25: Double,
+        pm10: Double,
+        no2: Double,
+        so2: Double,
+        co: Double,
+        o3: Double,
+        totalPins: Int,
+        isLoading: Boolean,
     ) {
-        Column(modifier = modifier, horizontalAlignment = Alignment.Start) {
-            Text(text = label, style = TextStyle(fontSize = 10.sp, color = labelColor, fontWeight = FontWeight.Medium))
-            Text(text = value, style = TextStyle(fontSize = 13.sp, color = textColor, fontWeight = FontWeight.Bold))
+        Column(
+            modifier = GlanceModifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 16.dp),
+        ) {
+            Row(
+                modifier          = GlanceModifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text     = zoneName,
+                    style    = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Bold, color = onSurface),
+                    maxLines = 1,
+                    modifier = GlanceModifier.defaultWeight(),
+                )
+                NavControls(totalPins, isLoading)
+                Spacer(GlanceModifier.width(8.dp))
+                ProviderBadge(providerName)
+            }
+
+            Spacer(GlanceModifier.defaultWeight())
+
+            Row(
+                modifier          = GlanceModifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text  = "$displayAqi",
+                    style = TextStyle(fontSize = 60.sp, fontWeight = FontWeight.Medium, color = onSurface),
+                )
+                Spacer(GlanceModifier.defaultWeight())
+                Text(
+                    text  = category,
+                    style = TextStyle(
+                        fontSize   = 16.sp,
+                        fontWeight = FontWeight.Medium,
+                        color      = onSurface,
+                        textAlign  = TextAlign.End,
+                    ),
+                )
+            }
+
+            Spacer(GlanceModifier.defaultWeight())
+
+            Row(
+                modifier          = GlanceModifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    PollutantChip("PM2.5", pm25)
+                    Spacer(GlanceModifier.width(10.dp))
+                    PollutantChip("PM10",  pm10)
+                    Spacer(GlanceModifier.width(10.dp))
+                    PollutantChip("CO",    co)
+                    Spacer(GlanceModifier.width(10.dp))
+                    PollutantChip("SO₂",   so2)
+                    Spacer(GlanceModifier.width(10.dp))
+                    PollutantChip("NO₂",   no2)
+                    Spacer(GlanceModifier.width(10.dp))
+                    PollutantChip("O₃",    o3)
+                }
+                Spacer(GlanceModifier.defaultWeight())
+                Text(
+                    text  = aqiStd,
+                    style = TextStyle(
+                        fontSize   = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color      = onSurfaceSub,
+                        textAlign  = TextAlign.End,
+                    ),
+                )
+            }
         }
     }
 
+    // MARK: PollutantChip
+
     @Composable
-    private fun EmptyStateWidget(
-        bgColor: ColorProvider,
-        textColor: ColorProvider,
+    private fun PollutantChip(label: String, value: Double) {
+        if (value >= 0) {
+            Column(horizontalAlignment = Alignment.Start) {
+                Text(
+                    text  = label,
+                    style = TextStyle(fontSize = 9.sp, color = onSurfaceSub, fontWeight = FontWeight.Medium),
+                )
+                Text(
+                    text  = formatVal(value),
+                    style = TextStyle(fontSize = 12.sp, color = onSurface, fontWeight = FontWeight.Bold),
+                )
+            }
+        }
+    }
+
+    // MARK: NavControls
+
+    @Composable
+    private fun NavControls(totalPins: Int, isLoading: Boolean) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            NavIconButton(
+                symbol       = if (isLoading) R.drawable.outline_pending_24 else R.drawable.outline_refresh_24,
+                contentColor = if (isLoading) onSurfaceSub else onSurface,
+                actionClass  = RefreshCallback::class.java,
+            )
+            if (totalPins > 1) {
+                Spacer(GlanceModifier.width(4.dp))
+                NavIconButton(R.drawable.outline_arrow_left_24,  onSurface, PrevLocationAction::class.java)
+                Spacer(GlanceModifier.width(4.dp))
+                NavIconButton(R.drawable.outline_arrow_right_24, onSurface, NextLocationAction::class.java)
+            }
+        }
+    }
+
+    // MARK: NavIconButton
+
+    @Composable
+    private fun NavIconButton(
+        symbol: Int,
+        contentColor: ColorProvider,
+        actionClass: Class<out ActionCallback>,
     ) {
         Box(
-            modifier =
-                GlanceModifier
-                    .fillMaxSize()
-                    .background(bgColor)
-                    .cornerRadius(24.dp)
-                    .clickable(actionStartActivity<MainActivity>())
-                    .padding(16.dp),
+            modifier = GlanceModifier
+                .size(28.dp)
+                .background(chipBg)
+                .cornerRadius(14.dp)
+                .clickable(actionRunCallback(actionClass)),
             contentAlignment = Alignment.Center,
         ) {
-            Text("Tap to setup", style = TextStyle(color = textColor, fontSize = 14.sp, fontWeight = FontWeight.Medium))
+            Image(
+                provider           = ImageProvider(symbol),
+                contentDescription = null,
+                colorFilter        = ColorFilter.tint(contentColor),
+                modifier           = GlanceModifier.size(16.dp),
+            )
+        }
+    }
+
+    // MARK: ProviderBadge
+
+    @Composable
+    private fun ProviderBadge(name: String) {
+        Box(
+            modifier = GlanceModifier
+                .background(chipBg)
+                .cornerRadius(12.dp)
+                .padding(horizontal = 7.dp, vertical = 3.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text  = name,
+                style = TextStyle(
+                    fontSize   = 9.sp,
+                    fontWeight = FontWeight.Medium,
+                    color      = onSurfaceSub,
+                ),
+            )
+        }
+    }
+
+    // MARK: EmptyStateWidget
+
+    @Composable
+    private fun EmptyStateWidget() {
+        Box(
+            modifier = GlanceModifier
+                .fillMaxSize()
+                .background(surface)
+                .cornerRadius(28.dp)
+                .clickable(actionStartActivity<MainActivity>())
+                .padding(20.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text  = "No zones pinned",
+                    style = TextStyle(color = onSurface, fontSize = 14.sp, fontWeight = FontWeight.Bold),
+                )
+                Spacer(GlanceModifier.height(4.dp))
+                Text(
+                    text  = "Open Breathe to pin locations",
+                    style = TextStyle(color = onSurfaceSub, fontSize = 11.sp),
+                )
+            }
         }
     }
 }
 
+// MARK: - Helpers
+
+private fun formatVal(d: Double): String =
+    if (d < 0) "--"
+    else if (d < 10) String.format("%.1f", d)
+    else d.toInt().toString()
+
+// MARK: - Callbacks
+
 class RefreshCallback : ActionCallback {
-    override suspend fun onAction(
-        context: Context,
-        glanceId: GlanceId,
-        parameters: ActionParameters,
-    ) {
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
         updateAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId) { prefs ->
-            prefs.toMutablePreferences().apply {
-                this[BreatheWidgetWorker.PREF_STATUS] = "Loading"
-            }
+            prefs.toMutablePreferences().apply { this[BreatheWidgetWorker.PREF_STATUS] = "Loading" }
         }
         BreatheWidget().update(context, glanceId)
 
@@ -329,10 +501,7 @@ class BreatheWidgetReceiver : GlanceAppWidgetReceiver() {
         triggerWorker(context)
     }
 
-    override fun onReceive(
-        context: Context,
-        intent: Intent,
-    ) {
+    override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
         if (intent.action == "com.sidharthify.breathe.FORCE_WIDGET_UPDATE") {
             triggerWorker(context)
