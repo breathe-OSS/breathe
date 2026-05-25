@@ -1,30 +1,3 @@
-// SPDX-License-Identifier: MIT
-/*
- * GraphComponents.kt - Composable components for displaying graphs and charts
- *
- * Copyright (C) 2026 The Breathe Open Source Project
- * Copyright (C) 2026 sidharthify <wednisegit@gmail.com>
- * Copyright (C) 2026 Suvesh Moza <hellosuvesh@gmail.com>
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
- */
-
 package com.sidharthify.breathe.ui.screens
 
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
@@ -56,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -64,6 +38,7 @@ import com.sidharthify.breathe.data.Zone
 import com.sidharthify.breathe.data.SensorInfo
 import com.sidharthify.breathe.ui.components.EmptyStateCard
 import com.sidharthify.breathe.ui.components.ErrorCard
+import com.sidharthify.breathe.ui.components.ExtendedHistoryScreen
 import com.sidharthify.breathe.ui.components.LoadingScreen
 import com.sidharthify.breathe.ui.components.MainDashboardDetail
 import com.sidharthify.breathe.ui.components.PinnedZonesButtonGroup
@@ -84,10 +59,13 @@ fun HomeScreen(
     viewModel: BreatheViewModel = viewModel(),
 ) {
     val isUsAqi by viewModel.isUsAqi.collectAsState()
+    val historyState by viewModel.historyState.collectAsState()
+    val context = LocalContext.current
 
     val pullRefreshState = rememberPullToRefreshState()
 
     var selectedZone by remember { mutableStateOf(pinnedZones.firstOrNull()) }
+    var showHistory by remember { mutableStateOf(false) }
 
     LaunchedEffect(pinnedZones) {
         if (selectedZone == null && pinnedZones.isNotEmpty()) {
@@ -103,6 +81,29 @@ fun HomeScreen(
                 selectedZone = pinnedZones.first()
             }
         }
+    }
+
+    if (showHistory && selectedZone != null) {
+        val nodeKeys = remember(selectedZone) {
+            selectedZone?.nodes?.keys?.toList() ?: emptyList()
+        }
+
+        ExtendedHistoryScreen(
+            zoneName = selectedZone!!.zoneName,
+            historyState = historyState,
+            nodeKeys = nodeKeys,
+            onBack = { showHistory = false },
+            onRangeSelected = { viewModel.setHistoryRange(it) },
+            onToggleCustom = { viewModel.toggleHistoryCustomInputs() },
+            onCustomRangeChanged = { viewModel.setCustomRange(it) },
+            onCustomIntervalChanged = { viewModel.setCustomInterval(it) },
+            onApplyCustom = { viewModel.applyCustomHistory() },
+            onSensorSelected = { viewModel.setHistorySensor(it) },
+            onTogglePm25 = { viewModel.toggleHistoryPm25() },
+            onTogglePm10 = { viewModel.toggleHistoryPm10() },
+            onDownloadCSV = { viewModel.downloadHistoryCSV(context) },
+        )
+        return
     }
 
     PullToRefreshBox(
@@ -184,6 +185,10 @@ fun HomeScreen(
                             isDarkTheme = isDarkTheme,
                             isUsAqi = isUsAqi,
                             sensorInfos = sensorInfos,
+                            onOpenHistory = {
+                                viewModel.openHistory(selectedZone!!.zoneId)
+                                showHistory = true
+                            },
                         )
                     }
                 }
@@ -191,3 +196,4 @@ fun HomeScreen(
         }
     }
 }
+

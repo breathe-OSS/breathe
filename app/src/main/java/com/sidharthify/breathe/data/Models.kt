@@ -104,6 +104,41 @@ data class NodeReading(
     @SerializedName("history") val history: List<NodeHistoryPoint>? = emptyList(),
 )
 
+data class HistoricalDataPoint(
+    @SerializedName("zone_id") val zoneId: String?,
+    @SerializedName("ts") val ts: Long,
+    @SerializedName("pm2_5") val pm25: Double?,
+    @SerializedName("pm10") val pm10: Double?,
+)
+
+data class HistoricalStats(
+    @SerializedName("max_pm2_5") val maxPm25: Double?,
+    @SerializedName("min_pm2_5") val minPm25: Double?,
+    @SerializedName("avg_pm2_5") val avgPm25: Double?,
+    @SerializedName("max_pm10") val maxPm10: Double?,
+    @SerializedName("min_pm10") val minPm10: Double?,
+    @SerializedName("avg_pm10") val avgPm10: Double?,
+)
+
+data class HistoricalDataResponse(
+    @SerializedName("data") val data: List<HistoricalDataPoint>,
+    @SerializedName("stats") val stats: HistoricalStats?,
+)
+
+data class HistoryState(
+    val isLoading: Boolean = false,
+    val data: List<HistoricalDataPoint> = emptyList(),
+    val stats: HistoricalStats? = null,
+    val selectedRange: String = "1w",
+    val selectedSensor: String = "zone",
+    val showPm25: Boolean = true,
+    val showPm10: Boolean = true,
+    val customRange: String = "14d",
+    val customInterval: String = "1h",
+    val showCustomInputs: Boolean = false,
+    val error: String? = null,
+)
+
 data class AppState(
     val isLoading: Boolean = true,
     val error: String? = null,

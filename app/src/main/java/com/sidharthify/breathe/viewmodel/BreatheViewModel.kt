@@ -27,12 +27,15 @@
 package com.sidharthify.breathe.viewmodel
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.sidharthify.breathe.data.AppState
 import com.sidharthify.breathe.data.AqiResponse
+import com.sidharthify.breathe.data.HistoryState
 import com.sidharthify.breathe.data.RetrofitClient
 import com.sidharthify.breathe.data.SensorInfo
 import com.sidharthify.breathe.data.Zone
@@ -58,6 +61,12 @@ class BreatheViewModel : ViewModel() {
     // AQI Standard: false = US AQI (default), true = Indian NAQI
     private val _isUsAqi = MutableStateFlow(false)
     val isUsAqi = _isUsAqi.asStateFlow()
+
+    // Extended History state
+    private val _historyState = MutableStateFlow(HistoryState())
+    val historyState = _historyState.asStateFlow()
+
+    private var _historyZoneId: String? = null
 
     private val gson = Gson()
     private var pollingJob: Job? = null
@@ -265,4 +274,120 @@ class BreatheViewModel : ViewModel() {
 
         forceWidgetUpdate(context)
     }
+
+    // ── Extended History ──
+
+    fun openHistory(zoneId: String) {
+        _historyZoneId = zoneId
+        _historyState.value = HistoryState()
+        fetchHistoricalData()
+    }
+
+    fun setHistoryRange(range: String) {
+        _historyState.update { it.copy(selectedRange = range, showCustomInputs = false) }
+        fetchHistoricalData()
+    }
+
+    fun toggleHistoryCustomInputs() {
+        _historyState.update { it.copy(showCustomInputs = !it.showCustomInputs) }
+    }
+
+    fun setCustomRange(range: String) {
+        _historyState.update { it.copy(customRange = range) }
+    }
+
+    fun setCustomInterval(interval: String) {
+        _historyState.update { it.copy(customInterval = interval) }
+    }
+
+    fun applyCustomHistory() {
+        _historyState.update { it.copy(selectedRange = it.customRange) }
+        fetchHistoricalData()
+    }
+
+    fun setHistorySensor(sensor: String) {
+        _historyState.update { it.copy(selectedSensor = sensor) }
+        fetchHistoricalData()
+    }
+
+    fun toggleHistoryPm25() {
+        _historyState.update { it.copy(showPm25 = !it.showPm25) }
+        fetchHistoricalData()
+    }
+
+    fun toggleHistoryPm10() {
+        _historyState.update { it.copy(showPm10 = !it.showPm10) }
+        fetchHistoricalData()
+    }
+
+    private fun fetchHistoricalData() {
+        val zoneId = _historyZoneId ?: return
+        val state = _historyState.value
+
+        val location = if (state.selectedSensor == "zone") zoneId else "${zoneId}_${state.selectedSensor}"
+
+        val interval = if (state.showCustomInputs) {
+            state.customInterval
+        } else {
+            when (state.selectedRange) {
+                "1w" -> "1h"
+                "1mo" -> "4h"
+                "6mo" -> "1d"
+                else -> "1h"
+            }
+        }
+
+        val metrics = buildList {
+            if (state.showPm25) add("pm2.5")
+            if (state.showPm10) add("pm10")
+            if (isEmpty()) { add("pm2.5"); add("pm10") }
+        }.joinToString(",")
+
+        _historyState.update { it.copy(isLoading = true, error = null) }
+
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val response = RetrofitClient.api.getHistoricalData(
+                    location = location,
+                    timeRange = state.selectedRange,
+                    interval = interval,
+                    metrics = metrics,
+                )
+                _historyState.update {
+                    it.copy(
+                        isLoading = false,
+                        data = response.data,
+                        stats = response.stats,
+                    )
+                }
+            } catch (e: Exception) {
+                _historyState.update {
+                    it.copy(isLoading = false, error = "Failed to load: ${e.localizedMessage}")
+                }
+            }
+        }
+    }
+
+    fun downloadHistoryCSV(context: Context) {
+        val zoneId = _historyZoneId ?: return
+        val state = _historyState.value
+
+        val location = if (state.selectedSensor == "zone") zoneId else "${zoneId}_${state.selectedSensor}"
+        val interval = if (state.showCustomInputs) {
+            state.customInterval
+        } else {
+            when (state.selectedRange) {
+                "1w" -> "1h"
+                "1mo" -> "4h"
+                "6mo" -> "1d"
+                else -> "1h"
+            }
+        }
+
+        val url = "https://api.breatheoss.app/historical-data/$location/${state.selectedRange}/$interval/pm2.5,pm10?format=csv"
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(intent)
+    }
 }
+

@@ -30,6 +30,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.GET
 import retrofit2.http.Path
+import retrofit2.http.Query
 
 interface BreatheApi {
     @GET("/zones")
@@ -42,6 +43,15 @@ interface BreatheApi {
 
     @GET("/sensor-info")
     suspend fun getSensorInfo(): SensorInfoResponse
+
+    @GET("/historical-data/{location}/{time_range}/{interval}/{metrics}")
+    suspend fun getHistoricalData(
+        @Path("location") location: String,
+        @Path("time_range") timeRange: String,
+        @Path("interval") interval: String,
+        @Path("metrics") metrics: String,
+        @Query("format") format: String = "json",
+    ): HistoricalDataResponse
 }
 
 object RetrofitClient {

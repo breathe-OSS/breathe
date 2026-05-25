@@ -141,6 +141,7 @@ fun MainDashboardDetail(
     isDarkTheme: Boolean,
     isUsAqi: Boolean = false,
     sensorInfos: List<SensorInfo> = emptyList(),
+    onOpenHistory: (() -> Unit)? = null,
 ) {
     val pm25 =
         zone.concentrations?.get("pm2.5")
@@ -697,6 +698,18 @@ fun MainDashboardDetail(
                     isUsAqi = isUsAqi,
                     nodes = zone.nodes,
                 )
+            }
+
+            if (isAirGradient && onOpenHistory != null) {
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedButton(
+                    onClick = onOpenHistory,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp),
+                ) {
+                    Text("View Extended History")
+                }
             }
         }
 
