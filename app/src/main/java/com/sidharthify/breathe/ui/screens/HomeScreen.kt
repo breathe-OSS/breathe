@@ -1,5 +1,11 @@
 package com.sidharthify.breathe.ui.screens
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,10 +17,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -67,133 +71,162 @@ fun HomeScreen(
     var selectedZone by remember { mutableStateOf(pinnedZones.firstOrNull()) }
     var showHistory by remember { mutableStateOf(false) }
 
+    // Track whether we just came back from history to scroll to bottom
+    var scrollToBottom by remember { mutableStateOf(false) }
+    val lazyColumnState = rememberLazyListState()
+
     LaunchedEffect(pinnedZones) {
         if (selectedZone == null && pinnedZones.isNotEmpty()) {
             selectedZone = pinnedZones.first()
         } else if (pinnedZones.isNotEmpty()) {
-            // Find the updated version of the currently selected zone
             val updatedZone = pinnedZones.find { it.zoneId == selectedZone?.zoneId }
             if (updatedZone != null) {
-                // Update with fresh data
                 selectedZone = updatedZone
             } else {
-                // Select first available
                 selectedZone = pinnedZones.first()
             }
         }
     }
 
-    if (showHistory && selectedZone != null) {
-        val nodeKeys = remember(selectedZone) {
-            selectedZone?.nodes?.keys?.toList() ?: emptyList()
+    // Scroll to the dashboard_detail item after returning from history
+    LaunchedEffect(scrollToBottom) {
+        if (scrollToBottom) {
+            lazyColumnState.animateScrollToItem(3)
+            scrollToBottom = false
         }
-
-        ExtendedHistoryScreen(
-            zoneName = selectedZone!!.zoneName,
-            historyState = historyState,
-            nodeKeys = nodeKeys,
-            onBack = { showHistory = false },
-            onRangeSelected = { viewModel.setHistoryRange(it) },
-            onToggleCustom = { viewModel.toggleHistoryCustomInputs() },
-            onCustomRangeChanged = { viewModel.setCustomRange(it) },
-            onCustomIntervalChanged = { viewModel.setCustomInterval(it) },
-            onApplyCustom = { viewModel.applyCustomHistory() },
-            onSensorSelected = { viewModel.setHistorySensor(it) },
-            onTogglePm25 = { viewModel.toggleHistoryPm25() },
-            onTogglePm10 = { viewModel.toggleHistoryPm10() },
-            onDownloadCSV = { viewModel.downloadHistoryCSV(context) },
-        )
-        return
     }
 
-    PullToRefreshBox(
-        isRefreshing = isLoading,
-        state = pullRefreshState,
-        onRefresh = onRetry,
-        modifier = Modifier.fillMaxSize(),
-        indicator = {
-            PullToRefreshDefaults.LoadingIndicator(
-                state = pullRefreshState,
-                isRefreshing = isLoading,
-                modifier = Modifier.align(Alignment.TopCenter),
-            )
+    AnimatedContent(
+        targetState = showHistory,
+        transitionSpec = {
+            if (targetState) {
+                // slide in from right
+                (slideInHorizontally { it } + fadeIn()).togetherWith(
+                    slideOutHorizontally { -it / 3 } + fadeOut()
+                )
+            } else {
+                // slide out to right
+                (slideInHorizontally { -it / 3 } + fadeIn()).togetherWith(
+                    slideOutHorizontally { it } + fadeOut()
+                )
+            }
         },
-    ) {
-        if (isLoading && pinnedZones.isEmpty()) {
-            LoadingScreen()
+        label = "HistoryTransition",
+    ) { isHistoryVisible ->
+        if (isHistoryVisible && selectedZone != null) {
+            val nodeKeys = remember(selectedZone) {
+                selectedZone?.nodes?.keys?.toList() ?: emptyList()
+            }
+
+            ExtendedHistoryScreen(
+                zoneName = selectedZone!!.zoneName,
+                historyState = historyState,
+                nodeKeys = nodeKeys,
+                onBack = {
+                    showHistory = false
+                    scrollToBottom = true
+                },
+                onRangeSelected = { viewModel.setHistoryRange(it) },
+                onToggleCustom = { viewModel.toggleHistoryCustomInputs() },
+                onCustomRangeChanged = { viewModel.setCustomRange(it) },
+                onCustomIntervalChanged = { viewModel.setCustomInterval(it) },
+                onApplyCustom = { viewModel.applyCustomHistory() },
+                onSensorSelected = { viewModel.setHistorySensor(it) },
+                onTogglePm25 = { viewModel.toggleHistoryPm25() },
+                onTogglePm10 = { viewModel.toggleHistoryPm10() },
+                onDownloadCSV = { viewModel.downloadHistoryCSV(context) },
+            )
         } else {
-            LazyColumn(
+            PullToRefreshBox(
+                isRefreshing = isLoading,
+                state = pullRefreshState,
+                onRefresh = onRetry,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 100.dp),
-            ) {
-                item {
-                    Text(
-                        "Pinned Locations",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(start = 24.dp, top = 32.dp, bottom = 16.dp),
-                        color = MaterialTheme.colorScheme.onSurface,
+                indicator = {
+                    PullToRefreshDefaults.LoadingIndicator(
+                        state = pullRefreshState,
+                        isRefreshing = isLoading,
+                        modifier = Modifier.align(Alignment.TopCenter),
                     )
-                }
+                },
+            ) {
+                if (isLoading && pinnedZones.isEmpty()) {
+                    LoadingScreen()
+                } else {
+                    LazyColumn(
+                        state = lazyColumnState,
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = 100.dp),
+                    ) {
+                        item {
+                            Text(
+                                "Pinned Locations",
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(start = 24.dp, top = 32.dp, bottom = 16.dp),
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
 
-                item {
-                    if (pinnedZones.isNotEmpty()) {
-                        val listState = rememberLazyListState()
+                        item {
+                            if (pinnedZones.isNotEmpty()) {
+                                val listState = rememberLazyListState()
 
-                        LazyRow(
-                            state = listState,
-                            flingBehavior = rememberSnapFlingBehavior(lazyListState = listState),
-                            contentPadding = PaddingValues(horizontal = 24.dp),
-                            horizontalArrangement = Arrangement.spacedBy(0.dp),
-                        ) {
-                            item {
-                                PinnedZonesButtonGroup(
-                                    zones = pinnedZones,
-                                    selectedZoneId = selectedZone?.zoneId,
+                                LazyRow(
+                                    state = listState,
+                                    flingBehavior = rememberSnapFlingBehavior(lazyListState = listState),
+                                    contentPadding = PaddingValues(horizontal = 24.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(0.dp),
+                                ) {
+                                    item {
+                                        PinnedZonesButtonGroup(
+                                            zones = pinnedZones,
+                                            selectedZoneId = selectedZone?.zoneId,
+                                            isUsAqi = isUsAqi,
+                                            isAmoled = isAmoled,
+                                            onZoneSelected = { selectedZone = it },
+                                        )
+                                    }
+                                }
+                            } else if (error != null) {
+                                Box(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 24.dp),
+                                ) {
+                                    ErrorCard(msg = error, onRetry = onRetry)
+                                }
+                            } else {
+                                EmptyStateCard(onGoToExplore)
+                            }
+                        }
+
+                        item {
+                            Spacer(modifier = Modifier.height(32.dp))
+                        }
+
+                        if (selectedZone != null) {
+                            item(key = "dashboard_detail") {
+                                val provider =
+                                    remember(selectedZone, zones) {
+                                        zones.find { it.id == selectedZone!!.zoneId }?.provider
+                                    }
+                                MainDashboardDetail(
+                                    zone = selectedZone!!,
+                                    provider = provider,
+                                    isDarkTheme = isDarkTheme,
                                     isUsAqi = isUsAqi,
-                                    isAmoled = isAmoled,
-                                    onZoneSelected = { selectedZone = it },
+                                    sensorInfos = sensorInfos,
+                                    onOpenHistory = {
+                                        viewModel.openHistory(selectedZone!!.zoneId)
+                                        showHistory = true
+                                    },
                                 )
                             }
                         }
-                    } else if (error != null) {
-                        Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 24.dp),
-                        ) {
-                            ErrorCard(msg = error, onRetry = onRetry)
-                        }
-                    } else {
-                        EmptyStateCard(onGoToExplore)
-                    }
-                }
-
-                item {
-                    Spacer(modifier = Modifier.height(32.dp))
-                }
-
-                if (selectedZone != null) {
-                    item(key = "dashboard_detail") {
-                        val provider =
-                            remember(selectedZone, zones) {
-                                zones.find { it.id == selectedZone!!.zoneId }?.provider
-                            }
-                        MainDashboardDetail(
-                            zone = selectedZone!!,
-                            provider = provider,
-                            isDarkTheme = isDarkTheme,
-                            isUsAqi = isUsAqi,
-                            sensorInfos = sensorInfos,
-                            onOpenHistory = {
-                                viewModel.openHistory(selectedZone!!.zoneId)
-                                showHistory = true
-                            },
-                        )
                     }
                 }
             }
         }
     }
 }
-
