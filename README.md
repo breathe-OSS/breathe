@@ -36,6 +36,7 @@
 - **Cigarette equivalence**
 - **A map with data laid across**
 - **24 Hour graph of AQI Data**
+- **Detailed extended graph data for sensor based locations**
 - **Widget Support**
 
 ## Tech Stack
