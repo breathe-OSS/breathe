@@ -24,6 +24,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -70,6 +71,11 @@ fun HomeScreen(
 
     var selectedZone by remember { mutableStateOf(pinnedZones.firstOrNull()) }
     var showHistory by remember { mutableStateOf(false) }
+
+    BackHandler(enabled = showHistory) {
+        showHistory = false
+        scrollToBottom = true
+    }
 
     // Track whether we just came back from history to scroll to bottom
     var scrollToBottom by remember { mutableStateOf(false) }
