@@ -72,14 +72,14 @@ fun HomeScreen(
     var selectedZone by remember { mutableStateOf(pinnedZones.firstOrNull()) }
     var showHistory by remember { mutableStateOf(false) }
 
+    // Track whether we just came back from history to scroll to bottom
+    var scrollToBottom by remember { mutableStateOf(false) }
+    val lazyColumnState = rememberLazyListState()
+
     BackHandler(enabled = showHistory) {
         showHistory = false
         scrollToBottom = true
     }
-
-    // Track whether we just came back from history to scroll to bottom
-    var scrollToBottom by remember { mutableStateOf(false) }
-    val lazyColumnState = rememberLazyListState()
 
     LaunchedEffect(pinnedZones) {
         if (selectedZone == null && pinnedZones.isNotEmpty()) {
