@@ -240,19 +240,14 @@ class BreatheWidget : GlanceAppWidget() {
             Spacer(GlanceModifier.defaultWeight())
 
             Row(
-                modifier          = GlanceModifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Bottom,
+                modifier          = GlanceModifier.fillMaxWidth().padding(bottom = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    PollutantChip("PM2.5", pm25)
-                    Spacer(GlanceModifier.width(10.dp))
-                    PollutantChip("PM10",  pm10)
-                }
                 Spacer(GlanceModifier.defaultWeight())
                 Text(
                     text  = aqiStd,
                     style = TextStyle(
-                        fontSize   = 11.sp,
+                        fontSize   = 10.sp,
                         fontWeight = FontWeight.Medium,
                         color      = onSurfaceSub,
                         textAlign  = TextAlign.End,
@@ -356,17 +351,30 @@ class BreatheWidget : GlanceAppWidget() {
     // MARK: PollutantChip
 
     @Composable
-    private fun PollutantChip(label: String, value: Double) {
+    private fun PollutantChip(label: String, value: Double, inline: Boolean = false) {
         if (value >= 0) {
-            Column(horizontalAlignment = Alignment.Start) {
-                Text(
-                    text  = label,
-                    style = TextStyle(fontSize = 9.sp, color = onSurfaceSub, fontWeight = FontWeight.Medium),
-                )
-                Text(
-                    text  = formatVal(value),
-                    style = TextStyle(fontSize = 12.sp, color = onSurface, fontWeight = FontWeight.Bold),
-                )
+            if (inline) {
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        text  = "$label ",
+                        style = TextStyle(fontSize = 10.sp, color = onSurfaceSub, fontWeight = FontWeight.Medium),
+                    )
+                    Text(
+                        text  = formatVal(value),
+                        style = TextStyle(fontSize = 12.sp, color = onSurface, fontWeight = FontWeight.Bold),
+                    )
+                }
+            } else {
+                Column(horizontalAlignment = Alignment.Start) {
+                    Text(
+                        text  = label,
+                        style = TextStyle(fontSize = 9.sp, color = onSurfaceSub, fontWeight = FontWeight.Medium),
+                    )
+                    Text(
+                        text  = formatVal(value),
+                        style = TextStyle(fontSize = 12.sp, color = onSurface, fontWeight = FontWeight.Bold),
+                    )
+                }
             }
         }
     }
