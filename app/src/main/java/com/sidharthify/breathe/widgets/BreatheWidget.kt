@@ -78,10 +78,17 @@ import com.sidharthify.breathe.widgets.BreatheWidgetWorker.Companion.PREF_ZONE_N
 
 // MARK: - Palette
 
-private val surface      = ColorProvider(Color(0xFF1A1C22))
-private val onSurface    = ColorProvider(Color(0xFFE3E5EC))
-private val onSurfaceSub = ColorProvider(Color(0xFF9AA0B4))
-private val chipBg       = ColorProvider(Color(0x22FFFFFF))
+private val surface: ColorProvider
+    @Composable get() = GlanceTheme.colors.surface
+
+private val onSurface: ColorProvider
+    @Composable get() = GlanceTheme.colors.onSurface
+
+private val onSurfaceSub: ColorProvider
+    @Composable get() = GlanceTheme.colors.onSurfaceVariant
+
+private val chipBg: ColorProvider
+    @Composable get() = GlanceTheme.colors.secondaryContainer
 
 // MARK: - BreatheWidget
 
