@@ -354,15 +354,24 @@ fun createMarkerBitmap(
 
     // indicator for AirGradient ground sensors
     if (hasGroundSensor) {
-        val dotRadius = 4f * density
+        val dotRadius = 6f * density
         val dotPaint = Paint().apply {
-            this.color = Color.parseColor("#4CAF50")
+            this.color = Color.parseColor("#39FF14")
             isAntiAlias = true
             style = Paint.Style.FILL
         }
         val dotX = sizePx - dotRadius - (1f * density)
         val dotY = dotRadius + (1f * density)
         canvas.drawCircle(dotX, dotY, dotRadius, dotPaint)
+
+        val dotStrokeWidth = 1.5f * density
+        val dotStrokePaint = Paint().apply {
+            this.color = Color.WHITE
+            isAntiAlias = true
+            style = Paint.Style.STROKE
+            this.strokeWidth = dotStrokeWidth
+        }
+        canvas.drawCircle(dotX, dotY, dotRadius, dotStrokePaint)
     }
 
     return bitmap
