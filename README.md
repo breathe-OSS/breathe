@@ -12,7 +12,7 @@
   <img src="assets/screenshot-3.png" alt="Screenshot 3" width="200" style="border-radius:26px;"/>
 </p>
 
-**Breathe** is a modern, MD3 Android application designed to monitor real-time Air Quality Index (AQI) levels across Jammu & Kashmir. Built with **Kotlin** and **Jetpack Compose**, it provides a clean, fluid interface to track pollution levels using the Indian National Air Quality Index (NAQI) standards.
+**Breathe** is a modern, MD3 Android application designed to monitor real-time Air Quality Index (AQI) levels across J&K & Ladakh. Built with **Kotlin** and **Jetpack Compose**, it provides a clean, fluid interface to track pollution levels using the Indian National Air Quality Index (NAQI) standards.
 
 - Check the [**breathe api**](https://github.com/breathe-OSS/api?tab=readme-ov-file#how-the-aqi-is-calculated) repo to know how the AQI is calculated.
 
@@ -113,17 +113,15 @@ The project follows a standard but modularized android app structure.
 
 ### Why this exists
 
-Publicly available AQI data for the Jammu & Kashmir region is currently unreliable. Most standardized sources rely on sparse sensor networks or algorithmic modeling that does not accurately reflect ground-level realities. This results in widely varying values across different platforms. **Google**, for example, shows values that are insanely **low**, but they are usually off by a huge margin.
+Publicly available AQI data for the J&K & Ladakh region is currently unreliable. Most standardized sources rely on sparse sensor networks or algorithmic modeling that does not accurately reflect ground-level realities. This results in widely varying values across different platforms. **Google**, for example, shows values that are insanely **low**, but they are usually off by a huge margin.
 
 **Breathe** aims to solve this by strictly curating sources and building a ground-truth network.
-
-The method that we use to convert the raw data in our API **(please do read the documentation)** was laid out by scanning past concentration trends from 2025-2022 of the J&K regions.
 
 ## Current Data Sources
 
 ### Open-Meteo
 
-Used for all pollutant values for **most regions** in Jammu & Kashmir (excluding Srinagar, Jammu and Rajouri).
+Used for all pollutant values for **most regions** in J&K & Ladakh (excluding Srinagar, Jammu and Rajouri).
 Open-Meteo's satellite-based air quality model provides stable and consistent values that generally fall within the expected range of nearby ground measurements.
 
 - Air quality & pollutant data: [Open-Meteo Air Quality API](https://open-meteo.com/en/docs/air-quality-api)
