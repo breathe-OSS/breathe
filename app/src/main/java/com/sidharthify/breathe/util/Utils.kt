@@ -185,6 +185,19 @@ fun calculateUsAqi(pm25: Double): Int {
     }
 }
 
+fun calculateUsAqiPm10(pm10: Double): Int {
+    val c = pm10.toInt().toDouble()
+    return when {
+        c <= 54.0 -> linearInterp(c, 0.0, 54.0, 0, 50)
+        c <= 154.0 -> linearInterp(c, 55.0, 154.0, 51, 100)
+        c <= 254.0 -> linearInterp(c, 155.0, 254.0, 101, 150)
+        c <= 354.0 -> linearInterp(c, 255.0, 354.0, 151, 200)
+        c <= 424.0 -> linearInterp(c, 355.0, 424.0, 201, 300)
+        c <= 504.0 -> linearInterp(c, 425.0, 504.0, 301, 400)
+        else -> linearInterp(c, 505.0, 604.0, 401, 500)
+    }
+}
+
 private fun linearInterp(
     c: Double,
     cLow: Double,
