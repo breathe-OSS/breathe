@@ -1,8 +1,8 @@
 package com.sidharthify.breathe.ui.screens
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sidharthify.breathe.data.AqiResponse
@@ -105,15 +106,14 @@ fun HomeScreen(
     AnimatedContent(
         targetState = showHistory,
         transitionSpec = {
+            val slideSpec = tween<IntOffset>(durationMillis = 320, easing = FastOutSlowInEasing)
             if (targetState) {
-                // slide in from right
-                (slideInHorizontally { it } + fadeIn()).togetherWith(
-                    slideOutHorizontally { -it / 3 } + fadeOut()
+                slideInHorizontally(slideSpec) { it }.togetherWith(
+                    slideOutHorizontally(slideSpec) { -it }
                 )
             } else {
-                // slide out to right
-                (slideInHorizontally { -it / 3 } + fadeIn()).togetherWith(
-                    slideOutHorizontally { it } + fadeOut()
+                slideInHorizontally(slideSpec) { -it }.togetherWith(
+                    slideOutHorizontally(slideSpec) { it }
                 )
             }
         },

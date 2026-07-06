@@ -693,7 +693,7 @@ fun MainDashboardDetail(
 
         if (!zone.history.isNullOrEmpty()) {
             Column(modifier = Modifier.padding(horizontal = 24.dp)) {
-                AqiHistoryGraph(
+                HistoryGraphPager(
                     history = zone.history,
                     isUsAqi = isUsAqi,
                     nodes = zone.nodes,
