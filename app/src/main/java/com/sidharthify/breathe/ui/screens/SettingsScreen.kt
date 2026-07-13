@@ -222,7 +222,7 @@ fun SettingsScreen(
             title = { Text("Data Sources") },
             text = {
                 Column {
-                    Text("Jammu & Kashmir regions (excl. Srinagar and Jammu)", fontWeight = FontWeight.Bold)
+                    Text("Non AirGradient enabled zones", fontWeight = FontWeight.Bold)
                     Text("Air quality pollutants data sourced from Open-Meteo.")
                     Text(
                         "open-meteo.com",
@@ -233,7 +233,7 @@ fun SettingsScreen(
                             },
                     )
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text("Srinagar and Jammu", fontWeight = FontWeight.Bold)
+                    Text("AirGradient enabled zones", fontWeight = FontWeight.Bold)
                     Text("PM10 and PM2.5 sourced from AirGradient ground sensor, and others from Open-Meteo")
                     Row {
                         Text(

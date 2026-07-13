@@ -771,7 +771,7 @@ fun ExtendedHistoryPager(
         Spacer(modifier = Modifier.height(6.dp))
 
         Text(
-            text = if (pagerState.currentPage == 0) "Swipe for dots history" else "Swipe for trend graph",
+            text = if (pagerState.currentPage == 0) "Swipe for Dots History" else "Swipe for Trend Graph",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.fillMaxWidth(),
