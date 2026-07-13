@@ -970,7 +970,7 @@ fun ExtendedDotHistoryChart(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                if (hourly) "By day and hour  ·  hold a cell for details" else "Daily average  ·  hold a cell for details",
+                if (hourly) "By Day and Hour  ·  Tap a Cell for Details" else "Daily Average  ·  Tap a Cell for Details",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -981,24 +981,15 @@ fun ExtendedDotHistoryChart(
                     .fillMaxWidth()
                     .weight(1f)
                     .pointerInput(days, hourly, use25, use10) {
-                        detectDragGesturesAfterLongPress(
-                            onDragStart = { offset ->
-                                val hit = hitTest(offset.x, offset.y, size.width.toFloat(), size.height.toFloat())
-                                if (hit != null) {
-                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    selected = hit
-                                }
-                            },
-                            onDragEnd = { selected = null },
-                            onDragCancel = { selected = null },
-                            onDrag = { change, _ ->
-                                val hit = hitTest(change.position.x, change.position.y, size.width.toFloat(), size.height.toFloat())
-                                if (hit != selected) {
-                                    if (hit != null) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    selected = hit
-                                }
-                            },
-                        )
+                        detectTapGestures { offset ->
+                            val hit = hitTest(offset.x, offset.y, size.width.toFloat(), size.height.toFloat())
+                            if (hit == selected) {
+                                selected = null
+                            } else {
+                                if (hit != null) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                selected = hit
+                            }
+                        }
                     },
             ) {
                 if (days.isEmpty()) return@Canvas

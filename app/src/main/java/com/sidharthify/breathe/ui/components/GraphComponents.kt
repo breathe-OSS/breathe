@@ -34,6 +34,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.LocalOverscrollFactory
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerDefaults
@@ -485,24 +486,16 @@ fun DotHistoryGraph(
                         .fillMaxWidth()
                         .height(96.dp)
                         .pointerInput(values) {
-                            detectDragGesturesAfterLongPress(
-                                onDragStart = { offset ->
-                                    val step = (size.width.toFloat() + gapPx) / values.size
-                                    val index = (offset.x / step).toInt().coerceIn(0, values.size - 1)
+                            detectTapGestures { offset ->
+                                val step = (size.width.toFloat() + gapPx) / values.size
+                                val index = (offset.x / step).toInt().coerceIn(0, values.size - 1)
+                                if (index == selectedIndex) {
+                                    selectedIndex = null
+                                } else {
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     selectedIndex = index
-                                },
-                                onDragEnd = { selectedIndex = null },
-                                onDragCancel = { selectedIndex = null },
-                                onDrag = { change, _ ->
-                                    val step = (size.width.toFloat() + gapPx) / values.size
-                                    val index = (change.position.x / step).toInt().coerceIn(0, values.size - 1)
-                                    if (index != selectedIndex) {
-                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                        selectedIndex = index
-                                    }
-                                },
-                            )
+                                }
+                            }
                         },
             ) {
                 val n = values.size
