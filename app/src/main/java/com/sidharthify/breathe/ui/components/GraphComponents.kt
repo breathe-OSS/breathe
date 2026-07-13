@@ -35,6 +35,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.LocalOverscrollFactory
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerDefaults
@@ -250,7 +251,7 @@ fun AqiHistoryGraph(
                         .fillMaxWidth()
                         .height(150.dp)
                         .pointerInput(values) {
-                            detectDragGesturesAfterLongPress(
+                            detectHorizontalDragGestures(
                                 onDragStart = { offset ->
                                     val graphWidth = size.width.toFloat() - labelWidth
                                     val touchX = (offset.x - labelWidth).coerceAtLeast(0f)
@@ -261,7 +262,7 @@ fun AqiHistoryGraph(
                                 },
                                 onDragEnd = { selectedIndex = null },
                                 onDragCancel = { selectedIndex = null },
-                                onDrag = { change, _ ->
+                                onHorizontalDrag = { change, _ ->
                                     val graphWidth = size.width.toFloat() - labelWidth
                                     val touchX = (change.position.x - labelWidth).coerceAtLeast(0f)
                                     val fraction = (touchX / graphWidth).coerceIn(0f, 1f)
