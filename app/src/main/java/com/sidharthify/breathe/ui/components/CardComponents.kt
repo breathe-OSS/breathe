@@ -174,11 +174,35 @@ fun ZoneListItem(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(zone.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Text(
-                    zone.provider ?: "Unknown",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                val providerLower = zone.provider?.lowercase()
+                val providerText = when (providerLower) {
+                    "openmeteo" -> "Satellite & Model Data"
+                    "airgradient" -> "Live Ground Sensors"
+                    else -> zone.provider ?: "Unknown"
+                }
+
+                if (providerLower == "airgradient") {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(androidx.compose.ui.graphics.Color(0xFF4CAF50))
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            providerText,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                } else {
+                    Text(
+                        providerText,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
             // Pin Button with Expressive Click
             Box(
