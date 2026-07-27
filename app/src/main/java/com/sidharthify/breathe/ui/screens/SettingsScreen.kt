@@ -88,9 +88,9 @@ fun SettingsScreen(
     var isMadness by remember { mutableStateOf(false) }
     var madnessIntensity by remember { mutableIntStateOf(0) }
     val isUsAqi by viewModel.isUsAqi.collectAsState()
-    var versionLabel by remember { mutableStateOf("Current Version: v3.1-17") }
+    var versionLabel by remember { mutableStateOf("Current Version: v4.0-18") }
 
-    val currentVersion = "v3.1-17"
+    val currentVersion = "v4.0-18"
 
     // Reset tap counter if inactive
     LaunchedEffect(easterEggCounter) {

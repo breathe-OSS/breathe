@@ -11,8 +11,8 @@ android {
         applicationId = "com.sidharthify.breathe"
         minSdk = 27
         targetSdk = 36
-        versionCode = 17
-        versionName = "3.1"
+        versionCode = 18
+        versionName = "4.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
