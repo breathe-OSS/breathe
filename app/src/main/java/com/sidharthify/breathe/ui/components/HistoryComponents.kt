@@ -262,7 +262,7 @@ fun ExtendedHistoryScreen(
             Text("Download CSV", style = MaterialTheme.typography.labelLarge)
         }
 
-        Spacer(modifier = Modifier.height(100.dp))
+        Spacer(modifier = Modifier.height(160.dp))
     }
 }
 
