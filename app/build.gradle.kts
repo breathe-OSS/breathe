@@ -11,7 +11,7 @@ android {
         applicationId = "com.sidharthify.breathe"
         minSdk = 27
         targetSdk = 36
-        versionCode = 19
+        versionCode = 20
         versionName = "4.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
