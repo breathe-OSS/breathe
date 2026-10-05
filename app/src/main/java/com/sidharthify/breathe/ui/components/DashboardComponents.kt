@@ -57,6 +57,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.LocationOn
@@ -942,6 +943,29 @@ fun NodeReadingCard(
                     NodeInfoRow("PM10", reading.pm10?.let { "$it µg/m³" } ?: "—")
                     NodeInfoRow("Temperature", reading.temp?.let { "$it °C" } ?: "—")
                     NodeInfoRow("Humidity", reading.humidity?.let { "${it}%" } ?: "—")
+                    Surface(
+                        shape = MaterialTheme.shapes.medium,
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.Top,
+                        ) {
+                            Icon(
+                                Icons.Filled.Info,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp).padding(top = 1.dp),
+                            )
+                            Text(
+                                "The internal sensor measures conditions inside the module to improve PM accuracy, requiring dashboard corrections that may not perfectly match true ambient temperature and humidity.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                     if (sensorInfo != null) {
                         NodeInfoRow("Provider", sensorInfo.provider)
                         NodeInfoRow("Model", sensorInfo.model)
