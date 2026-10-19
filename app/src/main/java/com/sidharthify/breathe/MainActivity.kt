@@ -81,6 +81,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -91,7 +92,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -422,9 +425,17 @@ fun BreatheApp(
 fun Modifier.expressiveClickable(onClick: () -> Unit): Modifier =
     composed {
         val animationSettings = LocalAnimationSettings.current
+        val maxSquishPx = with(LocalDensity.current) { 32.dp.toPx() }
         var isPressed by remember { mutableStateOf(false) }
+        var longestSidePx by remember { mutableIntStateOf(0) }
+        val pressedScale =
+            if (longestSidePx > 0) {
+                (1f - maxSquishPx / longestSidePx).coerceAtLeast(0.90f)
+            } else {
+                0.90f
+            }
         val scale by animateFloatAsState(
-            targetValue = if (isPressed && animationSettings.pressFeedback) 0.90f else 1f,
+            targetValue = if (isPressed && animationSettings.pressFeedback) pressedScale else 1f,
             animationSpec =
                 if (animationSettings.pressFeedback) {
                     spring(dampingRatio = 0.4f, stiffness = 400f)
@@ -435,6 +446,7 @@ fun Modifier.expressiveClickable(onClick: () -> Unit): Modifier =
         )
 
         this
+            .onSizeChanged { longestSidePx = maxOf(it.width, it.height) }
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
