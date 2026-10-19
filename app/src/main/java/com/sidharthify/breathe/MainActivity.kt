@@ -87,6 +87,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -226,7 +227,7 @@ fun BreatheApp(
 
     val isUsAqi by viewModel.isUsAqi.collectAsState()
 
-    var currentScreen by remember { mutableStateOf(AppScreen.Home) }
+    var currentScreen by rememberSaveable { mutableStateOf(AppScreen.Home) }
     val motionScheme = MaterialTheme.motionScheme
 
     val configuration = LocalConfiguration.current

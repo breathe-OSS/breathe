@@ -55,6 +55,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -301,6 +303,8 @@ fun SettingsScreen(
             Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
+                .wrapContentWidth()
+                .widthIn(max = 840.dp)
                 .padding(horizontal = 24.dp)
                 .padding(top = 24.dp, bottom = LocalNavBarClearance.current)
                 // Shine on you crazy diamond!
