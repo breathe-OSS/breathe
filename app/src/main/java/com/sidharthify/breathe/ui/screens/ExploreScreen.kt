@@ -40,6 +40,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridScope
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -87,6 +88,11 @@ fun ExploreScreen(
             }
         }
 
+    val (liveZones, modelZones) =
+        remember(filteredZones) {
+            filteredZones.partition { it.provider?.contains("airgradient", ignoreCase = true) == true }
+        }
+
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp)) {
         Spacer(modifier = Modifier.height(24.dp))
         Text("Explore", style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold)
@@ -129,27 +135,77 @@ fun ExploreScreen(
                     }
                 }
 
-                items(filteredZones, key = { it.id }) { zone ->
-                    Box(
-                        modifier =
-                            Modifier
-                                .then(
-                                    if (animationSettings.listAnimations) {
-                                        Modifier.animateItem(tween(durationMillis = 300))
-                                    } else {
-                                        Modifier
-                                    }
-                                )
-                                .expressiveClickable { onPinToggle(zone.id) },
-                    ) {
-                        ZoneListItem(
-                            zone = zone,
-                            isPinned = pinnedIds.contains(zone.id),
-                            onPinClick = {},
-                        )
-                    }
-                }
+                zoneSection(
+                    key = "live",
+                    title = "Live Ground Sensors",
+                    subtitle = "Real-time readings from AirGradient sensors",
+                    zones = liveZones,
+                    pinnedIds = pinnedIds,
+                    animateItems = animationSettings.listAnimations,
+                    onPinToggle = onPinToggle,
+                )
+
+                zoneSection(
+                    key = "model",
+                    title = "Satellite & Model Data",
+                    subtitle = "Ground sensors coming soon",
+                    zones = modelZones,
+                    pinnedIds = pinnedIds,
+                    animateItems = animationSettings.listAnimations,
+                    onPinToggle = onPinToggle,
+                )
             }
+        }
+    }
+}
+
+private fun LazyGridScope.zoneSection(
+    key: String,
+    title: String,
+    subtitle: String,
+    zones: List<Zone>,
+    pinnedIds: Set<String>,
+    animateItems: Boolean,
+    onPinToggle: (String) -> Unit,
+) {
+    if (zones.isEmpty()) {
+        return
+    }
+
+    item(key = "header_$key", span = { GridItemSpan(maxLineSpan) }) {
+        Column(modifier = Modifier.padding(start = 8.dp, top = 8.dp)) {
+            Text(
+                title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+
+    items(zones, key = { it.id }) { zone ->
+        Box(
+            modifier =
+                Modifier
+                    .then(
+                        if (animateItems) {
+                            Modifier.animateItem(tween(durationMillis = 300))
+                        } else {
+                            Modifier
+                        }
+                    )
+                    .expressiveClickable { onPinToggle(zone.id) },
+        ) {
+            ZoneListItem(
+                zone = zone,
+                isPinned = pinnedIds.contains(zone.id),
+                onPinClick = {},
+            )
         }
     }
 }
