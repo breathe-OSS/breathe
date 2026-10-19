@@ -111,6 +111,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sidharthify.breathe.data.AnimationSettings
 import com.sidharthify.breathe.data.LocalAnimationSettings
 import com.sidharthify.breathe.navigation.AppScreen
+import com.sidharthify.breathe.navigation.LocalIsTabletLandscape
 import com.sidharthify.breathe.navigation.LocalNavBarClearance
 import com.sidharthify.breathe.ui.components.MorphingPill
 import com.sidharthify.breathe.ui.screens.ExploreScreen
@@ -303,7 +304,10 @@ fun BreatheApp(
                                 .fillMaxSize()
                                 .consumeWindowInsets(WindowInsets.navigationBars),
                     ) {
-                        CompositionLocalProvider(LocalNavBarClearance provides navBarClearance) {
+                        CompositionLocalProvider(
+                            LocalNavBarClearance provides navBarClearance,
+                            LocalIsTabletLandscape provides useNavRail,
+                        ) {
                             when (screen) {
                                 AppScreen.Home -> {
                                     HomeScreen(

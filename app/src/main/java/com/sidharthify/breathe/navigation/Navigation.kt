@@ -61,3 +61,5 @@ enum class AppScreen(
 }
 
 val LocalNavBarClearance = compositionLocalOf<Dp> { 0.dp }
+
+val LocalIsTabletLandscape = compositionLocalOf { false }

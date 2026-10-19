@@ -45,12 +45,14 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -159,6 +161,7 @@ fun MainDashboardDetail(
     isUsAqi: Boolean = false,
     sensorInfos: List<SensorInfo> = emptyList(),
     onOpenHistory: (() -> Unit)? = null,
+    isWideLayout: Boolean = false,
 ) {
     val pm25 =
         zone.concentrations?.get("pm2.5")
@@ -172,16 +175,8 @@ fun MainDashboardDetail(
             zone.nAqi
         }
 
-    val aqiLabel = if (!isUsAqi) "US AQI" else "NAQI"
     val pm25For24h = zone.averages24h?.get("pm2_5") ?: zone.averages24h?.get("pm2.5") ?: pm25
     val cigarettes = if (pm25For24h > 0) calculateCigarettes(pm25For24h) else 0.0
-
-    val screenWidth = with(LocalDensity.current) {
-        LocalWindowInfo.current.containerSize.width.toDp()
-    }
-    // If screen is narrow (<390dp), reduce font to prevent line wrap
-    val aqiFontSize = if (screenWidth < 390.dp) 64.sp else 84.sp
-    val aqiLineHeight = if (screenWidth < 390.dp) 64.sp else 84.sp
 
     val animationSettings = LocalAnimationSettings.current
 
@@ -202,29 +197,6 @@ fun MainDashboardDetail(
             displayAqi in 101..200
         }
 
-    val animatedAqi by animateIntAsState(
-        targetValue = displayAqi,
-        animationSpec = if (animationSettings.numberAnimations) {
-            tween(durationMillis = 800, easing = FastOutSlowInEasing)
-        } else {
-            tween(durationMillis = 0)
-        },
-        label = "DashboardNumber",
-    )
-
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val breatheScale by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = if (animationSettings.pulseEffects) 1.02f else 1f,
-        animationSpec =
-            infiniteRepeatable(
-                animation = tween(4000, easing = FastOutSlowInEasing),
-                repeatMode = RepeatMode.Reverse,
-            ),
-        label = "breatheScale",
-    )
-
-    val aqiBgColor = aqiColor.copy(alpha = 0.12f)
     val aqiTextColor =
         if (!isDarkTheme && isModerateAqi) {
             Color(0xFF5C4300)
@@ -239,8 +211,6 @@ fun MainDashboardDetail(
     val isAirGradient =
         provider?.contains("AirGradient", ignoreCase = true) == true ||
                 provider?.contains("AirGradient", ignoreCase = true) == true
-
-    val softBurstShape = remember { SoftBurstShape() }
 
     Column(modifier = Modifier.padding(vertical = 12.dp)) {
         Row(
@@ -382,343 +352,154 @@ fun MainDashboardDetail(
             Spacer(modifier = Modifier.height(24.dp))
         }
 
-        Box(
-            modifier =
-                Modifier
-                    .padding(horizontal = 24.dp)
-                    .fillMaxWidth()
-                    .height(220.dp)
-                    .expressiveClickable {},
-        ) {
-            Surface(
-                shape = MaterialTheme.shapes.large,
-                color = aqiBgColor,
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .graphicsLayer {
-                            scaleX = breatheScale
-                            scaleY = breatheScale
-                        },
-            ) {}
+        val weather = zone.weather
+        val pollutants = zone.concentrations ?: emptyMap()
 
-            // Content
+        if (isWideLayout) {
             Row(
                 modifier =
                     Modifier
-                        .fillMaxSize()
-                        .padding(24.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                        .fillMaxWidth()
+                        .height(IntrinsicSize.Min)
+                        .padding(horizontal = 24.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
             ) {
+                AqiHeroCard(
+                    zone = zone,
+                    displayAqi = displayAqi,
+                    isUsAqi = isUsAqi,
+                    aqiColor = aqiColor,
+                    aqiTextColor = aqiTextColor,
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .heightIn(min = 220.dp),
+                )
+
                 Column(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.Center,
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    Text(
-                        text = "$animatedAqi",
-                        style = MaterialTheme.typography.displayLarge.copy(fontSize = aqiFontSize),
-                        fontWeight = FontWeight.Black,
-                        color = aqiTextColor,
-                        letterSpacing = (-3).sp,
-                        lineHeight = aqiLineHeight,
+                    AqiCategoryCard(
+                        displayAqi = displayAqi,
+                        isUsAqi = isUsAqi,
+                        aqiTextColor = aqiTextColor,
+                        modifier = Modifier.fillMaxWidth(),
                     )
-                    Surface(
-                        color = aqiColor,
-                        shape = RoundedCornerShape(100),
-                        modifier = Modifier.padding(top = 4.dp),
-                    ) {
-                        Text(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                            text = aqiLabel,
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.Black,
+
+                    if (weather != null && weather.text.isNotBlank()) {
+                        WeatherContextCard(
+                            weather = weather,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+
+                    if (cigarettes > 0.1) {
+                        CigaretteCard(
+                            cigarettes = cigarettes,
+                            modifier = Modifier.fillMaxWidth(),
                         )
                     }
                 }
-
-                Column(
-                    modifier =
-                        Modifier
-                            .weight(0.8f)
-                            .fillMaxHeight(),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.End,
-                ) {
-                    Text(
-                        "Primary",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                    )
-                    // val displayPollutant = zone.usMainPollutant ?: zone.mainPollutant
-                    PollutantText(
-                        rawKey = zone.mainPollutant,
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-                    val change1h = remember(zone.history, displayAqi, isUsAqi) {
-                    calculateChange1h(
-                        history = zone.history,
-                        currentAqi = displayAqi,
-                        isNaqi = isUsAqi,
-                    )
-                }
-
-                    if (change1h != null && change1h != 0) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            val isWorse = change1h > 0
-                            val trendColor = if (isWorse) Color(0xFFFF5252) else Color(0xFF4CAF50)
-                            val icon = if (isWorse) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown
-
-                            Icon(icon, null, tint = trendColor, modifier = Modifier.size(16.dp))
-                            Text(
-                                text = "${if (isWorse) "+" else ""}$change1h /hr",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                fontWeight = FontWeight.Bold,
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                    }
-
-                    val statusText =
-                        when {
-                            zone.timestampUnix != null -> getTimeAgo(zone.timestampUnix.toLong())
-                            else -> "Live"
-                        }
-                    Text(
-                        text = statusText,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                        textAlign = TextAlign.End,
-                    )
-                }
             }
-        }
 
-        Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-        // AQI Category Card with Spectrum
-        val aqiCategory = getAqiCategory(displayAqi, !isUsAqi)
-
-        // Calculate position on spectrum (0-500 for US, 0-500 for NAQI)
-        val maxAqi = if (!isUsAqi) 500f else 500f
-        val targetIndicatorPosition = (displayAqi.coerceIn(0, 500) / maxAqi).coerceIn(0f, 1f)
-
-        // Animate indicator position
-        val animatedIndicatorPosition by animateFloatAsState(
-            targetValue = targetIndicatorPosition,
-            animationSpec = if (animationSettings.numberAnimations) {
-                tween(durationMillis = 800, easing = FastOutSlowInEasing)
-            } else {
-                tween(durationMillis = 0)
-            },
-            label = "IndicatorPosition",
-        )
-        val spectrumColorStops = if (!isUsAqi) {
-            // US AQI breakpoints
-            arrayOf(
-                0.00f to Color(0xFF00E400),
-                0.10f to Color(0xFF00E400),
-                0.10f to Color(0xFFFFFF00),
-                0.20f to Color(0xFFFFFF00),
-                0.20f to Color(0xFFFF7E00),
-                0.30f to Color(0xFFFF7E00),
-                0.30f to Color(0xFFFF0000),
-                0.40f to Color(0xFFFF0000),
-                0.40f to Color(0xFF8F3F97),
-                0.60f to Color(0xFF8F3F97),
-                0.60f to Color(0xFF7E0023),
-                1.00f to Color(0xFF7E0023)
-            )
-        } else {
-            // NAQI breakpoints
-            arrayOf(
-                0.00f to Color(0xFF55A84F),
-                0.10f to Color(0xFF55A84F),
-                0.10f to Color(0xFFA3C853),
-                0.20f to Color(0xFFA3C853),
-                0.20f to Color(0xFFFDD74B),
-                0.40f to Color(0xFFFDD74B),
-                0.40f to Color(0xFFFB9A34),
-                0.60f to Color(0xFFFB9A34),
-                0.60f to Color(0xFFE93F33),
-                0.80f to Color(0xFFE93F33),
-                0.80f to Color(0xFFAF2D24),
-                1.00f to Color(0xFFAF2D24)
-            )
-        }
-
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-            ),
-            shape = MaterialTheme.shapes.medium,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-                    .expressiveClickable {},
-        ) {
-            Column(
-                modifier = Modifier
-                    .padding(16.dp)
-                    .fillMaxWidth(),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = aqiCategory.label,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = aqiTextColor,
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Spectrum meter
-                Box(
-                    modifier = Modifier
+            Row(
+                modifier =
+                    Modifier
                         .fillMaxWidth()
-                        .height(28.dp),
-                ) {
-                    // Gradient bar
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(8.dp)
-                            .align(Alignment.Center)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(
-                                Brush.horizontalGradient(colorStops = spectrumColorStops)
-                            ),
+                        .padding(horizontal = 24.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                if (pollutants.isNotEmpty()) {
+                    ConcentrationsSection(
+                        pollutants = pollutants,
+                        modifier = Modifier.weight(1f),
                     )
+                }
 
-                    // Indicator
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(28.dp),
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth(animatedIndicatorPosition.coerceAtLeast(0.01f))
-                                .align(Alignment.CenterStart),
-                            contentAlignment = Alignment.CenterEnd,
-                        ) {
-                            // Circle indicator
-                            Surface(
-                                modifier = Modifier.size(16.dp),
-                                shape = CircleShape,
-                                color = Color.White,
-                                shadowElevation = 2.dp,
-                                border = androidx.compose.foundation.BorderStroke(
-                                    2.dp,
-                                    MaterialTheme.colorScheme.surface
-                                ),
-                            ) {}
-                        }
-                    }
+                if (!zone.nodes.isNullOrEmpty()) {
+                    IndividualNodeReadingsSection(
+                        nodes = zone.nodes,
+                        isUsAqi = isUsAqi,
+                        sensorInfos = sensorInfos,
+                        modifier = Modifier.weight(1f),
+                    )
                 }
             }
-        }
 
-        Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(24.dp))
+        } else {
+            AqiHeroCard(
+                zone = zone,
+                displayAqi = displayAqi,
+                isUsAqi = isUsAqi,
+                aqiColor = aqiColor,
+                aqiTextColor = aqiTextColor,
+                modifier =
+                    Modifier
+                        .padding(horizontal = 24.dp)
+                        .fillMaxWidth()
+                        .height(220.dp),
+            )
 
-        val weather = zone.weather
-        if (weather != null && weather.text.isNotBlank()) {
-            WeatherContextCard(
-                weather = weather,
+            Spacer(modifier = Modifier.height(16.dp))
+
+            AqiCategoryCard(
+                displayAqi = displayAqi,
+                isUsAqi = isUsAqi,
+                aqiTextColor = aqiTextColor,
                 modifier =
                     Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp),
             )
-            Spacer(modifier = Modifier.height(24.dp))
-        }
 
-        // Cigarette Equivalence Card
-        if (cigarettes > 0.1) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                shape = MaterialTheme.shapes.medium,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp)
-                        .expressiveClickable {},
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(
-                        modifier =
-                            Modifier
-                                .size(56.dp)
-                                .background(
-                                    color = MaterialTheme.colorScheme.errorContainer,
-                                    shape = softBurstShape,
-                                ),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            Icons.Filled.SmokingRooms,
-                            null,
-                            tint = MaterialTheme.colorScheme.onErrorContainer,
-                            modifier = Modifier.size(24.dp),
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Column {
-                        Text(
-                            "≈ $cigarettes cigarettes",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Text(
-                            "Equivalent PM2.5 inhalation today",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
+            Spacer(modifier = Modifier.height(24.dp))
+
+            if (weather != null && weather.text.isNotBlank()) {
+                WeatherContextCard(
+                    weather = weather,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp),
+                )
+                Spacer(modifier = Modifier.height(24.dp))
             }
+
+            if (cigarettes > 0.1) {
+                CigaretteCard(
+                    cigarettes = cigarettes,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp),
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+
+            if (pollutants.isNotEmpty()) {
+                ConcentrationsSection(
+                    pollutants = pollutants,
+                    modifier = Modifier.padding(horizontal = 24.dp),
+                )
+            }
+
             Spacer(modifier = Modifier.height(24.dp))
-        }
 
-        val pollutants = zone.concentrations ?: emptyMap()
-        if (pollutants.isNotEmpty()) {
-            Text(
-                "Concentrations",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 0.dp),
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-
-            SimpleFlowGrid(
-                items = pollutants.entries.toList(),
-                modifier = Modifier.padding(horizontal = 24.dp),
-            )
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Individual Node Readings section (below pollutants, above graph)
-        if (!zone.nodes.isNullOrEmpty()) {
-            IndividualNodeReadingsSection(
-                nodes = zone.nodes,
-                isUsAqi = isUsAqi,
-                sensorInfos = sensorInfos,
-            )
+            // Individual Node Readings section (below pollutants, above graph)
+            if (!zone.nodes.isNullOrEmpty()) {
+                IndividualNodeReadingsSection(
+                    nodes = zone.nodes,
+                    isUsAqi = isUsAqi,
+                    sensorInfos = sensorInfos,
+                    modifier = Modifier.padding(horizontal = 24.dp),
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+            }
         }
 
         if (!zone.history.isNullOrEmpty()) {
@@ -744,6 +525,363 @@ fun MainDashboardDetail(
         }
 
         Spacer(modifier = Modifier.height(100.dp))
+    }
+}
+
+@Composable
+private fun AqiHeroCard(
+    zone: AqiResponse,
+    displayAqi: Int,
+    isUsAqi: Boolean,
+    aqiColor: Color,
+    aqiTextColor: Color,
+    modifier: Modifier = Modifier,
+) {
+    val animationSettings = LocalAnimationSettings.current
+    val aqiLabel = if (!isUsAqi) "US AQI" else "NAQI"
+
+    val screenWidth = with(LocalDensity.current) {
+        LocalWindowInfo.current.containerSize.width.toDp()
+    }
+    // If screen is narrow (<390dp), reduce font to prevent line wrap
+    val aqiFontSize = if (screenWidth < 390.dp) 64.sp else 84.sp
+    val aqiLineHeight = if (screenWidth < 390.dp) 64.sp else 84.sp
+
+    val animatedAqi by animateIntAsState(
+        targetValue = displayAqi,
+        animationSpec = if (animationSettings.numberAnimations) {
+            tween(durationMillis = 800, easing = FastOutSlowInEasing)
+        } else {
+            tween(durationMillis = 0)
+        },
+        label = "DashboardNumber",
+    )
+
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val breatheScale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = if (animationSettings.pulseEffects) 1.02f else 1f,
+        animationSpec =
+            infiniteRepeatable(
+                animation = tween(4000, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse,
+            ),
+        label = "breatheScale",
+    )
+
+    val aqiBgColor = aqiColor.copy(alpha = 0.12f)
+
+    Box(
+        modifier = modifier.expressiveClickable {},
+    ) {
+        Surface(
+            shape = MaterialTheme.shapes.large,
+            color = aqiBgColor,
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        scaleX = breatheScale
+                        scaleY = breatheScale
+                    },
+        ) {}
+
+        // Content
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Text(
+                    text = "$animatedAqi",
+                    style = MaterialTheme.typography.displayLarge.copy(fontSize = aqiFontSize),
+                    fontWeight = FontWeight.Black,
+                    color = aqiTextColor,
+                    letterSpacing = (-3).sp,
+                    lineHeight = aqiLineHeight,
+                )
+                Surface(
+                    color = aqiColor,
+                    shape = RoundedCornerShape(100),
+                    modifier = Modifier.padding(top = 4.dp),
+                ) {
+                    Text(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        text = aqiLabel,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black,
+                    )
+                }
+            }
+
+            Column(
+                modifier =
+                    Modifier
+                        .weight(0.8f)
+                        .fillMaxHeight(),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.End,
+            ) {
+                Text(
+                    "Primary",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                )
+                // val displayPollutant = zone.usMainPollutant ?: zone.mainPollutant
+                PollutantText(
+                    rawKey = zone.mainPollutant,
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+                val change1h = remember(zone.history, displayAqi, isUsAqi) {
+                calculateChange1h(
+                    history = zone.history,
+                    currentAqi = displayAqi,
+                    isNaqi = isUsAqi,
+                )
+            }
+
+                if (change1h != null && change1h != 0) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        val isWorse = change1h > 0
+                        val trendColor = if (isWorse) Color(0xFFFF5252) else Color(0xFF4CAF50)
+                        val icon = if (isWorse) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown
+
+                        Icon(icon, null, tint = trendColor, modifier = Modifier.size(16.dp))
+                        Text(
+                            text = "${if (isWorse) "+" else ""}$change1h /hr",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+
+                val statusText =
+                    when {
+                        zone.timestampUnix != null -> getTimeAgo(zone.timestampUnix.toLong())
+                        else -> "Live"
+                    }
+                Text(
+                    text = statusText,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    textAlign = TextAlign.End,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AqiCategoryCard(
+    displayAqi: Int,
+    isUsAqi: Boolean,
+    aqiTextColor: Color,
+    modifier: Modifier = Modifier,
+) {
+    val animationSettings = LocalAnimationSettings.current
+
+    val aqiCategory = getAqiCategory(displayAqi, !isUsAqi)
+
+    // Calculate position on spectrum (0-500 for US, 0-500 for NAQI)
+    val maxAqi = if (!isUsAqi) 500f else 500f
+    val targetIndicatorPosition = (displayAqi.coerceIn(0, 500) / maxAqi).coerceIn(0f, 1f)
+
+    // Animate indicator position
+    val animatedIndicatorPosition by animateFloatAsState(
+        targetValue = targetIndicatorPosition,
+        animationSpec = if (animationSettings.numberAnimations) {
+            tween(durationMillis = 800, easing = FastOutSlowInEasing)
+        } else {
+            tween(durationMillis = 0)
+        },
+        label = "IndicatorPosition",
+    )
+    val spectrumColorStops = if (!isUsAqi) {
+        // US AQI breakpoints
+        arrayOf(
+            0.00f to Color(0xFF00E400),
+            0.10f to Color(0xFF00E400),
+            0.10f to Color(0xFFFFFF00),
+            0.20f to Color(0xFFFFFF00),
+            0.20f to Color(0xFFFF7E00),
+            0.30f to Color(0xFFFF7E00),
+            0.30f to Color(0xFFFF0000),
+            0.40f to Color(0xFFFF0000),
+            0.40f to Color(0xFF8F3F97),
+            0.60f to Color(0xFF8F3F97),
+            0.60f to Color(0xFF7E0023),
+            1.00f to Color(0xFF7E0023)
+        )
+    } else {
+        // NAQI breakpoints
+        arrayOf(
+            0.00f to Color(0xFF55A84F),
+            0.10f to Color(0xFF55A84F),
+            0.10f to Color(0xFFA3C853),
+            0.20f to Color(0xFFA3C853),
+            0.20f to Color(0xFFFDD74B),
+            0.40f to Color(0xFFFDD74B),
+            0.40f to Color(0xFFFB9A34),
+            0.60f to Color(0xFFFB9A34),
+            0.60f to Color(0xFFE93F33),
+            0.80f to Color(0xFFE93F33),
+            0.80f to Color(0xFFAF2D24),
+            1.00f to Color(0xFFAF2D24)
+        )
+    }
+
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        ),
+        shape = MaterialTheme.shapes.medium,
+        modifier = modifier.expressiveClickable {},
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = aqiCategory.label,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = aqiTextColor,
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Spectrum meter
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(28.dp),
+            ) {
+                // Gradient bar
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .align(Alignment.Center)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(
+                            Brush.horizontalGradient(colorStops = spectrumColorStops)
+                        ),
+                )
+
+                // Indicator
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(28.dp),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(animatedIndicatorPosition.coerceAtLeast(0.01f))
+                            .align(Alignment.CenterStart),
+                        contentAlignment = Alignment.CenterEnd,
+                    ) {
+                        // Circle indicator
+                        Surface(
+                            modifier = Modifier.size(16.dp),
+                            shape = CircleShape,
+                            color = Color.White,
+                            shadowElevation = 2.dp,
+                            border = androidx.compose.foundation.BorderStroke(
+                                2.dp,
+                                MaterialTheme.colorScheme.surface
+                            ),
+                        ) {}
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CigaretteCard(
+    cigarettes: Double,
+    modifier: Modifier = Modifier,
+) {
+    val softBurstShape = remember { SoftBurstShape() }
+
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        shape = MaterialTheme.shapes.medium,
+        modifier = modifier.expressiveClickable {},
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier =
+                    Modifier
+                        .size(56.dp)
+                        .background(
+                            color = MaterialTheme.colorScheme.errorContainer,
+                            shape = softBurstShape,
+                        ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Filled.SmokingRooms,
+                    null,
+                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                    modifier = Modifier.size(24.dp),
+                )
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Column {
+                Text(
+                    "≈ $cigarettes cigarettes",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    "Equivalent PM2.5 inhalation today",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConcentrationsSection(
+    pollutants: Map<String, Double>,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier) {
+        Text(
+            "Concentrations",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+
+        SimpleFlowGrid(items = pollutants.entries.toList())
     }
 }
 
@@ -848,7 +986,7 @@ fun IndividualNodeReadingsSection(
     isUsAqi: Boolean,
     sensorInfos: List<SensorInfo> = emptyList(),
 ) {
-    Column(modifier = modifier.padding(horizontal = 24.dp)) {
+    Column(modifier = modifier) {
         Text(
             "Individual Node Readings",
             style = MaterialTheme.typography.titleLarge,
@@ -892,7 +1030,6 @@ fun IndividualNodeReadingsSection(
             }
         }
     }
-    Spacer(modifier = Modifier.height(24.dp))
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
