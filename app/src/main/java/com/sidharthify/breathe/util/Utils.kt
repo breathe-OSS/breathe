@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.em
 import androidx.core.content.edit
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.drawable.toDrawable
+import com.sidharthify.breathe.data.AqiResponse
 import kotlin.math.roundToInt
 
 fun createBlobIcon(
@@ -257,5 +258,18 @@ fun savePinnedOrder(
     prefs.edit {
         putStringSet("pinned_ids", order.toSet())
         putString("pinned_order", order.joinToString(","))
+    }
+}
+
+fun AqiResponse.displayAqi(isUsAqi: Boolean): Int {
+    val pm25 =
+        concentrations?.get("pm2.5")
+            ?: concentrations?.get("pm2_5")
+            ?: 0.0
+
+    return if (!isUsAqi) {
+        usAqi ?: if (pm25 > 0) calculateUsAqi(pm25) else 0
+    } else {
+        nAqi
     }
 }

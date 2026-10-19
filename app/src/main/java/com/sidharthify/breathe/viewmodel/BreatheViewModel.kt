@@ -69,6 +69,12 @@ class BreatheViewModel : ViewModel() {
     private val _isUsAqi = MutableStateFlow(false)
     val isUsAqi = _isUsAqi.asStateFlow()
 
+    private val _isOverviewHome = MutableStateFlow(false)
+    val isOverviewHome = _isOverviewHome.asStateFlow()
+
+    private val _hasOnboarded = MutableStateFlow(true)
+    val hasOnboarded = _hasOnboarded.asStateFlow()
+
     // Extended History state
     private val _historyState = MutableStateFlow(HistoryState())
     val historyState = _historyState.asStateFlow()
@@ -83,6 +89,8 @@ class BreatheViewModel : ViewModel() {
     fun init(context: Context) {
         val prefs = context.getSharedPreferences("breathe_prefs", Context.MODE_PRIVATE)
         _isUsAqi.value = prefs.getBoolean("is_us_aqi", false)
+        _isOverviewHome.value = prefs.getBoolean("is_overview_home", false)
+        _hasOnboarded.value = prefs.getBoolean("has_onboarded", false) || loadPinnedOrder(prefs).isNotEmpty()
 
         if (isInitialLoad) {
             loadFromCache(context)
@@ -111,6 +119,16 @@ class BreatheViewModel : ViewModel() {
             .getSharedPreferences("breathe_prefs", Context.MODE_PRIVATE)
             .edit {
                 putBoolean("is_us_aqi", newValue)
+            }
+    }
+
+    fun toggleOverviewHome(context: Context) {
+        val newValue = !_isOverviewHome.value
+        _isOverviewHome.value = newValue
+        context
+            .getSharedPreferences("breathe_prefs", Context.MODE_PRIVATE)
+            .edit {
+                putBoolean("is_overview_home", newValue)
             }
     }
 
@@ -277,6 +295,13 @@ class BreatheViewModel : ViewModel() {
             }
 
         savePinnedOrder(prefs, updatedOrder)
+
+        if (updatedOrder.isNotEmpty() && !_hasOnboarded.value) {
+            _hasOnboarded.value = true
+            prefs.edit {
+                putBoolean("has_onboarded", true)
+            }
+        }
 
         val updatedPinnedList =
             updatedOrder.mapNotNull { id ->

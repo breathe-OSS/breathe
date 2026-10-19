@@ -1,6 +1,11 @@
 package com.sidharthify.breathe.ui.screens
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInHorizontally
@@ -17,16 +22,20 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -37,6 +46,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,9 +66,13 @@ import com.sidharthify.breathe.ui.components.ErrorCard
 import com.sidharthify.breathe.ui.components.ExtendedHistoryScreen
 import com.sidharthify.breathe.ui.components.LoadingScreen
 import com.sidharthify.breathe.ui.components.MainDashboardDetail
+import com.sidharthify.breathe.ui.components.PinnedHintCard
+import com.sidharthify.breathe.ui.components.PinnedOverviewGrid
 import com.sidharthify.breathe.ui.components.PinnedZonesButtonGroup
 import com.sidharthify.breathe.ui.components.ReorderPinnedZonesSheet
+import com.sidharthify.breathe.ui.components.WelcomeDialog
 import com.sidharthify.breathe.viewmodel.BreatheViewModel
+import kotlinx.coroutines.launch
 
 @ExperimentalMaterial3ExpressiveApi
 @Composable
@@ -67,6 +82,8 @@ fun HomeScreen(
     isAmoled: Boolean = false,
     error: String?,
     pinnedZones: List<AqiResponse>,
+    allAqiData: List<AqiResponse>,
+    pinnedIds: Set<String>,
     zones: List<Zone>,
     sensorInfos: List<SensorInfo>,
     onGoToExplore: () -> Unit,
@@ -74,6 +91,8 @@ fun HomeScreen(
     viewModel: BreatheViewModel = viewModel(),
 ) {
     val isUsAqi by viewModel.isUsAqi.collectAsState()
+    val isOverviewHome by viewModel.isOverviewHome.collectAsState()
+    val hasOnboarded by viewModel.hasOnboarded.collectAsState()
     val historyState by viewModel.historyState.collectAsState()
     val context = LocalContext.current
 
@@ -82,6 +101,10 @@ fun HomeScreen(
     var selectedZone by remember { mutableStateOf(pinnedZones.firstOrNull()) }
     var showHistory by remember { mutableStateOf(false) }
     var showReorderSheet by remember { mutableStateOf(false) }
+    var showPinnedHint by rememberSaveable { mutableStateOf(false) }
+    var isOverviewExpanded by rememberSaveable { mutableStateOf(false) }
+    val showOverviewGrid = isOverviewHome && pinnedZones.isNotEmpty() && !isOverviewExpanded
+    val coroutineScope = rememberCoroutineScope()
 
     if (showReorderSheet) {
         ReorderPinnedZonesSheet(
@@ -99,6 +122,43 @@ fun HomeScreen(
     BackHandler(enabled = showHistory) {
         showHistory = false
         scrollToBottom = true
+    }
+
+    BackHandler(enabled = isOverviewHome && isOverviewExpanded && !showHistory) {
+        isOverviewExpanded = false
+    }
+
+    val liveZoneIds =
+        remember(zones) {
+            zones
+                .filter { it.provider?.contains("airgradient", ignoreCase = true) == true }
+                .map { it.id }
+                .toSet()
+        }
+
+    val openZone: (AqiResponse) -> Unit = { zone ->
+        if (zone.zoneId !in pinnedIds) {
+            viewModel.togglePin(context, zone.zoneId)
+        }
+        selectedZone = zone
+        isOverviewExpanded = true
+        coroutineScope.launch {
+            lazyColumnState.animateScrollToItem(0)
+        }
+    }
+
+    val snapshotZones = allAqiData.filter { it.zoneId in liveZoneIds }
+
+    if (!hasOnboarded && pinnedZones.isEmpty() && snapshotZones.size >= 2) {
+        WelcomeDialog(
+            snapshotZones = snapshotZones,
+            isUsAqi = isUsAqi,
+            onZoneClick = { zone ->
+                showPinnedHint = true
+                openZone(zone)
+            },
+            onGoToExplore = onGoToExplore,
+        )
     }
 
     LaunchedEffect(pinnedZones) {
@@ -214,7 +274,29 @@ fun HomeScreen(
                         }
 
                         item {
-                            if (pinnedZones.isNotEmpty()) {
+                            if (showOverviewGrid) {
+                                PinnedOverviewGrid(
+                                    zones = pinnedZones,
+                                    isUsAqi = isUsAqi,
+                                    liveZoneIds = liveZoneIds,
+                                    columns = if (LocalIsTabletLandscape.current) 4 else 2,
+                                    onZoneClick = openZone,
+                                    modifier = Modifier.padding(horizontal = 24.dp),
+                                )
+                            } else if (isOverviewHome && pinnedZones.isNotEmpty()) {
+                                TextButton(
+                                    onClick = { isOverviewExpanded = false },
+                                    modifier = Modifier.padding(horizontal = 12.dp),
+                                ) {
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.ArrowBack,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("All Pinned Locations")
+                                }
+                            } else if (pinnedZones.isNotEmpty()) {
                                 val listState = rememberLazyListState()
 
                                 LazyRow(
@@ -247,10 +329,23 @@ fun HomeScreen(
                         }
 
                         item {
+                            AnimatedVisibility(
+                                visible = showPinnedHint && pinnedZones.isNotEmpty(),
+                                enter = expandVertically() + fadeIn(),
+                                exit = shrinkVertically() + fadeOut(),
+                            ) {
+                                PinnedHintCard(
+                                    onDismiss = { showPinnedHint = false },
+                                    modifier =
+                                        Modifier
+                                            .padding(horizontal = 24.dp)
+                                            .padding(top = 24.dp),
+                                )
+                            }
                             Spacer(modifier = Modifier.height(32.dp))
                         }
 
-                        if (selectedZone != null) {
+                        if (selectedZone != null && !showOverviewGrid) {
                             item(key = "dashboard_detail") {
                                 val provider =
                                     remember(selectedZone, zones) {

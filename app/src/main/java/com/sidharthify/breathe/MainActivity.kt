@@ -316,6 +316,8 @@ fun BreatheApp(
                                         isAmoled = isAmoled,
                                         error = uiState.error,
                                         pinnedZones = uiState.pinnedZones,
+                                        allAqiData = uiState.allAqiData,
+                                        pinnedIds = uiState.pinnedIds,
                                         zones = uiState.zones,
                                         sensorInfos = uiState.sensorInfos,
                                         onGoToExplore = { currentScreen = AppScreen.Explore },

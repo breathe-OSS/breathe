@@ -126,6 +126,7 @@ fun SettingsScreen(
     var isMadness by remember { mutableStateOf(false) }
     var madnessIntensity by remember { mutableIntStateOf(0) }
     val isUsAqi by viewModel.isUsAqi.collectAsState()
+    val isOverviewHome by viewModel.isOverviewHome.collectAsState()
     var versionLabel by remember { mutableStateOf("Current Version: v4.0-20") }
 
     val currentVersion = "v4.0-20"
@@ -426,6 +427,14 @@ fun SettingsScreen(
                 subtitle = "Switch to Indian National AQI",
                 checked = isUsAqi,
                 onCheckedChange = { viewModel.toggleAqiStandard(context) },
+                showDivider = true,
+            )
+
+            SettingsSwitch(
+                title = "Pinned Overview",
+                subtitle = "Show pinned locations as cards on Home",
+                checked = isOverviewHome,
+                onCheckedChange = { viewModel.toggleOverviewHome(context) },
                 showDivider = true,
             )
 
