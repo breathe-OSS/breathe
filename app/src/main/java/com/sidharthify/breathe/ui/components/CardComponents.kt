@@ -31,20 +31,33 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -52,6 +65,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import com.sidharthify.breathe.data.AqiResponse
 import com.sidharthify.breathe.data.LocalAnimationSettings
 import com.sidharthify.breathe.data.Zone
@@ -284,4 +298,173 @@ fun EmptyStateCard(onGoToExplore: () -> Unit) {
 @Composable
 fun LoadingScreen() {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { LoadingIndicator() }
+}
+
+private val ReorderRowHeight = 64.dp
+private val ReorderRowSpacing = 8.dp
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ReorderPinnedZonesSheet(
+    zones: List<AqiResponse>,
+    isUsAqi: Boolean,
+    onReorder: (List<String>) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val orderedZones = remember { mutableStateListOf<AqiResponse>().apply { addAll(zones) } }
+    var draggedZoneId by remember { mutableStateOf<String?>(null) }
+    var dragOffset by remember { mutableFloatStateOf(0f) }
+    val rowStepPx = with(LocalDensity.current) { (ReorderRowHeight + ReorderRowSpacing).toPx() }
+
+    fun move(
+        from: Int,
+        to: Int,
+    ) {
+        orderedZones.add(to, orderedZones.removeAt(from))
+    }
+
+    fun endDrag() {
+        draggedZoneId = null
+        dragOffset = 0f
+        onReorder(orderedZones.map { it.zoneId })
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface,
+    ) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 32.dp),
+        ) {
+            Text(
+                "Reorder Pinned Locations",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                "Drag the handle or use the arrows",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Column(verticalArrangement = Arrangement.spacedBy(ReorderRowSpacing)) {
+                orderedZones.forEachIndexed { index, zone ->
+                    key(zone.zoneId) {
+                        val isDragged = zone.zoneId == draggedZoneId
+
+                        val pm25 =
+                            zone.concentrations?.get("pm2.5")
+                                ?: zone.concentrations?.get("pm2_5")
+                                ?: 0.0
+                        val displayAqi =
+                            if (!isUsAqi) {
+                                zone.usAqi ?: if (pm25 > 0) calculateUsAqi(pm25) else 0
+                            } else {
+                                zone.nAqi
+                            }
+
+                        Surface(
+                            shape = MaterialTheme.shapes.medium,
+                            color =
+                                if (isDragged) {
+                                    MaterialTheme.colorScheme.secondaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.surfaceContainer
+                                },
+                            shadowElevation = if (isDragged) 8.dp else 0.dp,
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(ReorderRowHeight)
+                                    .zIndex(if (isDragged) 1f else 0f)
+                                    .graphicsLayer {
+                                        translationY = if (isDragged) dragOffset else 0f
+                                    },
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(
+                                    Icons.Filled.DragHandle,
+                                    contentDescription = "Drag to reorder",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier =
+                                        Modifier
+                                            .size(48.dp)
+                                            .padding(12.dp)
+                                            .pointerInput(zone.zoneId) {
+                                                detectDragGestures(
+                                                    onDragStart = {
+                                                        draggedZoneId = zone.zoneId
+                                                        dragOffset = 0f
+                                                    },
+                                                    onDragEnd = { endDrag() },
+                                                    onDragCancel = { endDrag() },
+                                                    onDrag = { change, amount ->
+                                                        change.consume()
+                                                        dragOffset += amount.y
+
+                                                        val currentIndex = orderedZones.indexOfFirst { it.zoneId == zone.zoneId }
+                                                        if (dragOffset > rowStepPx / 2 && currentIndex < orderedZones.lastIndex) {
+                                                            move(currentIndex, currentIndex + 1)
+                                                            dragOffset -= rowStepPx
+                                                        } else if (dragOffset < -rowStepPx / 2 && currentIndex > 0) {
+                                                            move(currentIndex, currentIndex - 1)
+                                                            dragOffset += rowStepPx
+                                                        }
+                                                    },
+                                                )
+                                            },
+                                )
+
+                                Box(
+                                    modifier =
+                                        Modifier
+                                            .size(10.dp)
+                                            .clip(CircleShape)
+                                            .background(getAqiColor(displayAqi, !isUsAqi)),
+                                )
+                                Spacer(Modifier.width(12.dp))
+
+                                Text(
+                                    text = zone.zoneName,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    fontWeight = FontWeight.SemiBold,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    modifier = Modifier.weight(1f),
+                                )
+
+                                IconButton(
+                                    onClick = {
+                                        move(index, index - 1)
+                                        onReorder(orderedZones.map { it.zoneId })
+                                    },
+                                    enabled = index > 0,
+                                ) {
+                                    Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "Move up")
+                                }
+
+                                IconButton(
+                                    onClick = {
+                                        move(index, index + 1)
+                                        onReorder(orderedZones.map { it.zoneId })
+                                    },
+                                    enabled = index < orderedZones.lastIndex,
+                                ) {
+                                    Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Move down")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

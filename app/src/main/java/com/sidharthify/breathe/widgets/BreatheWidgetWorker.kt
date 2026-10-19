@@ -39,6 +39,7 @@ import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.sidharthify.breathe.data.RetrofitClient
+import com.sidharthify.breathe.util.loadPinnedOrder
 
 class BreatheWidgetWorker(
     private val context: Context,
@@ -68,7 +69,7 @@ class BreatheWidgetWorker(
         val manager = GlanceAppWidgetManager(context)
 
         val appPrefs = context.getSharedPreferences("breathe_prefs", Context.MODE_PRIVATE)
-        val pinnedIds = (appPrefs.getStringSet("pinned_ids", emptySet()) ?: emptySet()).sorted()
+        val pinnedIds = loadPinnedOrder(appPrefs)
         val isUsAqi = appPrefs.getBoolean("is_us_aqi", false)
 
         val targets: List<Pair<List<GlanceId>, GlanceAppWidget>> =

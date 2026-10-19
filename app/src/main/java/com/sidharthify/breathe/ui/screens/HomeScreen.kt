@@ -10,15 +10,21 @@ import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -50,6 +56,7 @@ import com.sidharthify.breathe.ui.components.ExtendedHistoryScreen
 import com.sidharthify.breathe.ui.components.LoadingScreen
 import com.sidharthify.breathe.ui.components.MainDashboardDetail
 import com.sidharthify.breathe.ui.components.PinnedZonesButtonGroup
+import com.sidharthify.breathe.ui.components.ReorderPinnedZonesSheet
 import com.sidharthify.breathe.viewmodel.BreatheViewModel
 
 @ExperimentalMaterial3ExpressiveApi
@@ -74,6 +81,16 @@ fun HomeScreen(
 
     var selectedZone by remember { mutableStateOf(pinnedZones.firstOrNull()) }
     var showHistory by remember { mutableStateOf(false) }
+    var showReorderSheet by remember { mutableStateOf(false) }
+
+    if (showReorderSheet) {
+        ReorderPinnedZonesSheet(
+            zones = pinnedZones,
+            isUsAqi = isUsAqi,
+            onReorder = { order -> viewModel.reorderPinnedZones(context, order) },
+            onDismiss = { showReorderSheet = false },
+        )
+    }
 
     // Track whether we just came back from history to scroll to bottom
     var scrollToBottom by remember { mutableStateOf(false) }
@@ -168,13 +185,32 @@ fun HomeScreen(
                         contentPadding = PaddingValues(bottom = LocalNavBarClearance.current),
                     ) {
                         item {
-                            Text(
-                                "Pinned Locations",
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(start = 24.dp, top = 32.dp, bottom = 16.dp),
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
+                            Row(
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .padding(start = 24.dp, end = 12.dp, top = 24.dp, bottom = 8.dp)
+                                        .heightIn(min = 48.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    "Pinned Locations",
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.weight(1f),
+                                )
+
+                                if (pinnedZones.size > 1) {
+                                    IconButton(onClick = { showReorderSheet = true }) {
+                                        Icon(
+                                            Icons.Filled.SwapHoriz,
+                                            contentDescription = "Reorder pinned locations",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                            }
                         }
 
                         item {

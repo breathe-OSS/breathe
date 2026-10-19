@@ -27,6 +27,7 @@
 package com.sidharthify.breathe.util
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.drawable.Drawable
@@ -42,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.BaselineShift
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.em
+import androidx.core.content.edit
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.drawable.toDrawable
 import kotlin.math.roundToInt
@@ -233,5 +235,27 @@ fun getAqiCategory(
         in 201..300 -> AqiCategory("Poor")
         in 301..400 -> AqiCategory("Very Poor")
         else -> AqiCategory("Severe")
+    }
+}
+fun loadPinnedOrder(prefs: SharedPreferences): List<String> {
+    val pinnedSet = prefs.getStringSet("pinned_ids", emptySet()) ?: emptySet()
+    val savedOrder =
+        prefs
+            .getString("pinned_order", null)
+            ?.split(",")
+            ?.filter { it in pinnedSet }
+            ?.distinct()
+            ?: emptyList()
+    val unordered = pinnedSet.filter { it !in savedOrder }.sorted()
+    return savedOrder + unordered
+}
+
+fun savePinnedOrder(
+    prefs: SharedPreferences,
+    order: List<String>,
+) {
+    prefs.edit {
+        putStringSet("pinned_ids", order.toSet())
+        putString("pinned_order", order.joinToString(","))
     }
 }

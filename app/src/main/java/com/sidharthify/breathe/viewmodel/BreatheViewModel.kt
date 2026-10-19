@@ -41,6 +41,8 @@ import com.sidharthify.breathe.data.RetrofitClient
 import com.sidharthify.breathe.data.SensorInfo
 import com.sidharthify.breathe.data.Zone
 import com.sidharthify.breathe.widgets.forceWidgetUpdate
+import com.sidharthify.breathe.util.loadPinnedOrder
+import com.sidharthify.breathe.util.savePinnedOrder
 import com.sidharthify.breathe.util.weatherPm25Groups
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -122,7 +124,8 @@ class BreatheViewModel : ViewModel() {
             }
 
             val prefs = context.getSharedPreferences("breathe_prefs", Context.MODE_PRIVATE)
-            val pinnedSet = prefs.getStringSet("pinned_ids", emptySet()) ?: emptySet()
+            val pinnedOrder = loadPinnedOrder(prefs)
+            val pinnedSet = pinnedOrder.toSet()
 
             try {
                 val zonesDeferred = async(Dispatchers.IO) { RetrofitClient.api.getZones().zones }
@@ -149,6 +152,7 @@ class BreatheViewModel : ViewModel() {
                             }
                         }.awaitAll()
                         .filterNotNull()
+                        .sortedBy { pinnedOrder.indexOf(it.zoneId) }
 
                 _uiState.update { current ->
                     val unpinnedIds = unpinnedZones.map { it.id }.toSet()
@@ -223,7 +227,8 @@ class BreatheViewModel : ViewModel() {
             val sensorsJson = prefs.getString("cached_sensors", null)
 
             val pinPrefs = context.getSharedPreferences("breathe_prefs", Context.MODE_PRIVATE)
-            val pinnedSet = pinPrefs.getStringSet("pinned_ids", emptySet()) ?: emptySet()
+            val pinnedOrder = loadPinnedOrder(pinPrefs)
+            val pinnedSet = pinnedOrder.toSet()
 
             if (zonesJson != null && aqiJson != null) {
                 val zonesType = object : TypeToken<List<Zone>>() {}.type
@@ -233,7 +238,10 @@ class BreatheViewModel : ViewModel() {
                 val zones: List<Zone> = gson.fromJson(zonesJson, zonesType)
                 val aqiData: List<AqiResponse> = gson.fromJson(aqiJson, aqiType)
                 val sensors: List<SensorInfo> = if (sensorsJson != null) gson.fromJson(sensorsJson, sensorsType) else emptyList()
-                val pinnedResults = aqiData.filter { it.zoneId in pinnedSet }
+                val pinnedResults =
+                    aqiData
+                        .filter { it.zoneId in pinnedSet }
+                        .sortedBy { pinnedOrder.indexOf(it.zoneId) }
 
                 _uiState.value =
                     AppState(
@@ -258,23 +266,43 @@ class BreatheViewModel : ViewModel() {
         context: Context,
         zoneId: String,
     ) {
-        val currentSet = _uiState.value.pinnedIds.toMutableSet()
-        val isAdding = !currentSet.contains(zoneId)
+        val prefs = context.getSharedPreferences("breathe_prefs", Context.MODE_PRIVATE)
+        val currentOrder = loadPinnedOrder(prefs)
 
-        if (isAdding) currentSet.add(zoneId) else currentSet.remove(zoneId)
-
-        context
-            .getSharedPreferences("breathe_prefs", Context.MODE_PRIVATE)
-            .edit {
-                putStringSet("pinned_ids", currentSet)
+        val updatedOrder =
+            if (zoneId in currentOrder) {
+                currentOrder - zoneId
+            } else {
+                currentOrder + zoneId
             }
 
-        val updatedPinnedList = _uiState.value.allAqiData.filter { it.zoneId in currentSet }
+        savePinnedOrder(prefs, updatedOrder)
+
+        val updatedPinnedList =
+            updatedOrder.mapNotNull { id ->
+                _uiState.value.allAqiData.find { it.zoneId == id }
+            }
 
         _uiState.update {
             it.copy(
-                pinnedIds = currentSet,
+                pinnedIds = updatedOrder.toSet(),
                 pinnedZones = updatedPinnedList,
+            )
+        }
+
+        forceWidgetUpdate(context)
+    }
+
+    fun reorderPinnedZones(
+        context: Context,
+        order: List<String>,
+    ) {
+        val prefs = context.getSharedPreferences("breathe_prefs", Context.MODE_PRIVATE)
+        savePinnedOrder(prefs, order)
+
+        _uiState.update { state ->
+            state.copy(
+                pinnedZones = state.pinnedZones.sortedBy { order.indexOf(it.zoneId) },
             )
         }
 
