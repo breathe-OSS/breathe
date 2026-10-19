@@ -69,6 +69,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -81,6 +82,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.sidharthify.breathe.data.AqiResponse
 import com.sidharthify.breathe.data.SensorInfo
 import com.sidharthify.breathe.data.Zone
+import com.sidharthify.breathe.navigation.LocalNavBarClearance
 import com.sidharthify.breathe.ui.components.MainDashboardDetail
 import com.sidharthify.breathe.util.IndiaBoundaryOverlay
 import com.sidharthify.breathe.util.calculateUsAqi
@@ -107,6 +109,7 @@ fun MapScreen(
     val context = LocalContext.current
     val resources = LocalResources.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val navBarClearancePx = with(LocalDensity.current) { LocalNavBarClearance.current.roundToPx() }
 
     val bitmapCache = remember { LruCache<String, Bitmap>(50) }
 
@@ -141,8 +144,6 @@ fun MapScreen(
                         setMultiTouchControls(true)
                         zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
 
-                        val jkRegion = BoundingBox(37.5, 81.0, 32.0, 72.0)
-                        setScrollableAreaLimitDouble(jkRegion)
                         minZoomLevel = 7.0
                         maxZoomLevel = 20.0
 
@@ -154,6 +155,14 @@ fun MapScreen(
                 },
                 update = { _ -> },
             )
+
+            LaunchedEffect(mapViewRef, navBarClearancePx) {
+                mapViewRef?.let { map ->
+                    val jkRegion = BoundingBox(37.5, 81.0, 32.0, 72.0)
+                    map.setScrollableAreaLimitLatitude(jkRegion.latNorth, jkRegion.latSouth, navBarClearancePx)
+                    map.setScrollableAreaLimitLongitude(jkRegion.lonWest, jkRegion.lonEast, 0)
+                }
+            }
 
             LaunchedEffect(mapViewRef, isDarkTheme) {
                 mapViewRef?.let { map ->

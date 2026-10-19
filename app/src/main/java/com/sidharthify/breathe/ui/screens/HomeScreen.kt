@@ -42,6 +42,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sidharthify.breathe.data.AqiResponse
 import com.sidharthify.breathe.data.Zone
 import com.sidharthify.breathe.data.SensorInfo
+import com.sidharthify.breathe.navigation.LocalNavBarClearance
 import com.sidharthify.breathe.ui.components.EmptyStateCard
 import com.sidharthify.breathe.ui.components.ErrorCard
 import com.sidharthify.breathe.ui.components.ExtendedHistoryScreen
@@ -163,7 +164,7 @@ fun HomeScreen(
                     LazyColumn(
                         state = lazyColumnState,
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(bottom = 100.dp),
+                        contentPadding = PaddingValues(bottom = LocalNavBarClearance.current),
                     ) {
                         item {
                             Text(

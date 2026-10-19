@@ -95,6 +95,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sidharthify.breathe.data.AnimationSettings
 import com.sidharthify.breathe.expressiveClickable
+import com.sidharthify.breathe.navigation.LocalNavBarClearance
 import com.sidharthify.breathe.viewmodel.BreatheViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -301,7 +302,7 @@ fun SettingsScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp)
-                .padding(top = 24.dp, bottom = 100.dp)
+                .padding(top = 24.dp, bottom = LocalNavBarClearance.current)
                 // Shine on you crazy diamond!
                 .graphicsLayer {
                     if (isMadness) {

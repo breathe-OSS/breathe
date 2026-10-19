@@ -41,7 +41,10 @@ import androidx.compose.material3.MaterialShapes.Companion.Cookie12Sided
 import androidx.compose.material3.MaterialShapes.Companion.SoftBurst
 import androidx.compose.material3.MaterialShapes.Companion.Square
 import androidx.compose.material3.MaterialShapes.Companion.Slanted
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.graphics.shapes.RoundedPolygon
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -56,3 +59,5 @@ enum class AppScreen(
     Explore("Explore", Icons.Filled.Search, Icons.Outlined.Search, shape = Slanted),
     Settings("Settings", Icons.Filled.Settings, Icons.Outlined.Settings, shape = SoftBurst),
 }
+
+val LocalNavBarClearance = compositionLocalOf<Dp> { 0.dp }

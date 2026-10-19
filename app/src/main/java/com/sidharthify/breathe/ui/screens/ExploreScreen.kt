@@ -59,6 +59,7 @@ import androidx.compose.ui.unit.dp
 import com.sidharthify.breathe.data.LocalAnimationSettings
 import com.sidharthify.breathe.data.Zone
 import com.sidharthify.breathe.expressiveClickable
+import com.sidharthify.breathe.navigation.LocalNavBarClearance
 import com.sidharthify.breathe.ui.components.ErrorCard
 import com.sidharthify.breathe.ui.components.ZoneListItem
 
@@ -115,7 +116,7 @@ fun ExploreScreen(
         } else {
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
-                contentPadding = PaddingValues(bottom = 80.dp),
+                contentPadding = PaddingValues(bottom = LocalNavBarClearance.current),
                 modifier = Modifier.fillMaxSize(),
             ) {
                 if (filteredZones.isEmpty()) {

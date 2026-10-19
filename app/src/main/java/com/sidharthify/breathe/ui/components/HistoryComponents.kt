@@ -78,6 +78,7 @@ import androidx.compose.ui.unit.dp
 import com.sidharthify.breathe.data.HistoricalDataPoint
 import com.sidharthify.breathe.data.HistoricalStats
 import com.sidharthify.breathe.data.HistoryState
+import com.sidharthify.breathe.navigation.LocalNavBarClearance
 import com.sidharthify.breathe.util.WEATHER_FILTER_LABELS
 import com.sidharthify.breathe.util.WeatherPm25Group
 import com.sidharthify.breathe.util.calculateUsAqi
@@ -262,7 +263,7 @@ fun ExtendedHistoryScreen(
             Text("Download CSV", style = MaterialTheme.typography.labelLarge)
         }
 
-        Spacer(modifier = Modifier.height(160.dp))
+        Spacer(modifier = Modifier.height(LocalNavBarClearance.current))
     }
 }
 

@@ -51,6 +51,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -101,6 +102,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sidharthify.breathe.data.AnimationSettings
 import com.sidharthify.breathe.data.LocalAnimationSettings
 import com.sidharthify.breathe.navigation.AppScreen
+import com.sidharthify.breathe.navigation.LocalNavBarClearance
 import com.sidharthify.breathe.ui.components.MorphingPill
 import com.sidharthify.breathe.ui.screens.ExploreScreen
 import com.sidharthify.breathe.ui.screens.HomeScreen
@@ -219,6 +221,8 @@ fun BreatheApp(
     var currentScreen by remember { mutableStateOf(AppScreen.Home) }
     val motionScheme = MaterialTheme.motionScheme
 
+    val navBarClearance = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 120.dp
+
     // navigate to Home first, then exit
     BackHandler(enabled = currentScreen != AppScreen.Home) {
         currentScreen = AppScreen.Home
@@ -267,57 +271,59 @@ fun BreatheApp(
                                 .fillMaxSize()
                                 .consumeWindowInsets(WindowInsets.navigationBars),
                     ) {
-                        when (screen) {
-                            AppScreen.Home -> {
-                                HomeScreen(
-                                    isLoading = uiState.isLoading,
-                                    isDarkTheme = isDarkTheme,
-                                    isAmoled = isAmoled,
-                                    error = uiState.error,
-                                    pinnedZones = uiState.pinnedZones,
-                                    zones = uiState.zones,
-                                    sensorInfos = uiState.sensorInfos,
-                                    onGoToExplore = { currentScreen = AppScreen.Explore },
-                                    onRetry = { viewModel.refreshData(context) },
-                                )
-                            }
+                        CompositionLocalProvider(LocalNavBarClearance provides navBarClearance) {
+                            when (screen) {
+                                AppScreen.Home -> {
+                                    HomeScreen(
+                                        isLoading = uiState.isLoading,
+                                        isDarkTheme = isDarkTheme,
+                                        isAmoled = isAmoled,
+                                        error = uiState.error,
+                                        pinnedZones = uiState.pinnedZones,
+                                        zones = uiState.zones,
+                                        sensorInfos = uiState.sensorInfos,
+                                        onGoToExplore = { currentScreen = AppScreen.Explore },
+                                        onRetry = { viewModel.refreshData(context) },
+                                    )
+                                }
 
-                            AppScreen.Map -> {
-                                MapScreen(
-                                    zones = uiState.zones,
-                                    allAqiData = uiState.allAqiData,
-                                    pinnedIds = uiState.pinnedIds,
-                                    isDarkTheme = isDarkTheme,
-                                    isUsAqi = isUsAqi,
-                                    sensorInfos = uiState.sensorInfos,
-                                    onPinToggle = { id -> viewModel.togglePin(context, id) },
-                                )
-                            }
+                                AppScreen.Map -> {
+                                    MapScreen(
+                                        zones = uiState.zones,
+                                        allAqiData = uiState.allAqiData,
+                                        pinnedIds = uiState.pinnedIds,
+                                        isDarkTheme = isDarkTheme,
+                                        isUsAqi = isUsAqi,
+                                        sensorInfos = uiState.sensorInfos,
+                                        onPinToggle = { id -> viewModel.togglePin(context, id) },
+                                    )
+                                }
 
-                            AppScreen.Explore -> {
-                                ExploreScreen(
-                                    isLoading = uiState.isLoading,
-                                    isDarkTheme = isDarkTheme,
-                                    error = uiState.error,
-                                    zones = uiState.zones,
-                                    pinnedIds = uiState.pinnedIds,
-                                    query = searchQuery,
-                                    onSearchChange = viewModel::onSearchQueryChanged,
-                                    onPinToggle = { id -> viewModel.togglePin(context, id) },
-                                    onRetry = { viewModel.refreshData(context) },
-                                )
-                            }
+                                AppScreen.Explore -> {
+                                    ExploreScreen(
+                                        isLoading = uiState.isLoading,
+                                        isDarkTheme = isDarkTheme,
+                                        error = uiState.error,
+                                        zones = uiState.zones,
+                                        pinnedIds = uiState.pinnedIds,
+                                        query = searchQuery,
+                                        onSearchChange = viewModel::onSearchQueryChanged,
+                                        onPinToggle = { id -> viewModel.togglePin(context, id) },
+                                        onRetry = { viewModel.refreshData(context) },
+                                    )
+                                }
 
-                            AppScreen.Settings -> {
-                                SettingsScreen(
-                                    isDarkTheme = isDarkTheme,
-                                    isAmoled = isAmoled,
-                                    onThemeToggle = onThemeToggle,
-                                    onAmoledToggle = onAmoledToggle,
-                                    animationSettings = animationSettings,
-                                    onAnimationSettingsChange = onAnimationSettingsChange,
-                                    viewModel = viewModel,
-                                )
+                                AppScreen.Settings -> {
+                                    SettingsScreen(
+                                        isDarkTheme = isDarkTheme,
+                                        isAmoled = isAmoled,
+                                        onThemeToggle = onThemeToggle,
+                                        onAmoledToggle = onAmoledToggle,
+                                        animationSettings = animationSettings,
+                                        onAnimationSettingsChange = onAnimationSettingsChange,
+                                        viewModel = viewModel,
+                                    )
+                                }
                             }
                         }
                     }
