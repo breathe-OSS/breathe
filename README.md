@@ -142,7 +142,7 @@ The limitations of our current project is that we do not have ground sensors in 
 
 We are actively working to deploy custom physical sensors to improve data density in Jammu. If you are interested in hosting a sensor node, please contact us at: [contact@breatheoss.app](mailto:contact@breatheoss.app)
 
-We have deployed **AirGradient** sensors in Jammu, Srinagar, Leh, Rajouri, Doda, Samba, Udhampur & Bandipora (as of 28/07/26) which provide an accurate measurement of PM10 and PM2.5 values. We are working
+We have deployed **AirGradient** sensors in Bandipora, Doda, Ganderbal, Jammu, Kargil, Kathua, Leh, Rajouri, Reasi, Samba, Srinagar & Udhampur (21 sensors across 12 cities as of 24/10/26), which provide an accurate measurement of PM10 and PM2.5 values. The live list is always at [api.breatheoss.app/sensor-info](https://api.breatheoss.app/sensor-info). We are working
 to deploy them in all other regions.
 
 ## Credits & Developers
