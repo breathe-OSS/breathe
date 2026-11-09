@@ -28,13 +28,16 @@
 package com.sidharthify.breathe.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -42,9 +45,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CenterFocusStrong
+import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
@@ -53,6 +59,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.ToggleButton
+import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.material3.VerticalFloatingToolbar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -68,6 +76,9 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.graphics.drawable.toDrawable
@@ -79,9 +90,12 @@ import com.sidharthify.breathe.data.SensorInfo
 import com.sidharthify.breathe.data.Zone
 import com.sidharthify.breathe.navigation.LocalNavBarClearance
 import com.sidharthify.breathe.ui.components.MainDashboardDetail
+import com.sidharthify.breathe.ui.components.SensorDetails
 import com.sidharthify.breathe.util.IndiaBoundaryOverlay
 import com.sidharthify.breathe.util.MapMarkerIcons
 import com.sidharthify.breathe.util.MapStyle
+import com.sidharthify.breathe.util.SensorPoint
+import com.sidharthify.breathe.util.buildSensorPoints
 import com.sidharthify.breathe.util.displayAqi
 import com.sidharthify.breathe.util.getAqiColor
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
@@ -116,6 +130,11 @@ fun MapScreen(
     var selectedZoneId by rememberSaveable { mutableStateOf<String?>(null) }
     val selectedZone = selectedZoneId?.let { id -> allAqiData.find { it.zoneId == id } }
     var mapViewRef by remember { mutableStateOf<MapView?>(null) }
+
+    var layer by rememberSaveable { mutableStateOf(MapLayer.Sensors) }
+    var selectedSensorKey by rememberSaveable { mutableStateOf<String?>(null) }
+    val sensorPoints = remember(allAqiData, sensorInfos) { buildSensorPoints(allAqiData, sensorInfos) }
+    val selectedSensor = selectedSensorKey?.let { key -> sensorPoints.find { it.key == key } }
 
     // osmdroid has its own lifecycle and leaks its tile threads without this
     DisposableEffect(lifecycleOwner) {
@@ -175,48 +194,93 @@ fun MapScreen(
             map.invalidate()
         }
 
-        LaunchedEffect(mapViewRef, zones, allAqiData, useNaqi, surfaceArgb) {
+        LaunchedEffect(mapViewRef, layer, zones, allAqiData, sensorPoints, useNaqi, surfaceArgb) {
             val map = mapViewRef ?: return@LaunchedEffect
 
             map.overlays.removeAll { it is Marker }
 
             val aqiById = allAqiData.associateBy { it.zoneId }
-            val placed =
-                zones.mapNotNull { zone ->
-                    val lat = zone.lat ?: return@mapNotNull null
-                    val lon = zone.lon ?: return@mapNotNull null
-                    Triple(zone, GeoPoint(lat, lon), aqiById[zone.id])
+            val zonesWithSensors =
+                if (layer == MapLayer.Sensors) {
+                    sensorPoints.map { it.zoneId }.toSet()
+                } else {
+                    emptySet()
                 }
+
+            val bubbles = mutableListOf<MapBubble>()
+
+            // in the sensor layer a zone with live sensors is replaced by them,
+            // zones that only have modelled data keep one see through bubble
+            zones.forEach { zone ->
+                val lat = zone.lat ?: return@forEach
+                val lon = zone.lon ?: return@forEach
+                if (zone.id in zonesWithSensors) {
+                    return@forEach
+                }
+                val isLive = zone.provider.equals("airgradient", ignoreCase = true)
+                bubbles +=
+                    MapBubble(
+                        point = GeoPoint(lat, lon),
+                        title = zone.name,
+                        aqi = aqiById[zone.id]?.displayAqi(useNaqi),
+                        diameterDp = 34f,
+                        showLiveDot = isLive && layer == MapLayer.Districts,
+                        muted = layer == MapLayer.Sensors && !isLive,
+                        onClick = {
+                            if (aqiById[zone.id] != null) {
+                                selectedZoneId = zone.id
+                            }
+                        },
+                    )
+            }
+
+            if (layer == MapLayer.Sensors) {
+                sensorPoints.forEach { sensor ->
+                    bubbles +=
+                        MapBubble(
+                            point = GeoPoint(sensor.latitude, sensor.longitude),
+                            title = sensor.name,
+                            aqi =
+                                if (sensor.reading.pm25 != null) {
+                                    sensor.reading.displayAqi(useNaqi)
+                                } else {
+                                    null
+                                },
+                            diameterDp = 30f,
+                            showLiveDot = true,
+                            muted = false,
+                            onClick = { selectedSensorKey = sensor.key },
+                        )
+                }
+            }
 
             // osmdroid draws in list order, so the worst air goes in last and
             // ends up on top wherever bubbles overlap
-            placed
-                .sortedBy { (_, _, data) -> data?.displayAqi(useNaqi) ?: -1 }
-                .forEach { (zone, point, data) ->
-                    val aqi = data?.displayAqi(useNaqi)
+            bubbles
+                .sortedBy { it.aqi ?: -1 }
+                .forEach { bubble ->
                     val spec =
                         MapMarkerIcons.Spec(
-                            text = aqi?.toString() ?: "",
+                            text = bubble.aqi?.toString() ?: "",
                             fillColor =
-                                if (aqi != null) {
-                                    getAqiColor(aqi, !useNaqi).toArgb()
+                                if (bubble.aqi != null) {
+                                    getAqiColor(bubble.aqi, !useNaqi).toArgb()
                                 } else {
                                     MapMarkerIcons.NO_DATA_GREY
                                 },
                             ringColor = surfaceArgb,
-                            diameterDp = 34f,
-                            showLiveDot = zone.provider.equals("airgradient", ignoreCase = true),
+                            diameterDp = bubble.diameterDp,
+                            showLiveDot = bubble.showLiveDot,
+                            muted = bubble.muted,
                         )
                     val marker =
                         Marker(map).apply {
-                            position = point
-                            title = zone.name
+                            position = bubble.point
+                            title = bubble.title
                             setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
                             icon = markerIcons.get(spec).toDrawable(resources)
                             setOnMarkerClickListener { _, _ ->
-                                if (data != null) {
-                                    selectedZoneId = zone.id
-                                }
+                                bubble.onClick()
                                 true
                             }
                         }
@@ -239,6 +303,15 @@ fun MapScreen(
                     ).padding(horizontal = 8.dp, vertical = 2.dp),
         )
 
+        MapLayerToggle(
+            layer = layer,
+            onLayerChange = { layer = it },
+            modifier =
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 12.dp),
+        )
+
         VerticalFloatingToolbar(
             expanded = true,
             modifier =
@@ -259,6 +332,40 @@ fun MapScreen(
                 },
             ) {
                 Icon(Icons.Filled.CenterFocusStrong, contentDescription = "Show all zones")
+            }
+        }
+    }
+
+    if (selectedSensor != null) {
+        ModalBottomSheet(
+            onDismissRequest = { selectedSensorKey = null },
+            containerColor = MaterialTheme.colorScheme.surface,
+        ) {
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 24.dp)
+                        .padding(bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                SensorDetails(
+                    nodeName = selectedSensor.name,
+                    reading = selectedSensor.reading,
+                    useNaqi = useNaqi,
+                    sensorInfo = selectedSensor.info,
+                )
+                // hands over to the zone sheet for the averages, graphs and pinning
+                FilledTonalButton(
+                    onClick = {
+                        selectedSensorKey = null
+                        selectedZoneId = selectedSensor.zoneId
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Open ${selectedSensor.info.zone}")
+                }
             }
         }
     }
@@ -309,6 +416,67 @@ fun MapScreen(
                     useNaqi = useNaqi,
                     sensorInfos = sensorInfos,
                 )
+            }
+        }
+    }
+}
+
+private enum class MapLayer(
+    val label: String,
+) {
+    Sensors("Sensors"),
+    Districts("Districts"),
+}
+
+// one bubble on the map, either a whole zone or a single sensor
+private data class MapBubble(
+    val point: GeoPoint,
+    val title: String,
+    val aqi: Int?,
+    val diameterDp: Float,
+    val showLiveDot: Boolean,
+    val muted: Boolean,
+    val onClick: () -> Unit,
+)
+
+// sensor names only have to be unique inside their zone
+private val SensorPoint.key: String
+    get() = "$zoneId/$name"
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun MapLayerToggle(
+    layer: MapLayer,
+    onLayerChange: (MapLayer) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+    ) {
+        MapLayer.entries.forEachIndexed { index, entry ->
+            ToggleButton(
+                checked = layer == entry,
+                onCheckedChange = { onLayerChange(entry) },
+                shapes =
+                    if (index == 0) {
+                        ButtonGroupDefaults.connectedLeadingButtonShapes()
+                    } else {
+                        ButtonGroupDefaults.connectedTrailingButtonShapes()
+                    },
+                modifier = Modifier.semantics { role = Role.RadioButton },
+            ) {
+                Icon(
+                    if (entry == MapLayer.Sensors) {
+                        Icons.Filled.Sensors
+                    } else {
+                        Icons.Filled.Layers
+                    },
+                    contentDescription = null,
+                    modifier = Modifier.size(ToggleButtonDefaults.IconSize),
+                )
+                Spacer(Modifier.size(ToggleButtonDefaults.IconSpacing))
+                Text(entry.label)
             }
         }
     }

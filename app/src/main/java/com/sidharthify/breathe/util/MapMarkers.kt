@@ -30,6 +30,7 @@ package com.sidharthify.breathe.util
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.DashPathEffect
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.util.LruCache
@@ -49,6 +50,10 @@ class MapMarkerIcons(context: Context) {
         val ringColor: Int,
         val diameterDp: Float,
         val showLiveDot: Boolean,
+        // zones on modelled data get a dashed ring when they sit among real
+        // sensors, so the two don't read the same. the fill stays solid
+        // because a see through bubble shifts the AQI colour over the terrain
+        val muted: Boolean = false,
     )
 
     private val density = context.resources.displayMetrics.density
@@ -65,6 +70,8 @@ class MapMarkerIcons(context: Context) {
         style = Paint.Style.STROKE
         strokeWidth = 2f * density
     }
+
+    private val dashedRing = DashPathEffect(floatArrayOf(3f * density, 2.5f * density), 0f)
 
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
@@ -94,7 +101,14 @@ class MapMarkerIcons(context: Context) {
         fillPaint.clearShadowLayer()
 
         ringPaint.color = spec.ringColor
+        ringPaint.pathEffect =
+            if (spec.muted) {
+                dashedRing
+            } else {
+                null
+            }
         canvas.drawCircle(center, center, radius, ringPaint)
+        ringPaint.pathEffect = null
 
         if (spec.text.isNotEmpty()) {
             // three digit readings need a smaller face to fit inside the ring
