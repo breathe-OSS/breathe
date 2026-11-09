@@ -212,9 +212,20 @@ class BreatheViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    // one bad zone shouldn't take the rest down with it, so failures just drop out
-    private suspend fun fetchAqi(zones: List<Zone>): List<AqiResponse> =
-        coroutineScope {
+    // one /aqi/zones request when the backend has it. older backends 404 on it,
+    // so fall back to asking zone by zone, where one bad zone just drops out
+    private suspend fun fetchAqi(zones: List<Zone>): List<AqiResponse> {
+        if (zones.isEmpty()) {
+            return emptyList()
+        }
+        val bulk =
+            withContext(Dispatchers.IO) {
+                runCatching { RetrofitClient.api.getZonesAqi(zones.joinToString(",") { it.id }).zones }.getOrNull()
+            }
+        if (bulk != null) {
+            return bulk
+        }
+        return coroutineScope {
             zones
                 .map { zone ->
                     async(Dispatchers.IO) {
@@ -223,6 +234,7 @@ class BreatheViewModel(application: Application) : AndroidViewModel(application)
                 }.awaitAll()
                 .filterNotNull()
         }
+    }
 
     private fun sortedByPinOrder(
         zones: List<AqiResponse>,

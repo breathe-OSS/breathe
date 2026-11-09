@@ -52,6 +52,10 @@ data class ZonesResponse(
     val zones: List<Zone>,
 )
 
+data class ZonesAqiResponse(
+    val zones: List<AqiResponse>,
+)
+
 data class Zone(
     val id: String,
     val name: String,

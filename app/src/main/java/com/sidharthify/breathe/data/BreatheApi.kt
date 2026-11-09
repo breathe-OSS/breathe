@@ -41,6 +41,12 @@ interface BreatheApi {
         @Path("zone_id") zoneId: String,
     ): AqiResponse
 
+    // the same payloads as getZoneAqi in one request, newer backends only
+    @GET("/aqi/zones")
+    suspend fun getZonesAqi(
+        @Query("ids") ids: String,
+    ): ZonesAqiResponse
+
     @GET("/sensor-info")
     suspend fun getSensorInfo(): SensorInfoResponse
 
