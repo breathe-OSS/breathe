@@ -71,17 +71,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sidharthify.breathe.data.HistoryPoint
-import com.sidharthify.breathe.data.NodeHistoryPoint
 import com.sidharthify.breathe.data.NodeReading
 import com.sidharthify.breathe.util.displayAqi
 import com.sidharthify.breathe.util.getAqiColor
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.roundToInt
-
-// Helper to convert NodeHistoryPoint list
-private fun nodeHistoryValues(history: List<NodeHistoryPoint>, useNaqi: Boolean): List<Int> =
-    history.map { it.displayAqi(useNaqi) }
 
 @Composable
 fun AqiHistoryGraph(
@@ -108,7 +103,7 @@ fun AqiHistoryGraph(
             if (nodeHistory.isEmpty()) {
                 history.map { it.displayAqi(useNaqi) }
             } else {
-                nodeHistoryValues(nodeHistory, useNaqi)
+                nodeHistory.map { it.displayAqi(useNaqi) }
             }
         } else {
             history.map { it.displayAqi(useNaqi) }

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /*
- * Utils.kt - Utility functions for AQI calculations, formatting, and other common tasks across the app
+ * AqiScale.kt - US EPA and NAQI breakpoints, colours, categories and display AQI
  *
  * Copyright (C) 2026 The Breathe Open Source Project
  * Copyright (C) 2026 sidharthify <wednisegit@gmail.com>
@@ -24,118 +24,17 @@
  * SOFTWARE.
  */
 
+
 package com.sidharthify.breathe.util
 
-import android.content.Context
-import android.content.SharedPreferences
-import android.graphics.Canvas
-import android.graphics.Paint
-import android.graphics.drawable.Drawable
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.BaselineShift
-import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.em
-import androidx.core.content.edit
-import androidx.core.graphics.createBitmap
-import androidx.core.graphics.drawable.toDrawable
 import com.sidharthify.breathe.data.AqiResponse
 import com.sidharthify.breathe.data.HistoryPoint
 import com.sidharthify.breathe.data.NodeHistoryPoint
 import com.sidharthify.breathe.data.NodeReading
 import kotlin.math.roundToInt
-
-fun createBlobIcon(
-    context: Context,
-    color: Int,
-): Drawable {
-    val radius = 32f
-    val bitmap = createBitmap((radius * 2).toInt(), (radius * 2).toInt())
-    val canvas = Canvas(bitmap)
-    val paint = Paint().apply { isAntiAlias = true }
-
-    paint.color = color
-    canvas.drawCircle(radius, radius, radius, paint)
-
-    return bitmap.toDrawable(context.resources)
-}
-
-fun formatPollutantName(key: String): String =
-    when (key.lowercase()) {
-        "pm2_5", "pm2.5" -> "PM2.5"
-        "pm10" -> "PM10"
-        "no2" -> "NO2"
-        "so2" -> "SO2"
-        "co" -> "CO"
-        "ch4" -> "CH4"
-        else -> key.uppercase()
-    }
-
-@Composable
-fun PollutantText(
-    rawKey: String,
-    style: TextStyle,
-    modifier: Modifier = Modifier,
-    color: Color = Color.Unspecified,
-    fontWeight: FontWeight? = null
-) {
-    val annotatedString = remember(rawKey) {
-        buildAnnotatedString {
-            when (rawKey.lowercase()) {
-                "pm2.5", "pm2_5" -> {
-                    append("PM")
-                    withStyle(SpanStyle(baselineShift = BaselineShift.Subscript, fontSize = 0.7.em)) { append("2.5")
-                    }
-                }
-                "pm10" -> {
-                    append("PM")
-                    withStyle(SpanStyle(baselineShift = BaselineShift.Subscript, fontSize = 0.7.em)) { append("10")
-                    }
-                }
-                "no2" -> {
-                    append("NO")
-                    withStyle(SpanStyle(baselineShift = BaselineShift.Subscript, fontSize = 0.7.em)) { append("2")
-                    }
-                }
-                "so2" -> {
-                    append("SO")
-                    withStyle(SpanStyle(baselineShift = BaselineShift.Subscript, fontSize = 0.7.em)) { append("2")
-                    }
-                }
-                "ch4" -> {
-                    append("CH")
-                    withStyle(SpanStyle(baselineShift = BaselineShift.Subscript, fontSize = 0.7.em)) { append("4")
-                    }
-                }
-                "o3" -> {
-                    append("O")
-                    withStyle(SpanStyle(baselineShift = BaselineShift.Subscript, fontSize = 0.7.em)) { append("3")
-                    }
-                }
-                else -> {
-                    append(formatPollutantName(rawKey))
-                }
-            }
-        }
-    }
-
-    Text(
-        text = annotatedString,
-        style = style,
-        modifier = modifier,
-        color = color,
-        fontWeight = fontWeight
-    )
-}
 
 fun getAqiColor(
     aqi: Int,
@@ -184,17 +83,6 @@ fun Color.onAqiColor(): Color {
     return Color.White
 }
 
-fun getTimeAgo(timestamp: Long): String {
-    val now = System.currentTimeMillis() / 1000
-    val diff = now - timestamp
-    return when {
-        diff < 60 -> "Just now"
-        diff < 3600 -> "${diff / 60}m ago"
-        diff < 86400 -> "${diff / 3600}h ago"
-        else -> ">1d ago"
-    }
-}
-
 fun calculateCigarettes(pm25: Double): Double {
     // 22 µg/m³ ≈ 1 cigarette
     val cigs = pm25 / 22.0
@@ -214,6 +102,7 @@ fun calculateUsAqi(pm25: Double): Int {
     }
 }
 
+// EPA truncates pm10 to whole µg/m³ before picking the band
 fun calculateUsAqiPm10(pm10: Double): Int {
     val c = pm10.toInt().toDouble()
     return when {
@@ -227,6 +116,7 @@ fun calculateUsAqiPm10(pm10: Double): Int {
     }
 }
 
+// the EPA formula, a straight line between the two ends of whichever band c is in
 private fun linearInterp(
     c: Double,
     cLow: Double,
@@ -262,28 +152,6 @@ fun getAqiCategory(
         in 201..300 -> AqiCategory("Poor")
         in 301..400 -> AqiCategory("Very Poor")
         else -> AqiCategory("Severe")
-    }
-}
-fun loadPinnedOrder(prefs: SharedPreferences): List<String> {
-    val pinnedSet = prefs.getStringSet("pinned_ids", emptySet()) ?: emptySet()
-    val savedOrder =
-        prefs
-            .getString("pinned_order", null)
-            ?.split(",")
-            ?.filter { it in pinnedSet }
-            ?.distinct()
-            ?: emptyList()
-    val unordered = pinnedSet.filter { it !in savedOrder }.sorted()
-    return savedOrder + unordered
-}
-
-fun savePinnedOrder(
-    prefs: SharedPreferences,
-    order: List<String>,
-) {
-    prefs.edit {
-        putStringSet("pinned_ids", order.toSet())
-        putString("pinned_order", order.joinToString(","))
     }
 }
 
