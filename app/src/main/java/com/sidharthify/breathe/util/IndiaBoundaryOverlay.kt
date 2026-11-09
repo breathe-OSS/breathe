@@ -27,9 +27,12 @@
 package com.sidharthify.breathe.util
 
 import android.content.Context
-import android.graphics.Color
 import android.graphics.Paint
 import android.util.Log
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import org.osmdroid.util.GeoPoint
@@ -37,135 +40,153 @@ import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Polygon
 
 /**
- * Helper class to render India's official political boundaries
+ * Draws India's official boundaries for Jammu & Kashmir and Ladakh over the
+ * tiles, district by district. OSM tiles only show the line of control, so
+ * this overlay is what makes the map show the borders India recognises.
+ *
  * Thanks to udit-001/india-maps-data for the GeoJSON data
  */
 object IndiaBoundaryOverlay {
     private const val TAG = "IndiaBoundaryOverlay"
+    private const val ID_PREFIX = "india_boundary_"
+    private val FILES = listOf("jammu-and-kashmir.geojson", "ladakh.geojson")
 
-    // Border styling
-    private const val BORDER_WIDTH = 2.5f
+    // every ring is drawn twice, a wide soft halo first and the crisp line on
+    // top, so the border still reads over busy terrain and city labels
+    data class Style(
+        val lineColor: Int,
+        val lineWidthPx: Float,
+        val haloColor: Int,
+        val haloWidthPx: Float,
+    )
+
+    private val loadLock = Mutex()
+    private var cachedRings: List<List<GeoPoint>>? = null
 
     /**
-     * Loads and adds J&K and Ladakh boundary overlays to the map
-     * @param context
-     * @param mapView
-     * @param isDarkTheme
+     * Adds the boundary under everything else on the map, or just restyles it
+     * if it's already there. Parsing only ever happens once per process and
+     * never on the main thread.
      */
-    fun addBoundaryOverlay(
+    suspend fun show(
         context: Context,
         mapView: MapView,
-        isDarkTheme: Boolean,
+        style: Style,
     ) {
-        try {
-            // Load J&K boundary
-            val jkGeoJson = loadGeoJsonFromAssets(context, "jammu-and-kashmir.geojson")
-            if (jkGeoJson != null) {
-                addOutlineFromGeoJson(jkGeoJson, mapView, isDarkTheme, "jk")
-            }
+        val existing = boundaryOverlays(mapView)
+        if (existing.isNotEmpty()) {
+            existing.forEach { applyStyle(it, style) }
+            mapView.invalidate()
+            return
+        }
 
-            // Load Ladakh boundary
-            val ladakhGeoJson = loadGeoJsonFromAssets(context, "ladakh.geojson")
-            if (ladakhGeoJson != null) {
-                addOutlineFromGeoJson(ladakhGeoJson, mapView, isDarkTheme, "ladakh")
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error loading boundary overlay", e)
+        val rings = loadRings(context.applicationContext)
+        val halos = rings.mapIndexed { index, ring -> buildPolygon(ring, "${ID_PREFIX}halo_$index") }
+        val lines = rings.mapIndexed { index, ring -> buildPolygon(ring, "${ID_PREFIX}line_$index") }
+
+        // index 0 is the bottom of the overlay stack, right above the tiles,
+        // so markers always land on top. halos lead the list so they sit
+        // under the lines
+        (halos + lines).forEach { applyStyle(it, style) }
+        mapView.overlays.addAll(0, halos + lines)
+        mapView.invalidate()
+    }
+
+    private fun boundaryOverlays(mapView: MapView): List<Polygon> =
+        mapView.overlays
+            .filterIsInstance<Polygon>()
+            .filter { it.id?.startsWith(ID_PREFIX) == true }
+
+    private fun applyStyle(
+        polygon: Polygon,
+        style: Style,
+    ) {
+        val isHalo = polygon.id?.startsWith("${ID_PREFIX}halo_") == true
+        polygon.fillPaint.color = 0x00000000
+        polygon.outlinePaint.apply {
+            color =
+                if (isHalo) {
+                    style.haloColor
+                } else {
+                    style.lineColor
+                }
+            strokeWidth =
+                if (isHalo) {
+                    style.haloWidthPx
+                } else {
+                    style.lineWidthPx
+                }
+            this.style = Paint.Style.STROKE
+            strokeJoin = Paint.Join.ROUND
+            strokeCap = Paint.Cap.ROUND
+            isAntiAlias = true
         }
     }
 
-    /**
-     * Removes all boundary overlays from the map
-     */
-    fun removeBoundaryOverlays(mapView: MapView) {
-        val overlaysToRemove =
-            mapView.overlays
-                .filterIsInstance<Polygon>()
-                .filter { it.id?.startsWith("india_boundary_") == true }
-        overlaysToRemove.forEach { mapView.overlays.remove(it) }
-    }
+    private fun buildPolygon(
+        ring: List<GeoPoint>,
+        polygonId: String,
+    ): Polygon =
+        Polygon().apply {
+            id = polygonId
+            points = ring
+            // keep taps going to the markers underneath, the border isn't interactive
+            setOnClickListener { _, _, _ -> false }
+        }
 
-    private fun loadGeoJsonFromAssets(
+    private suspend fun loadRings(context: Context): List<List<GeoPoint>> =
+        loadLock.withLock {
+            cachedRings?.let { return@withLock it }
+            val rings =
+                withContext(Dispatchers.Default) {
+                    FILES.flatMap { readRings(context, it) }
+                }
+            cachedRings = rings
+            rings
+        }
+
+    // only the outer ring of each polygon is drawn, holes are skipped
+    private fun readRings(
         context: Context,
         fileName: String,
-    ): String? =
-        try {
-            context.assets
-                .open(fileName)
-                .bufferedReader()
-                .use { it.readText() }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error reading GeoJSON file: $fileName", e)
-            null
-        }
+    ): List<List<GeoPoint>> {
+        val text =
+            try {
+                context.assets.open(fileName).bufferedReader().use { it.readText() }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error reading GeoJSON file: $fileName", e)
+                return emptyList()
+            }
 
-    private fun addOutlineFromGeoJson(
-        geoJsonString: String,
-        mapView: MapView,
-        isDarkTheme: Boolean,
-        prefix: String,
-    ) {
-        val json = JSONObject(geoJsonString)
-        val features = json.getJSONArray("features")
-
+        val rings = mutableListOf<List<GeoPoint>>()
+        val features = JSONObject(text).getJSONArray("features")
         for (i in 0 until features.length()) {
-            val feature = features.getJSONObject(i)
-            val geometry = feature.getJSONObject("geometry")
-            val geometryType = geometry.getString("type")
-
-            when (geometryType) {
+            val geometry = features.getJSONObject(i).getJSONObject("geometry")
+            val coordinates = geometry.getJSONArray("coordinates")
+            when (geometry.getString("type")) {
                 "Polygon" -> {
-                    val polygon =
-                        createPolygonOverlay(
-                            geometry.getJSONArray("coordinates"),
-                            isDarkTheme,
-                        )
-                    polygon.id = "india_boundary_${prefix}_$i"
-                    mapView.overlays.add(0, polygon)
+                    rings += outerRing(coordinates)
                 }
 
                 "MultiPolygon" -> {
-                    val coordinates = geometry.getJSONArray("coordinates")
                     for (j in 0 until coordinates.length()) {
-                        val polygon =
-                            createPolygonOverlay(
-                                coordinates.getJSONArray(j),
-                                isDarkTheme,
-                            )
-                        polygon.id = "india_boundary_${prefix}_${i}_$j"
-                        mapView.overlays.add(0, polygon)
+                        rings += outerRing(coordinates.getJSONArray(j))
                     }
                 }
             }
         }
+        return rings.filter { it.isNotEmpty() }
     }
 
-    private fun createPolygonOverlay(
-        coordinates: JSONArray,
-        isDarkTheme: Boolean,
-    ): Polygon {
-        val polygon = Polygon()
-
-        if (coordinates.length() > 0) {
-            val ring = coordinates.getJSONArray(0)
-            val geoPoints = mutableListOf<GeoPoint>()
-
-            for (i in 0 until ring.length()) {
-                val coord = ring.getJSONArray(i)
-                val lon = coord.getDouble(0)
-                val lat = coord.getDouble(1)
-                geoPoints.add(GeoPoint(lat, lon))
-            }
-
-            polygon.points = geoPoints
+    // geojson is [lon, lat], osmdroid wants it the other way round
+    private fun outerRing(polygon: JSONArray): List<GeoPoint> {
+        if (polygon.length() == 0) {
+            return emptyList()
         }
-
-        polygon.fillPaint.color = 0x00000000
-        polygon.outlinePaint.color = if (isDarkTheme) Color.WHITE else Color.BLACK
-        polygon.outlinePaint.strokeWidth = BORDER_WIDTH
-        polygon.outlinePaint.style = Paint.Style.STROKE
-        polygon.outlinePaint.isAntiAlias = true
-
-        return polygon
+        val ring = polygon.getJSONArray(0)
+        return List(ring.length()) { index ->
+            val coord = ring.getJSONArray(index)
+            GeoPoint(coord.getDouble(1), coord.getDouble(0))
+        }
     }
 }

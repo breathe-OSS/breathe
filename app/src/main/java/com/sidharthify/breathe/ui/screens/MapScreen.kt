@@ -198,8 +198,16 @@ fun MapScreen(
                         tilesOverlay.setColorFilter(null)
                     }
 
-                    IndiaBoundaryOverlay.removeBoundaryOverlays(map)
-                    IndiaBoundaryOverlay.addBoundaryOverlay(context, map, isDarkTheme)
+                    IndiaBoundaryOverlay.show(
+                        context,
+                        map,
+                        IndiaBoundaryOverlay.Style(
+                            lineColor = if (isDarkTheme) Color.WHITE else Color.BLACK,
+                            lineWidthPx = 2.5f,
+                            haloColor = Color.TRANSPARENT,
+                            haloWidthPx = 0f,
+                        ),
+                    )
 
                     map.invalidate()
                 }
