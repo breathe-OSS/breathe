@@ -30,11 +30,11 @@ package com.sidharthify.breathe.util
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.util.LruCache
-import androidx.core.graphics.ColorUtils
+import androidx.compose.ui.graphics.Color as ComposeColor
+import androidx.compose.ui.graphics.toArgb
 import androidx.core.graphics.createBitmap
 
 /**
@@ -130,12 +130,6 @@ class MapMarkerIcons(context: Context) {
         const val LIVE_GREEN = 0xFF4CAF50.toInt()
         const val NO_DATA_GREY = 0xFF9E9E9E.toInt()
 
-        // dark text on the yellows and greens, white on the reds and purples
-        fun readableTextColor(background: Int): Int {
-            if (ColorUtils.calculateLuminance(background) > 0.35) {
-                return 0xFF1B1B1F.toInt()
-            }
-            return Color.WHITE
-        }
+        fun readableTextColor(background: Int): Int = ComposeColor(background).onAqiColor().toArgb()
     }
 }

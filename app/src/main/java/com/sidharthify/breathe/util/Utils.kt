@@ -36,6 +36,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -159,6 +161,27 @@ fun getAqiColor(
         in 301..400 -> Color(0xFFE93F33)
         else -> Color(0xFFAF2D24)
     }
+}
+
+// the bright end of the scale (greens and yellows) is unreadable as text on a
+// light surface, so text there gets a darker shade of the same colour
+fun Color.asAqiText(surface: Color): Color {
+    if (surface.luminance() < 0.5f) {
+        return this
+    }
+    if (luminance() < 0.3f) {
+        return this
+    }
+    return lerp(this, Color.Black, 0.5f)
+}
+
+// text sitting on an AQI colour, dark on the greens and yellows and white on
+// the reds and purples
+fun Color.onAqiColor(): Color {
+    if (luminance() > 0.35f) {
+        return Color(0xFF1B1B1F)
+    }
+    return Color.White
 }
 
 fun getTimeAgo(timestamp: Long): String {

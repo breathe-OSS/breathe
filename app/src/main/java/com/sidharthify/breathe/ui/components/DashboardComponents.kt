@@ -126,7 +126,9 @@ import com.sidharthify.breathe.ui.pressSquish
 import com.sidharthify.breathe.util.PollutantText
 import com.sidharthify.breathe.util.calculateChange1h
 import com.sidharthify.breathe.util.calculateCigarettes
+import com.sidharthify.breathe.util.asAqiText
 import com.sidharthify.breathe.util.displayAqi
+import com.sidharthify.breathe.util.onAqiColor
 import com.sidharthify.breathe.util.getAqiCategory
 import com.sidharthify.breathe.util.getAqiColor
 import com.sidharthify.breathe.util.getTimeAgo
@@ -182,19 +184,7 @@ fun MainDashboardDetail(
         label = "DashboardColor",
     )
 
-    val isModerateAqi =
-        if (!useNaqi) {
-            displayAqi in 51..100
-        } else {
-            displayAqi in 101..200
-        }
-
-    val aqiTextColor =
-        if (!isDarkTheme && isModerateAqi) {
-            Color(0xFF5C4300)
-        } else {
-            aqiColor
-        }
+    val aqiTextColor = aqiColor.asAqiText(MaterialTheme.colorScheme.surface)
     val uriHandler = LocalUriHandler.current
 
     val isOpenMeteo =
@@ -608,7 +598,7 @@ private fun AqiHeroCard(
                         text = aqiLabel,
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color.Black,
+                        color = aqiColor.onAqiColor(),
                     )
                 }
             }
@@ -1194,7 +1184,7 @@ fun NodeReadingCard(
                     "${displayAqi ?: "—"}",
                     style = MaterialTheme.typography.headlineLarge,
                     fontWeight = FontWeight.Black,
-                    color = getAqiColor(displayAqi ?: 0, !useNaqi),
+                    color = getAqiColor(displayAqi ?: 0, !useNaqi).asAqiText(MaterialTheme.colorScheme.surface),
                 )
             }
             Text(

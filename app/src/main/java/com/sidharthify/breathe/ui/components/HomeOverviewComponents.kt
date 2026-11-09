@@ -82,6 +82,7 @@ import com.sidharthify.breathe.data.AqiResponse
 import com.sidharthify.breathe.data.LocalAnimationSettings
 import com.sidharthify.breathe.ui.expressiveClickable
 import com.sidharthify.breathe.ui.loopingFloat
+import com.sidharthify.breathe.util.asAqiText
 import com.sidharthify.breathe.util.displayAqi
 import com.sidharthify.breathe.util.getAqiCategory
 import com.sidharthify.breathe.util.getAqiColor
@@ -251,7 +252,7 @@ private fun SnapshotRow(
             "$animatedAqi",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            color = getAqiColor(aqi, !useNaqi),
+            color = getAqiColor(aqi, !useNaqi).asAqiText(MaterialTheme.colorScheme.surface),
         )
     }
 }
@@ -329,7 +330,7 @@ private fun PinnedOverviewCard(
                 "$aqi",
                 style = MaterialTheme.typography.displayMedium,
                 fontWeight = FontWeight.Black,
-                color = aqiColor,
+                color = aqiColor.asAqiText(MaterialTheme.colorScheme.surface),
             )
             Text(
                 getAqiCategory(aqi, !useNaqi).label,
