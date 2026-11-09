@@ -97,6 +97,7 @@ data class WeatherHistoryPoint(
 
 data class WeatherHistory(
     val interval: Long = 3600L,
+    val anchor: Long = 0L,
     val points: List<WeatherHistoryPoint> = emptyList(),
     @SerializedName("zone_id") val zoneId: String? = null,
 )

@@ -62,9 +62,11 @@ data class WeatherPm25Group(
 private fun conditionForTs(
     ts: Long,
     interval: Long,
+    anchor: Long,
     lookup: Map<Long, WeatherHistoryPoint>,
 ): String? {
-    val bucket = (ts / interval.coerceAtLeast(1L)) * interval.coerceAtLeast(1L)
+    val step = interval.coerceAtLeast(1L)
+    val bucket = anchor + Math.floorDiv(ts - anchor, step) * step
     return lookup[bucket]?.condition
 }
 
@@ -84,7 +86,7 @@ fun filterHistoryByWeather(
     if (weather == null || weather.points.isEmpty()) return emptyList()
     val lookup = weather.points.associateBy { it.ts }
     val interval = weather.interval
-    return data.filter { matchesWeatherFilter(conditionForTs(it.ts, interval, lookup), filter) }
+    return data.filter { matchesWeatherFilter(conditionForTs(it.ts, interval, weather.anchor, lookup), filter) }
 }
 
 fun weatherPm25Groups(
@@ -97,7 +99,7 @@ fun weatherPm25Groups(
     val groups = linkedMapOf<String, Pair<Double, Int>>()
     for (point in data) {
         val pm25 = point.pm25 ?: continue
-        var condition = conditionForTs(point.ts, interval, lookup) ?: continue
+        var condition = conditionForTs(point.ts, interval, weather.anchor, lookup) ?: continue
         if (condition == "thunderstorm") condition = "rain"
         val current = groups[condition] ?: (0.0 to 0)
         groups[condition] = (current.first + pm25) to (current.second + 1)
