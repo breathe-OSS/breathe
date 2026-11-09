@@ -54,6 +54,8 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -79,6 +81,8 @@ import com.sidharthify.breathe.data.HistoricalDataPoint
 import com.sidharthify.breathe.data.HistoricalStats
 import com.sidharthify.breathe.data.HistoryState
 import com.sidharthify.breathe.navigation.LocalNavBarClearance
+import com.sidharthify.breathe.util.HistoryPeriod
+import com.sidharthify.breathe.util.HistoryPeriodMode
 import com.sidharthify.breathe.util.WEATHER_FILTER_LABELS
 import com.sidharthify.breathe.util.WeatherPm25Group
 import com.sidharthify.breathe.util.calculateUsAqi
@@ -89,6 +93,9 @@ import com.sidharthify.breathe.util.weatherConditionIconRes
 import com.sidharthify.breathe.util.weatherImpactCards
 import com.sidharthify.breathe.util.weatherPm25Groups
 import java.text.SimpleDateFormat
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
 import java.util.*
 import kotlin.math.roundToInt
 
@@ -106,6 +113,10 @@ fun ExtendedHistoryScreen(
     onCustomRangeChanged: (String) -> Unit,
     onCustomIntervalChanged: (String) -> Unit,
     onApplyCustom: () -> Unit,
+    onShowPeriod: () -> Unit,
+    onPeriodModeSelected: (HistoryPeriodMode) -> Unit,
+    onPeriodStep: (Long) -> Unit,
+    onPeriodPicked: (LocalDate, LocalDate) -> Unit,
     onSensorSelected: (String) -> Unit,
     onTogglePm25: () -> Unit,
     onTogglePm10: () -> Unit,
@@ -160,6 +171,13 @@ fun ExtendedHistoryScreen(
             showCustomInputs = historyState.showCustomInputs,
             customRange = historyState.customRange,
             customInterval = historyState.customInterval,
+            periodActive = historyState.periodActive,
+            periodMode = historyState.periodMode,
+            period = historyState.period,
+            onShowPeriod = onShowPeriod,
+            onPeriodModeSelected = onPeriodModeSelected,
+            onPeriodStep = onPeriodStep,
+            onPeriodPicked = onPeriodPicked,
             onRangeSelected = onRangeSelected,
             onToggleCustom = onToggleCustom,
             onCustomRangeChanged = onCustomRangeChanged,
@@ -241,6 +259,13 @@ fun ExtendedHistoryScreen(
         } else if (historyState.data.isNotEmpty()) {
             Text(
                 "No samples for this weather",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(16.dp),
+            )
+        } else {
+            Text(
+                "No readings for this selection",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(16.dp),
@@ -358,13 +383,20 @@ fun HistoryRangeSelector(
     showCustomInputs: Boolean,
     customRange: String,
     customInterval: String,
+    periodActive: Boolean,
+    periodMode: HistoryPeriodMode,
+    period: HistoryPeriod?,
+    onShowPeriod: () -> Unit,
+    onPeriodModeSelected: (HistoryPeriodMode) -> Unit,
+    onPeriodStep: (Long) -> Unit,
+    onPeriodPicked: (LocalDate, LocalDate) -> Unit,
     onRangeSelected: (String) -> Unit,
     onToggleCustom: () -> Unit,
     onCustomRangeChanged: (String) -> Unit,
     onCustomIntervalChanged: (String) -> Unit,
     onApplyCustom: () -> Unit,
 ) {
-    val options = listOf("1w" to "1W", "1mo" to "1M", "6mo" to "6M", "custom" to "Custom")
+    val options = listOf("1w" to "1W", "1mo" to "1M", "6mo" to "6M", "date" to "Date", "custom" to "Custom")
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -372,10 +404,10 @@ fun HistoryRangeSelector(
     ) {
         options.forEachIndexed { index, (key, label) ->
             val checked =
-                if (key == "custom") {
-                    showCustomInputs
-                } else {
-                    selectedRange == key && !showCustomInputs
+                when (key) {
+                    "custom" -> showCustomInputs
+                    "date" -> periodActive
+                    else -> selectedRange == key && !showCustomInputs && !periodActive
                 }
             ToggleButton(
                 checked = checked,
@@ -383,7 +415,9 @@ fun HistoryRangeSelector(
                     if (!isChecked) return@ToggleButton
                     if (key == "custom") {
                         if (!showCustomInputs) onToggleCustom()
-                    } else if (selectedRange != key || showCustomInputs) {
+                    } else if (key == "date") {
+                        if (!periodActive) onShowPeriod()
+                    } else if (selectedRange != key || showCustomInputs || periodActive) {
                         onRangeSelected(key)
                     }
                 },
@@ -393,6 +427,22 @@ fun HistoryRangeSelector(
             ) {
                 Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1)
             }
+        }
+    }
+
+    AnimatedVisibility(
+        visible = periodActive && period != null,
+        enter = expandVertically() + fadeIn(),
+        exit = shrinkVertically() + fadeOut(),
+    ) {
+        if (period != null) {
+            HistoryPeriodPicker(
+                mode = periodMode,
+                period = period,
+                onModeSelected = onPeriodModeSelected,
+                onStep = onPeriodStep,
+                onPicked = onPeriodPicked,
+            )
         }
     }
 
@@ -436,6 +486,161 @@ fun HistoryRangeSelector(
                     Text("Apply", style = MaterialTheme.typography.labelMedium)
                 }
             }
+        }
+    }
+}
+
+private fun LocalDate.toUtcMillis(): Long = atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+
+private fun Long.toUtcLocalDate(): LocalDate = Instant.ofEpochMilli(this).atZone(ZoneOffset.UTC).toLocalDate()
+
+private object UpToToday : SelectableDates {
+    override fun isSelectableDate(utcTimeMillis: Long): Boolean =
+        !utcTimeMillis.toUtcLocalDate().isAfter(LocalDate.now())
+
+    override fun isSelectableYear(year: Int): Boolean = year <= LocalDate.now().year
+}
+
+@Composable
+private fun HistoryPeriodPicker(
+    mode: HistoryPeriodMode,
+    period: HistoryPeriod,
+    onModeSelected: (HistoryPeriodMode) -> Unit,
+    onStep: (Long) -> Unit,
+    onPicked: (LocalDate, LocalDate) -> Unit,
+) {
+    var showDialog by remember { mutableStateOf(false) }
+    val modes = HistoryPeriodMode.entries
+
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        shape = MaterialTheme.shapes.medium,
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp),
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+            ) {
+                modes.forEachIndexed { index, option ->
+                    ToggleButton(
+                        checked = mode == option,
+                        onCheckedChange = { isChecked ->
+                            if (isChecked && mode != option) {
+                                onModeSelected(option)
+                            }
+                        },
+                        modifier = Modifier.weight(1f).height(HistoryButtonHeight),
+                        shapes = connectedToggleShapes(index, modes.size),
+                        contentPadding = HistoryButtonPadding,
+                    ) {
+                        Text(option.label, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = { onStep(-1L) }) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                        contentDescription = "Previous period",
+                    )
+                }
+                TextButton(
+                    onClick = { showDialog = true },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(
+                        period.label(mode),
+                        style = MaterialTheme.typography.labelLarge,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+                IconButton(
+                    onClick = { onStep(1L) },
+                    enabled = !period.shifted(mode, 1L).start.isAfter(LocalDate.now()),
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = "Next period",
+                    )
+                }
+            }
+        }
+    }
+
+    if (showDialog && mode == HistoryPeriodMode.DAYS) {
+        val state =
+            rememberDateRangePickerState(
+                initialSelectedStartDateMillis = period.start.toUtcMillis(),
+                initialSelectedEndDateMillis = period.end.toUtcMillis(),
+                selectableDates = UpToToday,
+            )
+        DatePickerDialog(
+            onDismissRequest = { showDialog = false },
+            confirmButton = {
+                TextButton(
+                    enabled = state.selectedStartDateMillis != null,
+                    onClick = {
+                        val startMillis = state.selectedStartDateMillis
+                        if (startMillis != null) {
+                            val start = startMillis.toUtcLocalDate()
+                            val end = state.selectedEndDateMillis?.toUtcLocalDate() ?: start
+                            onPicked(start, end)
+                        }
+                        showDialog = false
+                    },
+                ) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDialog = false }) {
+                    Text("Cancel")
+                }
+            },
+        ) {
+            DateRangePicker(state = state, modifier = Modifier.weight(1f))
+        }
+    } else if (showDialog) {
+        val state =
+            rememberDatePickerState(
+                initialSelectedDateMillis = period.start.toUtcMillis(),
+                selectableDates = UpToToday,
+            )
+        DatePickerDialog(
+            onDismissRequest = { showDialog = false },
+            confirmButton = {
+                TextButton(
+                    enabled = state.selectedDateMillis != null,
+                    onClick = {
+                        val millis = state.selectedDateMillis
+                        if (millis != null) {
+                            val date = millis.toUtcLocalDate()
+                            onPicked(date, date)
+                        }
+                        showDialog = false
+                    },
+                ) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDialog = false }) {
+                    Text("Cancel")
+                }
+            },
+        ) {
+            DatePicker(state = state)
         }
     }
 }

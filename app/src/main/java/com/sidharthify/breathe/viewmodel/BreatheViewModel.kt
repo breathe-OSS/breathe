@@ -37,6 +37,9 @@ import com.google.gson.reflect.TypeToken
 import com.sidharthify.breathe.data.AppState
 import com.sidharthify.breathe.data.AqiResponse
 import com.sidharthify.breathe.data.HistoryState
+import com.sidharthify.breathe.util.HistoryPeriod
+import com.sidharthify.breathe.util.HistoryPeriodMode
+import java.time.LocalDate
 import com.sidharthify.breathe.data.RetrofitClient
 import com.sidharthify.breathe.data.SensorInfo
 import com.sidharthify.breathe.data.Zone
@@ -343,12 +346,73 @@ class BreatheViewModel : ViewModel() {
     }
 
     fun setHistoryRange(range: String) {
-        _historyState.update { it.copy(selectedRange = range, showCustomInputs = false) }
+        _historyState.update {
+            it.copy(selectedRange = range, showCustomInputs = false, periodActive = false)
+        }
         fetchHistoricalData()
     }
 
     fun toggleHistoryCustomInputs() {
-        _historyState.update { it.copy(showCustomInputs = !it.showCustomInputs) }
+        _historyState.update { it.copy(showCustomInputs = !it.showCustomInputs, periodActive = false) }
+    }
+
+    fun showHistoryPeriod() {
+        val state = _historyState.value
+        val period = state.period ?: HistoryPeriod.containing(state.periodMode, LocalDate.now())
+        applyHistoryPeriod(state.periodMode, period)
+    }
+
+    fun setHistoryPeriodMode(mode: HistoryPeriodMode) {
+        val today = LocalDate.now()
+        val end = _historyState.value.period?.end ?: today
+        val anchor = if (end.isAfter(today)) today else end
+        applyHistoryPeriod(mode, HistoryPeriod.containing(mode, anchor))
+    }
+
+    fun stepHistoryPeriod(direction: Long) {
+        val state = _historyState.value
+        val period = state.period ?: return
+        applyHistoryPeriod(state.periodMode, period.shifted(state.periodMode, direction))
+    }
+
+    fun pickHistoryPeriod(start: LocalDate, end: LocalDate) {
+        val mode = _historyState.value.periodMode
+        val period =
+            if (mode == HistoryPeriodMode.DAYS) {
+                HistoryPeriod(start, end)
+            } else {
+                HistoryPeriod.containing(mode, start)
+            }
+        applyHistoryPeriod(mode, period)
+    }
+
+    private fun applyHistoryPeriod(mode: HistoryPeriodMode, period: HistoryPeriod) {
+        _historyState.update {
+            it.copy(
+                periodActive = true,
+                periodMode = mode,
+                period = period,
+                selectedRange = period.token,
+                showCustomInputs = false,
+            )
+        }
+        fetchHistoricalData()
+    }
+
+    private fun historyInterval(state: HistoryState): String {
+        val period = state.period
+        if (state.periodActive && period != null) {
+            return period.interval
+        }
+        if (state.showCustomInputs) {
+            return state.customInterval
+        }
+        return when (state.selectedRange) {
+            "1w" -> "1h"
+            "1mo" -> "4h"
+            "6mo" -> "1d"
+            else -> "1h"
+        }
     }
 
     fun setCustomRange(range: String) {
@@ -389,16 +453,7 @@ class BreatheViewModel : ViewModel() {
 
         val location = if (state.selectedSensor == "zone") zoneId else "${zoneId}_${state.selectedSensor}"
 
-        val interval = if (state.showCustomInputs) {
-            state.customInterval
-        } else {
-            when (state.selectedRange) {
-                "1w" -> "1h"
-                "1mo" -> "4h"
-                "6mo" -> "1d"
-                else -> "1h"
-            }
-        }
+        val interval = historyInterval(state)
 
         val metrics = buildList {
             if (state.showPm25) add("pm2.5")
@@ -467,16 +522,7 @@ class BreatheViewModel : ViewModel() {
         val state = _historyState.value
 
         val location = if (state.selectedSensor == "zone") zoneId else "${zoneId}_${state.selectedSensor}"
-        val interval = if (state.showCustomInputs) {
-            state.customInterval
-        } else {
-            when (state.selectedRange) {
-                "1w" -> "1h"
-                "1mo" -> "4h"
-                "6mo" -> "1d"
-                else -> "1h"
-            }
-        }
+        val interval = historyInterval(state)
 
         val url = "https://api.breatheoss.app/historical-data/$location/${state.selectedRange}/$interval/pm2.5,pm10?format=csv"
         val intent = Intent(Intent.ACTION_VIEW, url.toUri())

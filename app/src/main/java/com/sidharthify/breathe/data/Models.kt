@@ -27,6 +27,8 @@
 package com.sidharthify.breathe.data
 
 import com.google.gson.annotations.SerializedName
+import com.sidharthify.breathe.util.HistoryPeriod
+import com.sidharthify.breathe.util.HistoryPeriodMode
 
 data class SensorInfoResponse(
     val sensors: List<SensorInfo>
@@ -161,6 +163,9 @@ data class HistoryState(
     val error: String? = null,
     val weatherHistory: WeatherHistory? = null,
     val weatherFilter: String = "all",
+    val periodActive: Boolean = false,
+    val periodMode: HistoryPeriodMode = HistoryPeriodMode.MONTH,
+    val period: HistoryPeriod? = null,
 )
 
 data class AppState(
