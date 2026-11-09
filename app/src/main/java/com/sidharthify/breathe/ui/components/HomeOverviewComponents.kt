@@ -30,11 +30,9 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -83,6 +81,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.sidharthify.breathe.data.AqiResponse
 import com.sidharthify.breathe.data.LocalAnimationSettings
 import com.sidharthify.breathe.ui.expressiveClickable
+import com.sidharthify.breathe.ui.loopingFloat
 import com.sidharthify.breathe.util.displayAqi
 import com.sidharthify.breathe.util.getAqiCategory
 import com.sidharthify.breathe.util.getAqiColor
@@ -359,10 +358,10 @@ fun WelcomeDialog(
         entrance.animateTo(1f, entranceSpec)
     }
 
-    val infiniteTransition = rememberInfiniteTransition(label = "WelcomeBadge")
-    val badgeRotation by infiniteTransition.animateFloat(
+    val badgeRotation by loopingFloat(
+        enabled = animationSettings.pulseEffects,
         initialValue = 0f,
-        targetValue = if (animationSettings.pulseEffects) 360f else 0f,
+        targetValue = 360f,
         animationSpec =
             infiniteRepeatable(
                 animation = tween(12000, easing = LinearEasing),

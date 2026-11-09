@@ -32,11 +32,9 @@ package com.sidharthify.breathe.ui.components
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -123,6 +121,7 @@ import com.sidharthify.breathe.data.NodeReading
 import com.sidharthify.breathe.data.SensorInfo
 import com.sidharthify.breathe.data.WeatherInfo
 import com.sidharthify.breathe.ui.expressiveClickable
+import com.sidharthify.breathe.ui.loopingFloat
 import com.sidharthify.breathe.ui.pressSquish
 import com.sidharthify.breathe.util.PollutantText
 import com.sidharthify.breathe.util.calculateChange1h
@@ -550,10 +549,10 @@ private fun AqiHeroCard(
         label = "DashboardNumber",
     )
 
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val breatheScale by infiniteTransition.animateFloat(
+    val breatheScale by loopingFloat(
+        enabled = animationSettings.pulseEffects,
         initialValue = 1f,
-        targetValue = if (animationSettings.pulseEffects) 1.02f else 1f,
+        targetValue = 1.02f,
         animationSpec =
             infiniteRepeatable(
                 animation = tween(4000, easing = FastOutSlowInEasing),

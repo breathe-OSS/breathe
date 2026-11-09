@@ -27,7 +27,10 @@
 
 package com.sidharthify.breathe.ui
 
+import androidx.compose.animation.core.InfiniteRepeatableSpec
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -35,7 +38,10 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -124,3 +130,21 @@ fun Modifier.pressSquish(): Modifier =
                 }
             }
     }
+
+// an infinite transition keeps asking for frames even when its two ends are
+// the same value, so when the effect is off we hand back a plain state and
+// never start one
+@Composable
+fun loopingFloat(
+    enabled: Boolean,
+    initialValue: Float,
+    targetValue: Float,
+    animationSpec: InfiniteRepeatableSpec<Float>,
+    label: String,
+): State<Float> {
+    if (!enabled) {
+        return remember { mutableFloatStateOf(initialValue) }
+    }
+    val transition = rememberInfiniteTransition(label = label)
+    return transition.animateFloat(initialValue, targetValue, animationSpec, label)
+}
