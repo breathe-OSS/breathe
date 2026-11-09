@@ -66,6 +66,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -92,13 +93,20 @@ import com.sidharthify.breathe.navigation.LocalNavBarClearance
 import com.sidharthify.breathe.ui.components.MainDashboardDetail
 import com.sidharthify.breathe.ui.components.SensorDetails
 import com.sidharthify.breathe.util.IndiaBoundaryOverlay
+import com.sidharthify.breathe.util.MapCluster
 import com.sidharthify.breathe.util.MapMarkerIcons
 import com.sidharthify.breathe.util.MapStyle
 import com.sidharthify.breathe.util.SensorPoint
 import com.sidharthify.breathe.util.buildSensorPoints
+import com.sidharthify.breathe.util.clusterForZoom
 import com.sidharthify.breathe.util.displayAqi
 import com.sidharthify.breathe.util.getAqiColor
+import kotlin.math.roundToInt
+import org.osmdroid.events.MapListener
+import org.osmdroid.events.ScrollEvent
+import org.osmdroid.events.ZoomEvent
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.CustomZoomButtonsController
 import org.osmdroid.views.MapView
@@ -130,6 +138,11 @@ fun MapScreen(
     var selectedZoneId by rememberSaveable { mutableStateOf<String?>(null) }
     val selectedZone = selectedZoneId?.let { id -> allAqiData.find { it.zoneId == id } }
     var mapViewRef by remember { mutableStateOf<MapView?>(null) }
+
+    // clusters only care about zoom, and only in half steps, so pinching
+    // doesn't rebuild every marker on every frame
+    var zoomStep by remember { mutableDoubleStateOf(MapStyle.HOME_ZOOM) }
+    val clusterDistancePx = with(LocalDensity.current) { 40.dp.toPx() }
 
     var layer by rememberSaveable { mutableStateOf(MapLayer.Sensors) }
     var selectedSensorKey by rememberSaveable { mutableStateOf<String?>(null) }
@@ -169,6 +182,18 @@ fun MapScreen(
                     controller.setZoom(MapStyle.HOME_ZOOM)
                     controller.setCenter(MapStyle.HOME_CENTER)
 
+                    addMapListener(
+                        object : MapListener {
+                            override fun onScroll(event: ScrollEvent?): Boolean = false
+
+                            override fun onZoom(event: ZoomEvent?): Boolean {
+                                val level = event?.zoomLevel ?: return false
+                                zoomStep = (level * 2).roundToInt() / 2.0
+                                return false
+                            }
+                        },
+                    )
+
                     mapViewRef = this
                 }
             },
@@ -194,7 +219,7 @@ fun MapScreen(
             map.invalidate()
         }
 
-        LaunchedEffect(mapViewRef, layer, zones, allAqiData, sensorPoints, useNaqi, surfaceArgb) {
+        LaunchedEffect(mapViewRef, layer, zones, allAqiData, sensorPoints, useNaqi, surfaceArgb, zoomStep) {
             val map = mapViewRef ?: return@LaunchedEffect
 
             map.overlays.removeAll { it is Marker }
@@ -254,9 +279,20 @@ fun MapScreen(
                 }
             }
 
+            val clusters =
+                clusterForZoom(
+                    items = bubbles,
+                    zoom = zoomStep,
+                    minDistancePx = clusterDistancePx,
+                    latitude = { it.point.latitude },
+                    longitude = { it.point.longitude },
+                    priority = { it.aqi ?: -1 },
+                )
+
             // osmdroid draws in list order, so the worst air goes in last and
-            // ends up on top wherever bubbles overlap
-            bubbles
+            // ends up on top wherever bubbles still overlap
+            clusters
+                .map { cluster -> clusterBubble(cluster, map) }
                 .sortedBy { it.aqi ?: -1 }
                 .forEach { bubble ->
                     val spec =
@@ -272,6 +308,7 @@ fun MapScreen(
                             diameterDp = bubble.diameterDp,
                             showLiveDot = bubble.showLiveDot,
                             muted = bubble.muted,
+                            count = bubble.count,
                         )
                     val marker =
                         Marker(map).apply {
@@ -437,6 +474,7 @@ private data class MapBubble(
     val showLiveDot: Boolean,
     val muted: Boolean,
     val onClick: () -> Unit,
+    val count: Int = 1,
 )
 
 // sensor names only have to be unique inside their zone
@@ -480,4 +518,35 @@ private fun MapLayerToggle(
             }
         }
     }
+}
+
+// a lone bubble passes straight through. a group shows its worst reading
+// (the number you'd want to know about) with a count badge, and tapping it
+// zooms in far enough to pull the group apart
+private fun clusterBubble(
+    cluster: MapCluster<MapBubble>,
+    map: MapView,
+): MapBubble {
+    val members = cluster.members
+    if (members.size == 1) {
+        return members.first()
+    }
+    val center = GeoPoint(cluster.latitude, cluster.longitude)
+    return MapBubble(
+        point = center,
+        title = "${members.size} places",
+        aqi = members.mapNotNull { it.aqi }.maxOrNull(),
+        diameterDp = 36f,
+        showLiveDot = members.any { it.showLiveDot },
+        muted = members.all { it.muted },
+        count = members.size,
+        onClick = {
+            val box = BoundingBox.fromGeoPointsSafe(members.map { it.point })
+            if (box.latitudeSpan < 0.001 && box.longitudeSpanWithDateLine < 0.001) {
+                map.controller.animateTo(center, (map.zoomLevelDouble + 2).coerceAtMost(map.maxZoomLevel), 500L)
+            } else {
+                map.zoomToBoundingBox(box.increaseByScale(1.8f), true)
+            }
+        },
+    )
 }

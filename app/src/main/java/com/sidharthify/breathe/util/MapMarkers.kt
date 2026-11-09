@@ -54,6 +54,8 @@ class MapMarkerIcons(context: Context) {
         // sensors, so the two don't read the same. the fill stays solid
         // because a see through bubble shifts the AQI colour over the terrain
         val muted: Boolean = false,
+        // how many bubbles were folded into this one, shown as a badge above 1
+        val count: Int = 1,
     )
 
     private val density = context.resources.displayMetrics.density
@@ -124,6 +126,10 @@ class MapMarkerIcons(context: Context) {
             canvas.drawText(spec.text, center, baseline, textPaint)
         }
 
+        if (spec.count > 1) {
+            drawCountBadge(canvas, center, radius, diameter, spec)
+        }
+
         if (spec.showLiveDot) {
             val dotRadius = diameter * 0.15f
             val angle = Math.toRadians(-45.0)
@@ -138,6 +144,26 @@ class MapMarkerIcons(context: Context) {
         }
 
         return bitmap
+    }
+
+    // sits on the ring at the bottom right, opposite the live dot
+    private fun drawCountBadge(
+        canvas: Canvas,
+        center: Float,
+        radius: Float,
+        diameter: Float,
+        spec: Spec,
+    ) {
+        val badgeRadius = diameter * 0.2f
+        val angle = Math.toRadians(45.0)
+        val badgeX = center + (radius * kotlin.math.cos(angle)).toFloat()
+        val badgeY = center + (radius * kotlin.math.sin(angle)).toFloat()
+        fillPaint.color = spec.ringColor
+        canvas.drawCircle(badgeX, badgeY, badgeRadius, fillPaint)
+        textPaint.textSize = badgeRadius * 1.2f
+        textPaint.color = readableTextColor(spec.ringColor)
+        val baseline = badgeY - (textPaint.descent() + textPaint.ascent()) / 2f
+        canvas.drawText(spec.count.toString(), badgeX, baseline, textPaint)
     }
 
     companion object {
