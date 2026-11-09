@@ -26,13 +26,6 @@
 
 package com.sidharthify.breathe.ui.screens
 
-import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Paint
-import android.graphics.Typeface
-import android.util.LruCache
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -73,9 +66,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.graphics.createBitmap
 import androidx.core.graphics.drawable.toDrawable
-import androidx.core.graphics.toColorInt
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -85,6 +76,7 @@ import com.sidharthify.breathe.data.Zone
 import com.sidharthify.breathe.navigation.LocalNavBarClearance
 import com.sidharthify.breathe.ui.components.MainDashboardDetail
 import com.sidharthify.breathe.util.IndiaBoundaryOverlay
+import com.sidharthify.breathe.util.MapMarkerIcons
 import com.sidharthify.breathe.util.MapStyle
 import com.sidharthify.breathe.util.displayAqi
 import com.sidharthify.breathe.util.getAqiColor
@@ -112,7 +104,7 @@ fun MapScreen(
     val density = LocalDensity.current.density
     val surfaceArgb = MaterialTheme.colorScheme.surface.toArgb()
 
-    val bitmapCache = remember { LruCache<String, Bitmap>(50) }
+    val markerIcons = remember { MapMarkerIcons(context) }
 
     var selectedZoneData by remember { mutableStateOf<AqiResponse?>(null) }
     var mapViewRef by remember { mutableStateOf<MapView?>(null) }
@@ -189,57 +181,55 @@ fun MapScreen(
                 }
             }
 
-            // Updated logic to use useNaqi for coloring
-            LaunchedEffect(mapViewRef, zones, allAqiData, useNaqi) {
+            LaunchedEffect(mapViewRef, zones, allAqiData, useNaqi, surfaceArgb) {
                 val map = mapViewRef ?: return@LaunchedEffect
 
-                val markersToRemove = map.overlays.filterIsInstance<Marker>()
-                markersToRemove.forEach { map.overlays.remove(it) }
+                map.overlays.removeAll { it is Marker }
 
-                zones.forEach { zone ->
-                    if (zone.lat != null && zone.lon != null) {
-                        val marker = Marker(map)
-                        marker.position = GeoPoint(zone.lat, zone.lon)
-                        marker.title = zone.name
-                        marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                val aqiById = allAqiData.associateBy { it.zoneId }
+                val placed =
+                    zones.mapNotNull { zone ->
+                        val lat = zone.lat ?: return@mapNotNull null
+                        val lon = zone.lon ?: return@mapNotNull null
+                        Triple(zone, GeoPoint(lat, lon), aqiById[zone.id])
+                    }
 
-                        val data = allAqiData.find { it.zoneId == zone.id }
-
-                        val displayAqi = data?.displayAqi(useNaqi) ?: 0
-
-                        val aqiText = if (data != null) displayAqi.toString() else ""
-
-                        val colorInt =
-                            if (data != null) {
-                                getAqiColor(displayAqi, !useNaqi).toArgb()
-                            } else {
-                                Color.GRAY
+                // osmdroid draws in list order, so the worst air goes in last and
+                // ends up on top wherever bubbles overlap
+                placed
+                    .sortedBy { (_, _, data) -> data?.displayAqi(useNaqi) ?: -1 }
+                    .forEach { (zone, point, data) ->
+                        val aqi = data?.displayAqi(useNaqi)
+                        val spec =
+                            MapMarkerIcons.Spec(
+                                text = aqi?.toString() ?: "",
+                                fillColor =
+                                    if (aqi != null) {
+                                        getAqiColor(aqi, !useNaqi).toArgb()
+                                    } else {
+                                        MapMarkerIcons.NO_DATA_GREY
+                                    },
+                                ringColor = surfaceArgb,
+                                diameterDp = 34f,
+                                showLiveDot = zone.provider.equals("airgradient", ignoreCase = true),
+                            )
+                        val marker =
+                            Marker(map).apply {
+                                position = point
+                                title = zone.name
+                                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                                icon = markerIcons.get(spec).toDrawable(resources)
+                                setOnMarkerClickListener { _, _ ->
+                                    if (data != null) {
+                                        selectedZoneData = data
+                                    }
+                                    true
+                                }
                             }
-
-                        val isAirGradient = zone.provider?.contains("airgradient", ignoreCase = true) == true
-
-                        val cacheKey = "$aqiText-$colorInt-$isAirGradient"
-                        var bitmap = bitmapCache.get(cacheKey)
-
-                        if (bitmap == null) {
-                            bitmap = createMarkerBitmap(context, aqiText, colorInt, isAirGradient)
-                            bitmapCache.put(cacheKey, bitmap)
-                        }
-
-                        marker.icon = bitmap.toDrawable(resources)
-
-                        marker.setOnMarkerClickListener { _, _ ->
-                            if (data != null) {
-                                selectedZoneData = data
-                            }
-                            true
-                        }
                         map.overlays.add(marker)
                     }
-                }
                 map.invalidate()
             }
-
             Column(
                 modifier =
                     Modifier
@@ -305,77 +295,3 @@ fun MapScreen(
     }
 }
 
-fun createMarkerBitmap(
-    context: Context,
-    text: String,
-    color: Int,
-    hasGroundSensor: Boolean = false,
-): Bitmap {
-    val density = context.resources.displayMetrics.density
-    val sizePx = (40 * density).toInt()
-    val textSizePx = 14f * density
-
-    val bitmap = createBitmap(sizePx, sizePx)
-    val canvas = Canvas(bitmap)
-
-    val strokeWidth = 2f * density
-    val radius = sizePx / 2f
-
-    val paint =
-        Paint().apply {
-            this.color = color
-            isAntiAlias = true
-            style = Paint.Style.FILL
-        }
-    canvas.drawCircle(radius, radius, radius - strokeWidth / 2f, paint)
-
-    val strokePaint =
-        Paint().apply {
-            this.color = Color.WHITE
-            isAntiAlias = true
-            style = Paint.Style.STROKE
-            this.strokeWidth = strokeWidth
-        }
-    canvas.drawCircle(radius, radius, radius - strokeWidth / 2f, strokePaint)
-
-    if (text.isNotEmpty()) {
-        val textPaint =
-            Paint().apply {
-                this.color = Color.BLACK
-                textSize = textSizePx
-                isAntiAlias = true
-                textAlign = Paint.Align.CENTER
-                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-                setShadowLayer(1.5f, 0f, 0f, Color.DKGRAY)
-            }
-
-        val xPos = sizePx / 2f
-        val yPos = (sizePx / 2f) - ((textPaint.descent() + textPaint.ascent()) / 2)
-
-        canvas.drawText(text, xPos, yPos, textPaint)
-    }
-
-    // indicator for AirGradient ground sensors
-    if (hasGroundSensor) {
-        val dotRadius = 6f * density
-        val dotPaint = Paint().apply {
-            this.color = "#39FF14".toColorInt()
-            isAntiAlias = true
-            style = Paint.Style.FILL
-        }
-        val dotX = sizePx - dotRadius - (1f * density)
-        val dotY = dotRadius + (1f * density)
-        canvas.drawCircle(dotX, dotY, dotRadius, dotPaint)
-
-        val dotStrokeWidth = 1.5f * density
-        val dotStrokePaint = Paint().apply {
-            this.color = Color.WHITE
-            isAntiAlias = true
-            style = Paint.Style.STROKE
-            this.strokeWidth = dotStrokeWidth
-        }
-        canvas.drawCircle(dotX, dotY, dotRadius, dotStrokePaint)
-    }
-
-    return bitmap
-}
