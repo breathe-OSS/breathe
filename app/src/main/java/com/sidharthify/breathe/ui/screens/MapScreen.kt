@@ -92,6 +92,7 @@ import com.sidharthify.breathe.data.Zone
 import com.sidharthify.breathe.navigation.LocalNavBarClearance
 import com.sidharthify.breathe.ui.components.MainDashboardDetail
 import com.sidharthify.breathe.ui.components.SensorDetails
+import com.sidharthify.breathe.util.BreatheTileProvider
 import com.sidharthify.breathe.util.IndiaBoundaryOverlay
 import com.sidharthify.breathe.util.MapCluster
 import com.sidharthify.breathe.util.MapMarkerIcons
@@ -171,7 +172,7 @@ fun MapScreen(
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { ctx ->
-                MapView(ctx).apply {
+                MapView(ctx, BreatheTileProvider(ctx.applicationContext)).apply {
                     setTileSource(TileSourceFactory.MAPNIK)
                     setMultiTouchControls(true)
                     zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
