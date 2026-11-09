@@ -27,6 +27,7 @@
 
 package com.sidharthify.breathe.ui.screens
 
+import android.view.View
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -116,6 +117,7 @@ import org.osmdroid.views.overlay.Marker
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun MapScreen(
+    isLeaving: Boolean = false,
     zones: List<Zone>,
     allAqiData: List<AqiResponse>,
     pinnedIds: Set<String>,
@@ -197,6 +199,17 @@ fun MapScreen(
 
                     mapViewRef = this
                 }
+            },
+            // the osmdroid view is a plain android view inside compose and it kept
+            // drawing a strip of itself at the screen edge for a second after
+            // switching tabs, so it goes invisible the moment we start leaving
+            update = { map ->
+                map.visibility =
+                    if (isLeaving) {
+                        View.INVISIBLE
+                    } else {
+                        View.VISIBLE
+                    }
             },
         )
 

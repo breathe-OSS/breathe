@@ -37,6 +37,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.animateColorAsState
@@ -330,6 +331,7 @@ fun BreatheApp(
 
                                 AppScreen.Map -> {
                                     MapScreen(
+                                        isLeaving = transition.targetState != EnterExitState.Visible,
                                         zones = uiState.zones,
                                         allAqiData = uiState.allAqiData,
                                         pinnedIds = uiState.pinnedIds,
