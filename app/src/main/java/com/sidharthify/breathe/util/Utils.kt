@@ -47,6 +47,9 @@ import androidx.core.content.edit
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.drawable.toDrawable
 import com.sidharthify.breathe.data.AqiResponse
+import com.sidharthify.breathe.data.HistoryPoint
+import com.sidharthify.breathe.data.NodeHistoryPoint
+import com.sidharthify.breathe.data.NodeReading
 import kotlin.math.roundToInt
 
 fun createBlobIcon(
@@ -261,15 +264,45 @@ fun savePinnedOrder(
     }
 }
 
-fun AqiResponse.displayAqi(useNaqi: Boolean): Int {
-    val pm25 =
-        concentrations?.get("pm2.5")
+// the backend sends pm2.5 under either key depending on the provider
+val AqiResponse.pm25: Double
+    get() {
+        return concentrations?.get("pm2.5")
             ?: concentrations?.get("pm2_5")
             ?: 0.0
-
-    return if (!useNaqi) {
-        usAqi ?: if (pm25 > 0) calculateUsAqi(pm25) else 0
-    } else {
-        nAqi
     }
+
+// us_aqi can be missing on a zone, so fall back to working it out from pm2.5
+fun AqiResponse.displayAqi(useNaqi: Boolean): Int {
+    if (useNaqi) {
+        return nAqi
+    }
+    val fallback =
+        if (pm25 > 0) {
+            calculateUsAqi(pm25)
+        } else {
+            0
+        }
+    return usAqi ?: fallback
+}
+
+fun NodeReading.displayAqi(useNaqi: Boolean): Int? {
+    if (useNaqi) {
+        return aqi
+    }
+    return usAqi ?: aqi
+}
+
+fun HistoryPoint.displayAqi(useNaqi: Boolean): Int {
+    if (useNaqi) {
+        return aqi
+    }
+    return usAqi ?: aqi
+}
+
+fun NodeHistoryPoint.displayAqi(useNaqi: Boolean): Int {
+    if (useNaqi) {
+        return aqi
+    }
+    return usAqi ?: aqi
 }

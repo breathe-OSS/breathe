@@ -126,10 +126,11 @@ import com.sidharthify.breathe.expressiveClickable
 import com.sidharthify.breathe.util.PollutantText
 import com.sidharthify.breathe.util.calculateChange1h
 import com.sidharthify.breathe.util.calculateCigarettes
-import com.sidharthify.breathe.util.calculateUsAqi
+import com.sidharthify.breathe.util.displayAqi
 import com.sidharthify.breathe.util.getAqiCategory
 import com.sidharthify.breathe.util.getAqiColor
 import com.sidharthify.breathe.util.getTimeAgo
+import com.sidharthify.breathe.util.pm25
 import com.sidharthify.breathe.util.weatherConditionIconRes
 import kotlin.math.ceil
 
@@ -163,17 +164,8 @@ fun MainDashboardDetail(
     onOpenHistory: (() -> Unit)? = null,
     isWideLayout: Boolean = false,
 ) {
-    val pm25 =
-        zone.concentrations?.get("pm2.5")
-            ?: zone.concentrations?.get("pm2_5")
-            ?: 0.0
-
-    val displayAqi =
-        if (!useNaqi) {
-            zone.usAqi ?: if (pm25 > 0) calculateUsAqi(pm25) else 0
-        } else {
-            zone.nAqi
-        }
+    val pm25 = zone.pm25
+    val displayAqi = zone.displayAqi(useNaqi)
 
     val pm25For24h = zone.averages24h?.get("pm2_5") ?: zone.averages24h?.get("pm2.5") ?: pm25
     val cigarettes = if (pm25For24h > 0) calculateCigarettes(pm25For24h) else 0.0
@@ -1043,9 +1035,11 @@ fun NodeReadingCard(
 ) {
     val isDown = reading.pm25 == null
     val displayAqi: Int? =
-        if (isDown) null
-        else if (!useNaqi) reading.usAqi ?: reading.aqi
-        else reading.aqi
+        if (isDown) {
+            null
+        } else {
+            reading.displayAqi(useNaqi)
+        }
     val aqiLabel = if (!useNaqi) "US AQI" else "NAQI"
 
     var menuExpanded by remember { mutableStateOf(false) }

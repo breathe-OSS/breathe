@@ -68,6 +68,7 @@ import androidx.compose.ui.unit.dp
 import com.sidharthify.breathe.data.HistoryPoint
 import com.sidharthify.breathe.data.NodeHistoryPoint
 import com.sidharthify.breathe.data.NodeReading
+import com.sidharthify.breathe.util.displayAqi
 import com.sidharthify.breathe.util.getAqiColor
 import java.text.SimpleDateFormat
 import java.util.*
@@ -75,7 +76,7 @@ import kotlin.math.roundToInt
 
 // Helper to convert NodeHistoryPoint list
 private fun nodeHistoryValues(history: List<NodeHistoryPoint>, useNaqi: Boolean): List<Int> =
-    history.map { if (!useNaqi) (it.usAqi ?: it.aqi) else it.aqi }
+    history.map { it.displayAqi(useNaqi) }
 
 @Composable
 fun AqiHistoryGraph(
@@ -100,12 +101,12 @@ fun AqiHistoryGraph(
         if (selectedNodeKey != null) {
             val nodeHistory = nodes?.get(selectedNodeKey)?.history ?: emptyList()
             if (nodeHistory.isEmpty()) {
-                history.map { if (!useNaqi) (it.usAqi ?: it.aqi) else it.aqi }
+                history.map { it.displayAqi(useNaqi) }
             } else {
                 nodeHistoryValues(nodeHistory, useNaqi)
             }
         } else {
-            history.map { if (!useNaqi) (it.usAqi ?: it.aqi) else it.aqi }
+            history.map { it.displayAqi(useNaqi) }
         }
     }
 
@@ -410,7 +411,7 @@ fun DotHistoryGraph(
     if (history.isEmpty()) return
 
     val values: List<Int> = remember(history, useNaqi) {
-        history.map { if (!useNaqi) (it.usAqi ?: it.aqi) else it.aqi }
+        history.map { it.displayAqi(useNaqi) }
     }
     val timestamps: List<Long> = remember(history) { history.map { it.ts } }
     val cellColors: List<Color> = remember(values, useNaqi) {

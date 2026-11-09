@@ -85,7 +85,7 @@ import com.sidharthify.breathe.data.Zone
 import com.sidharthify.breathe.navigation.LocalNavBarClearance
 import com.sidharthify.breathe.ui.components.MainDashboardDetail
 import com.sidharthify.breathe.util.IndiaBoundaryOverlay
-import com.sidharthify.breathe.util.calculateUsAqi
+import com.sidharthify.breathe.util.displayAqi
 import com.sidharthify.breathe.util.getAqiColor
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
@@ -221,21 +221,7 @@ fun MapScreen(
 
                         val data = allAqiData.find { it.zoneId == zone.id }
 
-                        var displayAqi = 0
-
-                        if (data != null) {
-                            val pm25 =
-                                data.concentrations?.get("pm2.5")
-                                    ?: data.concentrations?.get("pm2_5")
-                                    ?: 0.0
-
-                            displayAqi =
-                                if (!useNaqi) {
-                                    data.usAqi ?: if (pm25 > 0) calculateUsAqi(pm25) else 0
-                                } else {
-                                    data.nAqi
-                                }
-                        }
+                        val displayAqi = data?.displayAqi(useNaqi) ?: 0
 
                         val aqiText = if (data != null) displayAqi.toString() else ""
 

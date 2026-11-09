@@ -70,7 +70,7 @@ import com.sidharthify.breathe.data.AqiResponse
 import com.sidharthify.breathe.data.LocalAnimationSettings
 import com.sidharthify.breathe.data.Zone
 import com.sidharthify.breathe.expressiveClickable
-import com.sidharthify.breathe.util.calculateUsAqi
+import com.sidharthify.breathe.util.displayAqi
 import com.sidharthify.breathe.util.getAqiColor
 
 @Composable
@@ -92,15 +92,7 @@ fun PinnedZonesButtonGroup(
         zones.forEachIndexed { index, zone ->
             val isSelected = zone.zoneId == selectedZoneId
 
-            // Calculate display AQI
-            val pm25 = zone.concentrations?.get("pm2.5")
-                ?: zone.concentrations?.get("pm2_5")
-                ?: 0.0
-            val displayAqi = if (!useNaqi) {
-                zone.usAqi ?: if (pm25 > 0) calculateUsAqi(pm25) else 0
-            } else {
-                zone.nAqi
-            }
+            val displayAqi = zone.displayAqi(useNaqi)
 
             val animationSettings = LocalAnimationSettings.current
             val aqiColor by animateColorAsState(
@@ -357,16 +349,7 @@ fun ReorderPinnedZonesSheet(
                     key(zone.zoneId) {
                         val isDragged = zone.zoneId == draggedZoneId
 
-                        val pm25 =
-                            zone.concentrations?.get("pm2.5")
-                                ?: zone.concentrations?.get("pm2_5")
-                                ?: 0.0
-                        val displayAqi =
-                            if (!useNaqi) {
-                                zone.usAqi ?: if (pm25 > 0) calculateUsAqi(pm25) else 0
-                            } else {
-                                zone.nAqi
-                            }
+                        val displayAqi = zone.displayAqi(useNaqi)
 
                         Surface(
                             shape = MaterialTheme.shapes.medium,

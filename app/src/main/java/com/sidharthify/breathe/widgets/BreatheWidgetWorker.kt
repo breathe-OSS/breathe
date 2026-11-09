@@ -39,6 +39,7 @@ import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.sidharthify.breathe.data.RetrofitClient
+import com.sidharthify.breathe.util.displayAqi
 import com.sidharthify.breathe.util.loadPinnedOrder
 
 class BreatheWidgetWorker(
@@ -122,7 +123,7 @@ class BreatheWidgetWorker(
             val historyCsv =
                 (response.history ?: emptyList())
                     .joinToString(",") { point ->
-                        val value = if (!useNaqi) (point.usAqi ?: point.aqi) else point.aqi
+                        val value = point.displayAqi(useNaqi)
                         value.coerceIn(0, 500).toString()
                     }
 
