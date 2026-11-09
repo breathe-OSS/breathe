@@ -76,6 +76,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.sidharthify.breathe.data.HistoricalDataPoint
 import com.sidharthify.breathe.data.HistoricalStats
 import com.sidharthify.breathe.data.HistoryState
@@ -911,7 +912,7 @@ fun ExtendedHistoryChart(
 
     val axisTextPaint = remember {
         Paint().apply {
-            textSize = 28f
+            textSize = with(density) { 10.5.sp.toPx() }
             typeface = Typeface.DEFAULT
             textAlign = Paint.Align.LEFT
         }
@@ -919,7 +920,7 @@ fun ExtendedHistoryChart(
 
     val tooltipTextPaint = remember {
         Paint().apply {
-            textSize = 30f
+            textSize = with(density) { 11.sp.toPx() }
             typeface = Typeface.DEFAULT_BOLD
             textAlign = Paint.Align.LEFT
         }
@@ -927,7 +928,7 @@ fun ExtendedHistoryChart(
 
     val tooltipBgPaint = remember {
         Paint().apply {
-            setShadowLayer(12f, 0f, 4f, android.graphics.Color.argb(50, 0, 0, 0))
+            setShadowLayer(with(density) { 4.5.dp.toPx() }, 0f, with(density) { 1.5.dp.toPx() }, android.graphics.Color.argb(50, 0, 0, 0))
         }
     }
 
@@ -1092,9 +1093,9 @@ fun ExtendedHistoryChart(
                     axisTextPaint.color = labelColor
                     axisTextPaint.textAlign = Paint.Align.LEFT
 
-                    nativeCanvas.drawText("${maxVal.toInt()}", 0f, 28f, axisTextPaint)
-                    nativeCanvas.drawText("${(maxVal / 2).toInt()}", 0f, height / 2 + 10f, axisTextPaint)
-                    nativeCanvas.drawText("0", 0f, height - 6f, axisTextPaint)
+                    nativeCanvas.drawText("${maxVal.toInt()}", 0f, 10.5.dp.toPx(), axisTextPaint)
+                    nativeCanvas.drawText("${(maxVal / 2).toInt()}", 0f, height / 2 + 4.dp.toPx(), axisTextPaint)
+                    nativeCanvas.drawText("0", 0f, height - 2.dp.toPx(), axisTextPaint)
 
                     // Time labels
                     if (selectedIndex == null && data.size > 2) {
@@ -1109,7 +1110,7 @@ fun ExtendedHistoryChart(
                                     data.size - 1 -> Paint.Align.RIGHT
                                     else -> Paint.Align.CENTER
                                 }
-                                nativeCanvas.drawText(label, getX(i), height + 40f, axisTextPaint)
+                                nativeCanvas.drawText(label, getX(i), height + 15.dp.toPx(), axisTextPaint)
                             }
                         }
                     }
@@ -1127,7 +1128,7 @@ fun ExtendedHistoryChart(
                                 start = Offset(x, 0f),
                                 end = Offset(x, height),
                                 strokeWidth = 2.dp.toPx(),
-                                pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f),
+                                pathEffect = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 4.dp.toPx()), 0f),
                             )
 
                             val parts = mutableListOf<String>()
@@ -1141,18 +1142,18 @@ fun ExtendedHistoryChart(
 
                             tooltipTextPaint.color = highlightColorArgb
                             val textWidth = tooltipTextPaint.measureText(label)
-                            val padding = 16f
+                            val padding = 6.dp.toPx()
                             val boxWidth = textWidth + padding * 2
-                            val boxHeight = 60f
+                            val boxHeight = 23.dp.toPx()
 
                             var boxX = x - boxWidth / 2
                             if (boxX < labelWidth) boxX = labelWidth
                             if (boxX + boxWidth > size.width) boxX = size.width - boxWidth
-                            val boxY = -50f
+                            val boxY = -19.dp.toPx()
 
                             tooltipBgPaint.color = surfaceColorArgb
-                            nativeCanvas.drawRoundRect(boxX, boxY, boxX + boxWidth, boxY + boxHeight, 12f, 12f, tooltipBgPaint)
-                            nativeCanvas.drawText(label, boxX + padding, boxY + boxHeight - 20f, tooltipTextPaint)
+                            nativeCanvas.drawRoundRect(boxX, boxY, boxX + boxWidth, boxY + boxHeight, 4.5.dp.toPx(), 4.5.dp.toPx(), tooltipBgPaint)
+                            nativeCanvas.drawText(label, boxX + padding, boxY + boxHeight - 7.5.dp.toPx(), tooltipTextPaint)
 
                             // Dots on data points
                             if (showPm25 && pt.pm25 != null) {
@@ -1332,27 +1333,27 @@ fun ExtendedDotHistoryChart(
     val gapPx = with(density) { 3.dp.toPx() }
     val radiusPx = with(density) { 2.dp.toPx() }
     val minLabelPx = with(density) { 11.dp.toPx() }
-    val topLabelPx = 22f
-    val bottomLabelPx = 30f
+    val topLabelPx = with(density) { 8.dp.toPx() }
+    val bottomLabelPx = with(density) { 11.dp.toPx() }
     val haptic = LocalHapticFeedback.current
 
     val axisTextPaint = remember {
         Paint().apply {
-            textSize = 24f
+            textSize = with(density) { 9.sp.toPx() }
             typeface = Typeface.DEFAULT
             textAlign = Paint.Align.LEFT
         }
     }
     val tooltipTextPaint = remember {
         Paint().apply {
-            textSize = 30f
+            textSize = with(density) { 11.sp.toPx() }
             typeface = Typeface.DEFAULT_BOLD
             textAlign = Paint.Align.LEFT
         }
     }
     val tooltipBgPaint = remember {
         Paint().apply {
-            setShadowLayer(12f, 0f, 4f, android.graphics.Color.argb(50, 0, 0, 0))
+            setShadowLayer(with(density) { 4.5.dp.toPx() }, 0f, with(density) { 1.5.dp.toPx() }, android.graphics.Color.argb(50, 0, 0, 0))
         }
     }
 
@@ -1474,14 +1475,14 @@ fun ExtendedDotHistoryChart(
                         if (cellH >= minLabelPx) {
                             days.forEachIndexed { r, day ->
                                 val top = r * (cellH + gapPx)
-                                nativeCanvas.drawText(weekdayFormatter.format(Date(day)), 0f, top + cellH / 2 + 8f, axisTextPaint)
+                                nativeCanvas.drawText(weekdayFormatter.format(Date(day)), 0f, top + cellH / 2 + 3.dp.toPx(), axisTextPaint)
                             }
                         }
                         axisTextPaint.textAlign = Paint.Align.CENTER
                         val gridBottom = rows * (cellH + gapPx)
                         listOf(0, 6, 12, 18).forEach { c ->
                             val x = gutterPx + c * (cellW + gapPx) + cellW / 2
-                            nativeCanvas.drawText("$c", x, gridBottom + 22f, axisTextPaint)
+                            nativeCanvas.drawText("$c", x, gridBottom + 8.dp.toPx(), axisTextPaint)
                         }
                     }
                 } else {
@@ -1525,7 +1526,7 @@ fun ExtendedDotHistoryChart(
                         if (cell >= minLabelPx) {
                             listOf(1, 3, 5).forEach { row ->
                                 cal.timeInMillis = gridStart + row * dayMillis
-                                nativeCanvas.drawText(weekdayFormatter.format(cal.time), 0f, topLabelPx + row * (cell + gapPx) + cell / 2 + 8f, axisTextPaint)
+                                nativeCanvas.drawText(weekdayFormatter.format(cal.time), 0f, topLabelPx + row * (cell + gapPx) + cell / 2 + 3.dp.toPx(), axisTextPaint)
                             }
                         }
                         var lastMonth = ""
@@ -1533,7 +1534,7 @@ fun ExtendedDotHistoryChart(
                             cal.timeInMillis = gridStart + col.toLong() * 7 * dayMillis
                             val month = monthFormatter.format(cal.time)
                             if (month != lastMonth) {
-                                nativeCanvas.drawText(month, gutterPx + col * (cell + gapPx), 16f, axisTextPaint)
+                                nativeCanvas.drawText(month, gutterPx + col * (cell + gapPx), 6.dp.toPx(), axisTextPaint)
                                 lastMonth = month
                             }
                         }
@@ -1552,17 +1553,17 @@ fun ExtendedDotHistoryChart(
                         val nativeCanvas = canvas.nativeCanvas
                         tooltipTextPaint.color = highlightColorArgb
                         val textW = tooltipTextPaint.measureText(sel.label)
-                        val pad = 18f
+                        val pad = 7.dp.toPx()
                         val boxW = textW + pad * 2
-                        val boxH = 60f
+                        val boxH = 23.dp.toPx()
                         var boxX = sel.left + sel.w / 2 - boxW / 2
                         if (boxX < 0f) boxX = 0f
                         if (boxX + boxW > size.width) boxX = size.width - boxW
-                        var boxY = sel.top - boxH - 8f
-                        if (boxY < 0f) boxY = sel.top + sel.h + 8f
+                        var boxY = sel.top - boxH - 3.dp.toPx()
+                        if (boxY < 0f) boxY = sel.top + sel.h + 3.dp.toPx()
                         tooltipBgPaint.color = tooltipBgArgb
-                        nativeCanvas.drawRoundRect(boxX, boxY, boxX + boxW, boxY + boxH, 14f, 14f, tooltipBgPaint)
-                        nativeCanvas.drawText(sel.label, boxX + pad, boxY + boxH - 20f, tooltipTextPaint)
+                        nativeCanvas.drawRoundRect(boxX, boxY, boxX + boxW, boxY + boxH, 5.dp.toPx(), 5.dp.toPx(), tooltipBgPaint)
+                        nativeCanvas.drawText(sel.label, boxX + pad, boxY + boxH - 7.5.dp.toPx(), tooltipTextPaint)
                     }
                 }
             }

@@ -65,6 +65,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.sidharthify.breathe.data.HistoryPoint
 import com.sidharthify.breathe.data.NodeHistoryPoint
 import com.sidharthify.breathe.data.NodeReading
@@ -138,7 +139,7 @@ fun AqiHistoryGraph(
     val axisTextPaint =
         remember {
             Paint().apply {
-                textSize = 30f
+                textSize = with(density) { 11.sp.toPx() }
                 typeface = Typeface.DEFAULT_BOLD
                 textAlign = Paint.Align.LEFT
             }
@@ -147,7 +148,7 @@ fun AqiHistoryGraph(
     val tooltipTextPaint =
         remember {
             Paint().apply {
-                textSize = 32f
+                textSize = with(density) { 12.sp.toPx() }
                 typeface = Typeface.DEFAULT_BOLD
                 textAlign = Paint.Align.LEFT
             }
@@ -156,7 +157,7 @@ fun AqiHistoryGraph(
     val tooltipBgPaint =
         remember {
             Paint().apply {
-                setShadowLayer(12f, 0f, 4f, android.graphics.Color.argb(50, 0, 0, 0))
+                setShadowLayer(with(density) { 4.5.dp.toPx() }, 0f, with(density) { 1.5.dp.toPx() }, android.graphics.Color.argb(50, 0, 0, 0))
             }
         }
 
@@ -319,10 +320,10 @@ fun AqiHistoryGraph(
                     axisTextPaint.textAlign = Paint.Align.LEFT
                     axisTextPaint.typeface = Typeface.DEFAULT_BOLD
 
-                    nativeCanvas.drawText("${maxAqi.toInt()}", 0f, 30f, axisTextPaint)
+                    nativeCanvas.drawText("${maxAqi.toInt()}", 0f, 11.dp.toPx(), axisTextPaint)
                     val midAqi = (maxAqi + minAqi) / 2
-                    nativeCanvas.drawText("${midAqi.toInt()}", 0f, height / 2 + 10f, axisTextPaint)
-                    nativeCanvas.drawText("${minAqi.toInt()}", 0f, height - 10f, axisTextPaint)
+                    nativeCanvas.drawText("${midAqi.toInt()}", 0f, height / 2 + 4.dp.toPx(), axisTextPaint)
+                    nativeCanvas.drawText("${minAqi.toInt()}", 0f, height - 4.dp.toPx(), axisTextPaint)
 
                     if (selectedIndex == null) {
                         axisTextPaint.textAlign = Paint.Align.CENTER
@@ -341,7 +342,7 @@ fun AqiHistoryGraph(
                                         else -> Paint.Align.CENTER
                                     }
                                 val xPos = getX(i)
-                                nativeCanvas.drawText(label, xPos, height + 45f, axisTextPaint)
+                                nativeCanvas.drawText(label, xPos, height + 17.dp.toPx(), axisTextPaint)
                             }
                         }
                     }
@@ -358,7 +359,7 @@ fun AqiHistoryGraph(
                                 start = Offset(x, 0f),
                                 end = Offset(x, height),
                                 strokeWidth = 2.dp.toPx(),
-                                pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f),
+                                pathEffect = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 4.dp.toPx()), 0f),
                             )
 
                             drawCircle(color = surfaceColor, radius = 6.dp.toPx(), center = Offset(x, y))
@@ -370,15 +371,15 @@ fun AqiHistoryGraph(
                             val label = "AQI $aqi @ $timeStr"
 
                             val textWidth = tooltipTextPaint.measureText(label)
-                            val padding = 20f
+                            val padding = 8.dp.toPx()
                             val boxWidth = textWidth + (padding * 2)
-                            val boxHeight = 70f
+                            val boxHeight = 27.dp.toPx()
 
                             var boxX = x - (boxWidth / 2)
                             if (boxX < labelWidth) boxX = labelWidth
                             if (boxX + boxWidth > size.width) boxX = size.width - boxWidth
 
-                            val boxY = -60f
+                            val boxY = -23.dp.toPx()
 
                             tooltipBgPaint.color = surfaceColorArgb
 
@@ -387,12 +388,12 @@ fun AqiHistoryGraph(
                                 boxY,
                                 boxX + boxWidth,
                                 boxY + boxHeight,
-                                16f,
-                                16f,
+                                6.dp.toPx(),
+                                6.dp.toPx(),
                                 tooltipBgPaint,
                             )
 
-                            nativeCanvas.drawText(label, boxX + padding, boxY + boxHeight - 22f, tooltipTextPaint)
+                            nativeCanvas.drawText(label, boxX + padding, boxY + boxHeight - 8.5.dp.toPx(), tooltipTextPaint)
                         }
                     }
                 }
@@ -432,7 +433,7 @@ fun DotHistoryGraph(
     val axisTextPaint =
         remember {
             Paint().apply {
-                textSize = 30f
+                textSize = with(density) { 11.sp.toPx() }
                 typeface = Typeface.DEFAULT
                 textAlign = Paint.Align.CENTER
             }
@@ -441,7 +442,7 @@ fun DotHistoryGraph(
     val tooltipTextPaint =
         remember {
             Paint().apply {
-                textSize = 32f
+                textSize = with(density) { 12.sp.toPx() }
                 typeface = Typeface.DEFAULT_BOLD
                 textAlign = Paint.Align.LEFT
             }
@@ -450,7 +451,7 @@ fun DotHistoryGraph(
     val tooltipBgPaint =
         remember {
             Paint().apply {
-                setShadowLayer(12f, 0f, 4f, android.graphics.Color.argb(50, 0, 0, 0))
+                setShadowLayer(with(density) { 4.5.dp.toPx() }, 0f, with(density) { 1.5.dp.toPx() }, android.graphics.Color.argb(50, 0, 0, 0))
             }
         }
 
@@ -541,8 +542,8 @@ fun DotHistoryGraph(
                                         else -> Paint.Align.CENTER
                                     }
                                 val x = cellLeft(i) + cellWidth / 2
-                                nativeCanvas.drawLine(x, cellHeightPx + 8f, x, cellHeightPx + 16f, axisTextPaint)
-                                nativeCanvas.drawText(label, x, cellHeightPx + 44f, axisTextPaint)
+                                nativeCanvas.drawLine(x, cellHeightPx + 3.dp.toPx(), x, cellHeightPx + 6.dp.toPx(), axisTextPaint)
+                                nativeCanvas.drawText(label, x, cellHeightPx + 17.dp.toPx(), axisTextPaint)
                             }
                         }
                     }
@@ -556,14 +557,14 @@ fun DotHistoryGraph(
 
                             tooltipTextPaint.color = highlightColorArgb
                             val textWidth = tooltipTextPaint.measureText(label)
-                            val padding = 20f
+                            val padding = 8.dp.toPx()
                             val boxWidth = textWidth + padding * 2
-                            val boxHeight = 70f
+                            val boxHeight = 27.dp.toPx()
 
                             var boxX = cellLeft(index) + cellWidth / 2 - boxWidth / 2
                             if (boxX < 0f) boxX = 0f
                             if (boxX + boxWidth > size.width) boxX = size.width - boxWidth
-                            val boxY = -(boxHeight + 12f)
+                            val boxY = -(boxHeight + 4.5.dp.toPx())
 
                             tooltipBgPaint.color = surfaceColorArgb
                             nativeCanvas.drawRoundRect(
@@ -571,11 +572,11 @@ fun DotHistoryGraph(
                                 boxY,
                                 boxX + boxWidth,
                                 boxY + boxHeight,
-                                16f,
-                                16f,
+                                6.dp.toPx(),
+                                6.dp.toPx(),
                                 tooltipBgPaint,
                             )
-                            nativeCanvas.drawText(label, boxX + padding, boxY + boxHeight - 22f, tooltipTextPaint)
+                            nativeCanvas.drawText(label, boxX + padding, boxY + boxHeight - 8.5.dp.toPx(), tooltipTextPaint)
                         }
                     }
                 }
