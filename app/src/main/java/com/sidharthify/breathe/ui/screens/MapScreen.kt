@@ -102,7 +102,7 @@ fun MapScreen(
     allAqiData: List<AqiResponse>,
     pinnedIds: Set<String>,
     isDarkTheme: Boolean,
-    isUsAqi: Boolean,
+    useNaqi: Boolean,
     sensorInfos: List<SensorInfo>,
     onPinToggle: (String) -> Unit,
 ) {
@@ -205,8 +205,8 @@ fun MapScreen(
                 }
             }
 
-            // Updated logic to use isUsAqi for coloring
-            LaunchedEffect(mapViewRef, zones, allAqiData, isUsAqi) {
+            // Updated logic to use useNaqi for coloring
+            LaunchedEffect(mapViewRef, zones, allAqiData, useNaqi) {
                 val map = mapViewRef ?: return@LaunchedEffect
 
                 val markersToRemove = map.overlays.filterIsInstance<Marker>()
@@ -230,7 +230,7 @@ fun MapScreen(
                                     ?: 0.0
 
                             displayAqi =
-                                if (!isUsAqi) {
+                                if (!useNaqi) {
                                     data.usAqi ?: if (pm25 > 0) calculateUsAqi(pm25) else 0
                                 } else {
                                     data.nAqi
@@ -241,7 +241,7 @@ fun MapScreen(
 
                         val colorInt =
                             if (data != null) {
-                                getAqiColor(displayAqi, !isUsAqi).toArgb()
+                                getAqiColor(displayAqi, !useNaqi).toArgb()
                             } else {
                                 Color.GRAY
                             }
@@ -309,12 +309,12 @@ fun MapScreen(
                 ) {
                     val provider = zones.find { it.id == selectedZoneData!!.zoneId }?.provider
 
-                    // Pass isUsAqi here too
+                    // Pass useNaqi here too
                     MainDashboardDetail(
                         zone = selectedZoneData!!,
                         provider = provider,
                         isDarkTheme = isDarkTheme,
-                        isUsAqi = isUsAqi,
+                        useNaqi = useNaqi,
                         sensorInfos = sensorInfos,
                     )
 

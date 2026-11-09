@@ -77,7 +77,7 @@ import com.sidharthify.breathe.util.calculateUsAqi
 import com.sidharthify.breathe.util.getAqiCategory
 import com.sidharthify.breathe.widgets.BreatheWidgetWorker.Companion.PREF_AQI
 import com.sidharthify.breathe.widgets.BreatheWidgetWorker.Companion.PREF_CO
-import com.sidharthify.breathe.widgets.BreatheWidgetWorker.Companion.PREF_IS_US_AQI
+import com.sidharthify.breathe.widgets.BreatheWidgetWorker.Companion.PREF_USE_NAQI
 import com.sidharthify.breathe.widgets.BreatheWidgetWorker.Companion.PREF_NO2
 import com.sidharthify.breathe.widgets.BreatheWidgetWorker.Companion.PREF_O3
 import com.sidharthify.breathe.widgets.BreatheWidgetWorker.Companion.PREF_PM10
@@ -135,16 +135,14 @@ class BreatheWidget : GlanceAppWidget() {
 
         val zoneName    = prefs[PREF_ZONE_NAME]  ?: "…"
         val rawAqi      = prefs[PREF_AQI]        ?: 0
-        val isUsAqi     = prefs[PREF_IS_US_AQI]  ?: false
+        val useNaqi     = prefs[PREF_USE_NAQI]  ?: false
         val pm25        = prefs[PREF_PM25]        ?: 0.0
         val totalPins   = prefs[PREF_TOTAL_PINS]  ?: 1
         val rawProvider = prefs[PREF_PROVIDER]    ?: ""
 
-        // is_us_aqi: false = US AQI (default), true = Indian NAQI
-        val isNaqi        = isUsAqi
-        val displayAqi    = (if (!isNaqi && pm25 > 0) calculateUsAqi(pm25) else rawAqi).coerceAtMost(500)
-        val aqiStd        = if (isNaqi) "NAQI" else "US AQI"
-        val category      = getAqiCategory(displayAqi, !isNaqi).label
+        val displayAqi    = (if (!useNaqi && pm25 > 0) calculateUsAqi(pm25) else rawAqi).coerceAtMost(500)
+        val aqiStd        = if (useNaqi) "NAQI" else "US AQI"
+        val category      = getAqiCategory(displayAqi, !useNaqi).label
         val providerName  = if (rawProvider.contains("airgradient", ignoreCase = true)) "AirGradient" else "Open-Meteo"
 
         // Breakpoints against real host size (SizeMode.Exact).

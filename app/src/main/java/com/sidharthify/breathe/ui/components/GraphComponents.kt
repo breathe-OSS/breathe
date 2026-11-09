@@ -74,14 +74,14 @@ import java.util.*
 import kotlin.math.roundToInt
 
 // Helper to convert NodeHistoryPoint list
-private fun nodeHistoryValues(history: List<NodeHistoryPoint>, isUsAqi: Boolean): List<Int> =
-    history.map { if (!isUsAqi) (it.usAqi ?: it.aqi) else it.aqi }
+private fun nodeHistoryValues(history: List<NodeHistoryPoint>, useNaqi: Boolean): List<Int> =
+    history.map { if (!useNaqi) (it.usAqi ?: it.aqi) else it.aqi }
 
 @Composable
 fun AqiHistoryGraph(
     history: List<HistoryPoint>,
     modifier: Modifier = Modifier,
-    isUsAqi: Boolean = false,
+    useNaqi: Boolean = false,
     nodes: Map<String, NodeReading>? = null,
 ) {
     if (history.isEmpty()) return
@@ -96,16 +96,16 @@ fun AqiHistoryGraph(
     }
 
     // Determine the active data set
-    val values: List<Int> = remember(history, selectedNodeKey, isUsAqi, nodes) {
+    val values: List<Int> = remember(history, selectedNodeKey, useNaqi, nodes) {
         if (selectedNodeKey != null) {
             val nodeHistory = nodes?.get(selectedNodeKey)?.history ?: emptyList()
             if (nodeHistory.isEmpty()) {
-                history.map { if (!isUsAqi) (it.usAqi ?: it.aqi) else it.aqi }
+                history.map { if (!useNaqi) (it.usAqi ?: it.aqi) else it.aqi }
             } else {
-                nodeHistoryValues(nodeHistory, isUsAqi)
+                nodeHistoryValues(nodeHistory, useNaqi)
             }
         } else {
-            history.map { if (!isUsAqi) (it.usAqi ?: it.aqi) else it.aqi }
+            history.map { if (!useNaqi) (it.usAqi ?: it.aqi) else it.aqi }
         }
     }
 
@@ -405,16 +405,16 @@ fun AqiHistoryGraph(
 fun DotHistoryGraph(
     history: List<HistoryPoint>,
     modifier: Modifier = Modifier,
-    isUsAqi: Boolean = false,
+    useNaqi: Boolean = false,
 ) {
     if (history.isEmpty()) return
 
-    val values: List<Int> = remember(history, isUsAqi) {
-        history.map { if (!isUsAqi) (it.usAqi ?: it.aqi) else it.aqi }
+    val values: List<Int> = remember(history, useNaqi) {
+        history.map { if (!useNaqi) (it.usAqi ?: it.aqi) else it.aqi }
     }
     val timestamps: List<Long> = remember(history) { history.map { it.ts } }
-    val cellColors: List<Color> = remember(values, isUsAqi) {
-        values.map { getAqiColor(it, !isUsAqi) }
+    val cellColors: List<Color> = remember(values, useNaqi) {
+        values.map { getAqiColor(it, !useNaqi) }
     }
 
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant.toArgb()
@@ -582,7 +582,7 @@ fun DotHistoryGraph(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            val legendReps = if (!isUsAqi) listOf(25, 75, 125, 175, 250, 400) else listOf(25, 75, 150, 250, 350, 450)
+            val legendReps = if (!useNaqi) listOf(25, 75, 125, 175, 250, 400) else listOf(25, 75, 150, 250, 350, 450)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -599,13 +599,13 @@ fun DotHistoryGraph(
                         Box(
                             modifier = Modifier
                                 .size(width = 16.dp, height = 6.dp)
-                                .background(getAqiColor(rep, !isUsAqi), RoundedCornerShape(2.dp)),
+                                .background(getAqiColor(rep, !useNaqi), RoundedCornerShape(2.dp)),
                         )
                     }
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    if (isUsAqi) "Severe" else "Hazardous",
+                    if (useNaqi) "Severe" else "Hazardous",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -618,7 +618,7 @@ fun DotHistoryGraph(
 fun HistoryGraphPager(
     history: List<HistoryPoint>,
     modifier: Modifier = Modifier,
-    isUsAqi: Boolean = false,
+    useNaqi: Boolean = false,
     nodes: Map<String, NodeReading>? = null,
 ) {
     if (history.isEmpty()) return
@@ -643,13 +643,13 @@ fun HistoryGraphPager(
                 when (page) {
                     0 -> AqiHistoryGraph(
                         history = history,
-                        isUsAqi = isUsAqi,
+                        useNaqi = useNaqi,
                         nodes = nodes,
                         modifier = Modifier.fillMaxSize(),
                     )
                     else -> DotHistoryGraph(
                         history = history,
-                        isUsAqi = isUsAqi,
+                        useNaqi = useNaqi,
                         modifier = Modifier.fillMaxSize(),
                     )
                 }

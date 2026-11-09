@@ -91,7 +91,7 @@ import kotlinx.coroutines.delay
 @Composable
 fun AirSnapshotSection(
     zones: List<AqiResponse>,
-    isUsAqi: Boolean,
+    useNaqi: Boolean,
     onZoneClick: (AqiResponse) -> Unit,
     modifier: Modifier = Modifier,
     animateEntrance: Boolean = false,
@@ -99,8 +99,8 @@ fun AirSnapshotSection(
 ) {
     val rankedZones =
         zones
-            .filter { it.displayAqi(isUsAqi) > 0 }
-            .sortedByDescending { it.displayAqi(isUsAqi) }
+            .filter { it.displayAqi(useNaqi) > 0 }
+            .sortedByDescending { it.displayAqi(useNaqi) }
 
     if (rankedZones.size < 2) {
         return
@@ -127,7 +127,7 @@ fun AirSnapshotSection(
                 title = "Most Polluted",
                 icon = Icons.Filled.Warning,
                 zones = worstZones,
-                isUsAqi = isUsAqi,
+                useNaqi = useNaqi,
                 onZoneClick = onZoneClick,
                 animateEntrance = animateEntrance,
                 entranceOffset = 0,
@@ -137,7 +137,7 @@ fun AirSnapshotSection(
                 title = "Cleanest",
                 icon = Icons.Filled.Air,
                 zones = bestZones,
-                isUsAqi = isUsAqi,
+                useNaqi = useNaqi,
                 onZoneClick = onZoneClick,
                 animateEntrance = animateEntrance,
                 entranceOffset = worstZones.size,
@@ -152,7 +152,7 @@ private fun SnapshotCard(
     title: String,
     icon: ImageVector,
     zones: List<AqiResponse>,
-    isUsAqi: Boolean,
+    useNaqi: Boolean,
     onZoneClick: (AqiResponse) -> Unit,
     animateEntrance: Boolean,
     entranceOffset: Int,
@@ -186,7 +186,7 @@ private fun SnapshotCard(
             zones.forEachIndexed { index, zone ->
                 SnapshotRow(
                     zone = zone,
-                    isUsAqi = isUsAqi,
+                    useNaqi = useNaqi,
                     onClick = { onZoneClick(zone) },
                     entranceDelayMillis =
                         if (animateEntrance) {
@@ -203,11 +203,11 @@ private fun SnapshotCard(
 @Composable
 private fun SnapshotRow(
     zone: AqiResponse,
-    isUsAqi: Boolean,
+    useNaqi: Boolean,
     onClick: () -> Unit,
     entranceDelayMillis: Int?,
 ) {
-    val aqi = zone.displayAqi(isUsAqi)
+    val aqi = zone.displayAqi(useNaqi)
     var isVisible by remember { mutableStateOf(entranceDelayMillis == null) }
 
     LaunchedEffect(Unit) {
@@ -252,7 +252,7 @@ private fun SnapshotRow(
             "$animatedAqi",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            color = getAqiColor(aqi, !isUsAqi),
+            color = getAqiColor(aqi, !useNaqi),
         )
     }
 }
@@ -260,7 +260,7 @@ private fun SnapshotRow(
 @Composable
 fun PinnedOverviewGrid(
     zones: List<AqiResponse>,
-    isUsAqi: Boolean,
+    useNaqi: Boolean,
     liveZoneIds: Set<String>,
     columns: Int,
     onZoneClick: (AqiResponse) -> Unit,
@@ -275,7 +275,7 @@ fun PinnedOverviewGrid(
                 rowZones.forEach { zone ->
                     PinnedOverviewCard(
                         zone = zone,
-                        isUsAqi = isUsAqi,
+                        useNaqi = useNaqi,
                         isLive = zone.zoneId in liveZoneIds,
                         onClick = { onZoneClick(zone) },
                         modifier = Modifier.weight(1f),
@@ -292,13 +292,13 @@ fun PinnedOverviewGrid(
 @Composable
 private fun PinnedOverviewCard(
     zone: AqiResponse,
-    isUsAqi: Boolean,
+    useNaqi: Boolean,
     isLive: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val aqi = zone.displayAqi(isUsAqi)
-    val aqiColor = getAqiColor(aqi, !isUsAqi)
+    val aqi = zone.displayAqi(useNaqi)
+    val aqiColor = getAqiColor(aqi, !useNaqi)
 
     Surface(
         shape = MaterialTheme.shapes.large,
@@ -333,7 +333,7 @@ private fun PinnedOverviewCard(
                 color = aqiColor,
             )
             Text(
-                getAqiCategory(aqi, !isUsAqi).label,
+                getAqiCategory(aqi, !useNaqi).label,
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
@@ -347,7 +347,7 @@ private fun PinnedOverviewCard(
 @Composable
 fun WelcomeDialog(
     snapshotZones: List<AqiResponse>,
-    isUsAqi: Boolean,
+    useNaqi: Boolean,
     onZoneClick: (AqiResponse) -> Unit,
     onGoToExplore: () -> Unit,
 ) {
@@ -440,7 +440,7 @@ fun WelcomeDialog(
 
                 AirSnapshotSection(
                     zones = snapshotZones,
-                    isUsAqi = isUsAqi,
+                    useNaqi = useNaqi,
                     onZoneClick = onZoneClick,
                     animateEntrance = animationSettings.listAnimations,
                 )

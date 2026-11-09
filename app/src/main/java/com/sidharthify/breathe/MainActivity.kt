@@ -226,7 +226,7 @@ fun BreatheApp(
     val uiState by viewModel.uiState.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
 
-    val isUsAqi by viewModel.isUsAqi.collectAsState()
+    val useNaqi by viewModel.useNaqi.collectAsState()
 
     var currentScreen by rememberSaveable { mutableStateOf(AppScreen.Home) }
     val motionScheme = MaterialTheme.motionScheme
@@ -331,7 +331,7 @@ fun BreatheApp(
                                         allAqiData = uiState.allAqiData,
                                         pinnedIds = uiState.pinnedIds,
                                         isDarkTheme = isDarkTheme,
-                                        isUsAqi = isUsAqi,
+                                        useNaqi = useNaqi,
                                         sensorInfos = uiState.sensorInfos,
                                         onPinToggle = { id -> viewModel.togglePin(context, id) },
                                     )

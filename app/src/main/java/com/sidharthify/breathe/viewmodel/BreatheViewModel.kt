@@ -68,9 +68,10 @@ class BreatheViewModel : ViewModel() {
     private val _searchQuery = MutableStateFlow("")
     val searchQuery = _searchQuery.asStateFlow()
 
-    // AQI Standard: false = US AQI (default), true = Indian NAQI
-    private val _isUsAqi = MutableStateFlow(false)
-    val isUsAqi = _isUsAqi.asStateFlow()
+    // US EPA is the default, this only flips on for the indian NAQI. the pref
+    // key is still is_us_aqi from back when the flag had the opposite name
+    private val _useNaqi = MutableStateFlow(false)
+    val useNaqi = _useNaqi.asStateFlow()
 
     private val _isOverviewHome = MutableStateFlow(false)
     val isOverviewHome = _isOverviewHome.asStateFlow()
@@ -91,7 +92,7 @@ class BreatheViewModel : ViewModel() {
 
     fun init(context: Context) {
         val prefs = context.getSharedPreferences("breathe_prefs", Context.MODE_PRIVATE)
-        _isUsAqi.value = prefs.getBoolean("is_us_aqi", false)
+        _useNaqi.value = prefs.getBoolean("is_us_aqi", false)
         _isOverviewHome.value = prefs.getBoolean("is_overview_home", false)
         _hasOnboarded.value = prefs.getBoolean("has_onboarded", false) || loadPinnedOrder(prefs).isNotEmpty()
 
@@ -116,8 +117,8 @@ class BreatheViewModel : ViewModel() {
     }
 
     fun toggleAqiStandard(context: Context) {
-        val newValue = !_isUsAqi.value
-        _isUsAqi.value = newValue
+        val newValue = !_useNaqi.value
+        _useNaqi.value = newValue
         context
             .getSharedPreferences("breathe_prefs", Context.MODE_PRIVATE)
             .edit {

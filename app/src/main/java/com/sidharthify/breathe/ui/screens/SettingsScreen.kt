@@ -125,7 +125,7 @@ fun SettingsScreen(
     var easterEggCounter by remember { mutableIntStateOf(0) }
     var isMadness by remember { mutableStateOf(false) }
     var madnessIntensity by remember { mutableIntStateOf(0) }
-    val isUsAqi by viewModel.isUsAqi.collectAsState()
+    val useNaqi by viewModel.useNaqi.collectAsState()
     val isOverviewHome by viewModel.isOverviewHome.collectAsState()
     var versionLabel by remember { mutableStateOf("Current Version: v4.0-21") }
 
@@ -425,7 +425,7 @@ fun SettingsScreen(
             SettingsSwitch(
                 title = "Indian NAQI",
                 subtitle = "Switch to Indian National AQI",
-                checked = isUsAqi,
+                checked = useNaqi,
                 onCheckedChange = { viewModel.toggleAqiStandard(context) },
                 showDivider = true,
             )
@@ -438,7 +438,7 @@ fun SettingsScreen(
                 showDivider = true,
             )
 
-            val standardText = if (isUsAqi) "Indian National Air Quality Index (NAQI)" else "US EPA (2024 Standard)"
+            val standardText = if (useNaqi) "Indian National Air Quality Index (NAQI)" else "US EPA (2024 Standard)"
 
             SettingsItem("Data Standards", standardText, showDivider = true)
             SettingsItem(

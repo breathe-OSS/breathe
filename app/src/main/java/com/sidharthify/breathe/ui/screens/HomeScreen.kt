@@ -90,7 +90,7 @@ fun HomeScreen(
     onRetry: () -> Unit,
     viewModel: BreatheViewModel = viewModel(),
 ) {
-    val isUsAqi by viewModel.isUsAqi.collectAsState()
+    val useNaqi by viewModel.useNaqi.collectAsState()
     val isOverviewHome by viewModel.isOverviewHome.collectAsState()
     val hasOnboarded by viewModel.hasOnboarded.collectAsState()
     val historyState by viewModel.historyState.collectAsState()
@@ -109,7 +109,7 @@ fun HomeScreen(
     if (showReorderSheet) {
         ReorderPinnedZonesSheet(
             zones = pinnedZones,
-            isUsAqi = isUsAqi,
+            useNaqi = useNaqi,
             onReorder = { order -> viewModel.reorderPinnedZones(context, order) },
             onDismiss = { showReorderSheet = false },
         )
@@ -152,7 +152,7 @@ fun HomeScreen(
     if (!hasOnboarded && pinnedZones.isEmpty() && snapshotZones.size >= 2) {
         WelcomeDialog(
             snapshotZones = snapshotZones,
-            isUsAqi = isUsAqi,
+            useNaqi = useNaqi,
             onZoneClick = { zone ->
                 showPinnedHint = true
                 openZone(zone)
@@ -281,7 +281,7 @@ fun HomeScreen(
                             if (showOverviewGrid) {
                                 PinnedOverviewGrid(
                                     zones = pinnedZones,
-                                    isUsAqi = isUsAqi,
+                                    useNaqi = useNaqi,
                                     liveZoneIds = liveZoneIds,
                                     columns = if (LocalIsTabletLandscape.current) 4 else 2,
                                     onZoneClick = openZone,
@@ -313,7 +313,7 @@ fun HomeScreen(
                                         PinnedZonesButtonGroup(
                                             zones = pinnedZones,
                                             selectedZoneId = selectedZone?.zoneId,
-                                            isUsAqi = isUsAqi,
+                                            useNaqi = useNaqi,
                                             isAmoled = isAmoled,
                                             onZoneSelected = { selectedZone = it },
                                         )
@@ -359,7 +359,7 @@ fun HomeScreen(
                                     zone = selectedZone!!,
                                     provider = provider,
                                     isDarkTheme = isDarkTheme,
-                                    isUsAqi = isUsAqi,
+                                    useNaqi = useNaqi,
                                     sensorInfos = sensorInfos,
                                     onOpenHistory = {
                                         viewModel.openHistory(selectedZone!!.zoneId)

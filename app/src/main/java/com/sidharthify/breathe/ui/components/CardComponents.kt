@@ -79,7 +79,7 @@ fun PinnedZonesButtonGroup(
     modifier: Modifier = Modifier,
     zones: List<AqiResponse>,
     selectedZoneId: String?,
-    isUsAqi: Boolean,
+    useNaqi: Boolean,
     isAmoled: Boolean = false,
     onZoneSelected: (AqiResponse) -> Unit,
 ) {
@@ -96,7 +96,7 @@ fun PinnedZonesButtonGroup(
             val pm25 = zone.concentrations?.get("pm2.5")
                 ?: zone.concentrations?.get("pm2_5")
                 ?: 0.0
-            val displayAqi = if (!isUsAqi) {
+            val displayAqi = if (!useNaqi) {
                 zone.usAqi ?: if (pm25 > 0) calculateUsAqi(pm25) else 0
             } else {
                 zone.nAqi
@@ -104,7 +104,7 @@ fun PinnedZonesButtonGroup(
 
             val animationSettings = LocalAnimationSettings.current
             val aqiColor by animateColorAsState(
-                targetValue = getAqiColor(displayAqi, !isUsAqi),
+                targetValue = getAqiColor(displayAqi, !useNaqi),
                 animationSpec = if (animationSettings.colorTransitions) {
                     tween(durationMillis = 500)
                 } else {
@@ -307,7 +307,7 @@ private val ReorderRowSpacing = 8.dp
 @Composable
 fun ReorderPinnedZonesSheet(
     zones: List<AqiResponse>,
-    isUsAqi: Boolean,
+    useNaqi: Boolean,
     onReorder: (List<String>) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -362,7 +362,7 @@ fun ReorderPinnedZonesSheet(
                                 ?: zone.concentrations?.get("pm2_5")
                                 ?: 0.0
                         val displayAqi =
-                            if (!isUsAqi) {
+                            if (!useNaqi) {
                                 zone.usAqi ?: if (pm25 > 0) calculateUsAqi(pm25) else 0
                             } else {
                                 zone.nAqi
@@ -428,7 +428,7 @@ fun ReorderPinnedZonesSheet(
                                         Modifier
                                             .size(10.dp)
                                             .clip(CircleShape)
-                                            .background(getAqiColor(displayAqi, !isUsAqi)),
+                                            .background(getAqiColor(displayAqi, !useNaqi)),
                                 )
                                 Spacer(Modifier.width(12.dp))
 

@@ -158,7 +158,7 @@ fun MainDashboardDetail(
     zone: AqiResponse,
     provider: String?,
     isDarkTheme: Boolean,
-    isUsAqi: Boolean = false,
+    useNaqi: Boolean = false,
     sensorInfos: List<SensorInfo> = emptyList(),
     onOpenHistory: (() -> Unit)? = null,
     isWideLayout: Boolean = false,
@@ -169,7 +169,7 @@ fun MainDashboardDetail(
             ?: 0.0
 
     val displayAqi =
-        if (!isUsAqi) {
+        if (!useNaqi) {
             zone.usAqi ?: if (pm25 > 0) calculateUsAqi(pm25) else 0
         } else {
             zone.nAqi
@@ -181,7 +181,7 @@ fun MainDashboardDetail(
     val animationSettings = LocalAnimationSettings.current
 
     val aqiColor by animateColorAsState(
-        targetValue = getAqiColor(displayAqi, !isUsAqi),
+        targetValue = getAqiColor(displayAqi, !useNaqi),
         animationSpec = if (animationSettings.colorTransitions) {
             tween(durationMillis = 600, easing = FastOutSlowInEasing)
         } else {
@@ -191,7 +191,7 @@ fun MainDashboardDetail(
     )
 
     val isModerateAqi =
-        if (!isUsAqi) {
+        if (!useNaqi) {
             displayAqi in 51..100
         } else {
             displayAqi in 101..200
@@ -367,7 +367,7 @@ fun MainDashboardDetail(
                 AqiHeroCard(
                     zone = zone,
                     displayAqi = displayAqi,
-                    isUsAqi = isUsAqi,
+                    useNaqi = useNaqi,
                     aqiColor = aqiColor,
                     aqiTextColor = aqiTextColor,
                     modifier =
@@ -383,7 +383,7 @@ fun MainDashboardDetail(
                 ) {
                     AqiCategoryCard(
                         displayAqi = displayAqi,
-                        isUsAqi = isUsAqi,
+                        useNaqi = useNaqi,
                         aqiTextColor = aqiTextColor,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -423,7 +423,7 @@ fun MainDashboardDetail(
                 if (!zone.nodes.isNullOrEmpty()) {
                     IndividualNodeReadingsSection(
                         nodes = zone.nodes,
-                        isUsAqi = isUsAqi,
+                        useNaqi = useNaqi,
                         sensorInfos = sensorInfos,
                         modifier = Modifier.weight(1f),
                     )
@@ -435,7 +435,7 @@ fun MainDashboardDetail(
             AqiHeroCard(
                 zone = zone,
                 displayAqi = displayAqi,
-                isUsAqi = isUsAqi,
+                useNaqi = useNaqi,
                 aqiColor = aqiColor,
                 aqiTextColor = aqiTextColor,
                 modifier =
@@ -449,7 +449,7 @@ fun MainDashboardDetail(
 
             AqiCategoryCard(
                 displayAqi = displayAqi,
-                isUsAqi = isUsAqi,
+                useNaqi = useNaqi,
                 aqiTextColor = aqiTextColor,
                 modifier =
                     Modifier
@@ -494,7 +494,7 @@ fun MainDashboardDetail(
             if (!zone.nodes.isNullOrEmpty()) {
                 IndividualNodeReadingsSection(
                     nodes = zone.nodes,
-                    isUsAqi = isUsAqi,
+                    useNaqi = useNaqi,
                     sensorInfos = sensorInfos,
                     modifier = Modifier.padding(horizontal = 24.dp),
                 )
@@ -506,7 +506,7 @@ fun MainDashboardDetail(
             Column(modifier = Modifier.padding(horizontal = 24.dp)) {
                 HistoryGraphPager(
                     history = zone.history,
-                    isUsAqi = isUsAqi,
+                    useNaqi = useNaqi,
                     nodes = zone.nodes,
                 )
             }
@@ -532,13 +532,13 @@ fun MainDashboardDetail(
 private fun AqiHeroCard(
     zone: AqiResponse,
     displayAqi: Int,
-    isUsAqi: Boolean,
+    useNaqi: Boolean,
     aqiColor: Color,
     aqiTextColor: Color,
     modifier: Modifier = Modifier,
 ) {
     val animationSettings = LocalAnimationSettings.current
-    val aqiLabel = if (!isUsAqi) "US AQI" else "NAQI"
+    val aqiLabel = if (!useNaqi) "US AQI" else "NAQI"
 
     val screenWidth = with(LocalDensity.current) {
         LocalWindowInfo.current.containerSize.width.toDp()
@@ -643,11 +643,11 @@ private fun AqiHeroCard(
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
-                val change1h = remember(zone.history, displayAqi, isUsAqi) {
+                val change1h = remember(zone.history, displayAqi, useNaqi) {
                 calculateChange1h(
                     history = zone.history,
                     currentAqi = displayAqi,
-                    isNaqi = isUsAqi,
+                    useNaqi = useNaqi,
                 )
             }
 
@@ -687,16 +687,16 @@ private fun AqiHeroCard(
 @Composable
 private fun AqiCategoryCard(
     displayAqi: Int,
-    isUsAqi: Boolean,
+    useNaqi: Boolean,
     aqiTextColor: Color,
     modifier: Modifier = Modifier,
 ) {
     val animationSettings = LocalAnimationSettings.current
 
-    val aqiCategory = getAqiCategory(displayAqi, !isUsAqi)
+    val aqiCategory = getAqiCategory(displayAqi, !useNaqi)
 
     // Calculate position on spectrum (0-500 for US, 0-500 for NAQI)
-    val maxAqi = if (!isUsAqi) 500f else 500f
+    val maxAqi = if (!useNaqi) 500f else 500f
     val targetIndicatorPosition = (displayAqi.coerceIn(0, 500) / maxAqi).coerceIn(0f, 1f)
 
     // Animate indicator position
@@ -709,7 +709,7 @@ private fun AqiCategoryCard(
         },
         label = "IndicatorPosition",
     )
-    val spectrumColorStops = if (!isUsAqi) {
+    val spectrumColorStops = if (!useNaqi) {
         // US AQI breakpoints
         arrayOf(
             0.00f to Color(0xFF00E400),
@@ -983,7 +983,7 @@ fun SimpleFlowGrid(
 fun IndividualNodeReadingsSection(
     modifier: Modifier = Modifier,
     nodes: Map<String, NodeReading>,
-    isUsAqi: Boolean,
+    useNaqi: Boolean,
     sensorInfos: List<SensorInfo> = emptyList(),
 ) {
     Column(modifier = modifier) {
@@ -1008,7 +1008,7 @@ fun IndividualNodeReadingsSection(
                         NodeReadingCard(
                             nodeName = name,
                             reading = reading,
-                            isUsAqi = isUsAqi,
+                            useNaqi = useNaqi,
                             sensorInfo = sensorInfos.find { it.name == name },
                             modifier = Modifier.weight(1f),
                         )
@@ -1019,7 +1019,7 @@ fun IndividualNodeReadingsSection(
                         NodeReadingCard(
                             nodeName = name,
                             reading = reading,
-                            isUsAqi = isUsAqi,
+                            useNaqi = useNaqi,
                             sensorInfo = sensorInfos.find { it.name == name },
                             modifier = Modifier.weight(1f),
                         )
@@ -1038,15 +1038,15 @@ fun NodeReadingCard(
     modifier: Modifier = Modifier,
     nodeName: String,
     reading: NodeReading,
-    isUsAqi: Boolean,
+    useNaqi: Boolean,
     sensorInfo: SensorInfo? = null,
 ) {
     val isDown = reading.pm25 == null
     val displayAqi: Int? =
         if (isDown) null
-        else if (!isUsAqi) reading.usAqi ?: reading.aqi
+        else if (!useNaqi) reading.usAqi ?: reading.aqi
         else reading.aqi
-    val aqiLabel = if (!isUsAqi) "US AQI" else "NAQI"
+    val aqiLabel = if (!useNaqi) "US AQI" else "NAQI"
 
     var menuExpanded by remember { mutableStateOf(false) }
     var sheetVisible by remember { mutableStateOf(false) }
@@ -1200,7 +1200,7 @@ fun NodeReadingCard(
                     "${displayAqi ?: "—"}",
                     style = MaterialTheme.typography.headlineLarge,
                     fontWeight = FontWeight.Black,
-                    color = getAqiColor(displayAqi ?: 0, !isUsAqi),
+                    color = getAqiColor(displayAqi ?: 0, !useNaqi),
                 )
             }
             Text(

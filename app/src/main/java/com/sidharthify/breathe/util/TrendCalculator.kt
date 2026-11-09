@@ -32,7 +32,7 @@ import kotlin.math.abs
 fun calculateChange1h(
     history: List<HistoryPoint>?,
     currentAqi: Int,
-    isNaqi: Boolean,
+    useNaqi: Boolean,
 ): Int? {
     if (history.isNullOrEmpty()) return null
 
@@ -53,6 +53,6 @@ fun calculateChange1h(
 
     bestPoint ?: return null
 
-    val pastAqi = if (isNaqi) bestPoint.aqi else (bestPoint.usAqi ?: bestPoint.aqi)
+    val pastAqi = if (useNaqi) bestPoint.aqi else (bestPoint.usAqi ?: bestPoint.aqi)
     return currentAqi - pastAqi
 }

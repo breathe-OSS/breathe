@@ -261,13 +261,13 @@ fun savePinnedOrder(
     }
 }
 
-fun AqiResponse.displayAqi(isUsAqi: Boolean): Int {
+fun AqiResponse.displayAqi(useNaqi: Boolean): Int {
     val pm25 =
         concentrations?.get("pm2.5")
             ?: concentrations?.get("pm2_5")
             ?: 0.0
 
-    return if (!isUsAqi) {
+    return if (!useNaqi) {
         usAqi ?: if (pm25 > 0) calculateUsAqi(pm25) else 0
     } else {
         nAqi
