@@ -122,6 +122,8 @@ class MainActivity : ComponentActivity() {
 
         val ctx = applicationContext
         Configuration.getInstance().load(ctx, ctx.getSharedPreferences("osmdroid", Context.MODE_PRIVATE))
+        // tile servers throttle the generic osmdroid agent, so say who we are
+        Configuration.getInstance().userAgentValue = packageName
 
         val prefs = getSharedPreferences("breathe_prefs", Context.MODE_PRIVATE)
 

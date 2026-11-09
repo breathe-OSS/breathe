@@ -30,11 +30,10 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.ColorMatrix
-import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.util.LruCache
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -44,6 +43,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -85,11 +85,10 @@ import com.sidharthify.breathe.data.Zone
 import com.sidharthify.breathe.navigation.LocalNavBarClearance
 import com.sidharthify.breathe.ui.components.MainDashboardDetail
 import com.sidharthify.breathe.util.IndiaBoundaryOverlay
+import com.sidharthify.breathe.util.MapStyle
 import com.sidharthify.breathe.util.displayAqi
 import com.sidharthify.breathe.util.getAqiColor
-import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
-import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.CustomZoomButtonsController
 import org.osmdroid.views.MapView
@@ -110,16 +109,13 @@ fun MapScreen(
     val resources = LocalResources.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val navBarClearancePx = with(LocalDensity.current) { LocalNavBarClearance.current.roundToPx() }
+    val density = LocalDensity.current.density
+    val surfaceArgb = MaterialTheme.colorScheme.surface.toArgb()
 
     val bitmapCache = remember { LruCache<String, Bitmap>(50) }
 
-    val startPoint = remember { GeoPoint(34.0837, 74.7973) }
     var selectedZoneData by remember { mutableStateOf<AqiResponse?>(null) }
     var mapViewRef by remember { mutableStateOf<MapView?>(null) }
-
-    LaunchedEffect(Unit) {
-        Configuration.getInstance().load(context, context.getSharedPreferences("osmdroid", Context.MODE_PRIVATE))
-    }
 
     DisposableEffect(lifecycleOwner) {
         val observer =
@@ -145,10 +141,10 @@ fun MapScreen(
                         zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
 
                         minZoomLevel = 7.0
-                        maxZoomLevel = 20.0
+                        maxZoomLevel = 18.0
 
-                        controller.setZoom(9.0)
-                        controller.setCenter(startPoint)
+                        controller.setZoom(MapStyle.HOME_ZOOM)
+                        controller.setCenter(MapStyle.HOME_CENTER)
 
                         mapViewRef = this
                     }
@@ -156,58 +152,38 @@ fun MapScreen(
                 update = { _ -> },
             )
 
+            Text(
+                MapStyle.ATTRIBUTION,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(start = 16.dp, bottom = LocalNavBarClearance.current)
+                        .background(
+                            MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+                            RoundedCornerShape(8.dp),
+                        ).padding(horizontal = 8.dp, vertical = 2.dp),
+            )
+
             LaunchedEffect(mapViewRef, navBarClearancePx) {
                 mapViewRef?.let { map ->
-                    val jkRegion = BoundingBox(37.5, 81.0, 32.0, 72.0)
-                    map.setScrollableAreaLimitLatitude(jkRegion.latNorth, jkRegion.latSouth, navBarClearancePx)
-                    map.setScrollableAreaLimitLongitude(jkRegion.lonWest, jkRegion.lonEast, 0)
+                    val limit = MapStyle.SCROLL_LIMIT
+                    map.setScrollableAreaLimitLatitude(limit.latNorth, limit.latSouth, navBarClearancePx)
+                    map.setScrollableAreaLimitLongitude(limit.lonWest, limit.lonEast, 0)
                 }
             }
 
-            LaunchedEffect(mapViewRef, isDarkTheme) {
+            LaunchedEffect(mapViewRef, isDarkTheme, surfaceArgb) {
                 mapViewRef?.let { map ->
-                    val tilesOverlay = map.overlayManager.tilesOverlay
-                    if (isDarkTheme) {
-                        val inverseMatrix =
-                            ColorMatrix(
-                                floatArrayOf(
-                                    -1.0f,
-                                    0.0f,
-                                    0.0f,
-                                    0.0f,
-                                    255f,
-                                    0.0f,
-                                    -1.0f,
-                                    0.0f,
-                                    0.0f,
-                                    255f,
-                                    0.0f,
-                                    0.0f,
-                                    -1.0f,
-                                    0.0f,
-                                    255f,
-                                    0.0f,
-                                    0.0f,
-                                    0.0f,
-                                    1.0f,
-                                    0.0f,
-                                ),
-                            )
-                        tilesOverlay.setColorFilter(ColorMatrixColorFilter(inverseMatrix))
-                    } else {
-                        tilesOverlay.setColorFilter(null)
+                    map.overlayManager.tilesOverlay.setColorFilter(MapStyle.tileFilter(isDarkTheme))
+                    // unloaded tiles otherwise flash a grey checkerboard while panning
+                    map.overlayManager.tilesOverlay.apply {
+                        loadingBackgroundColor = surfaceArgb
+                        loadingLineColor = surfaceArgb
                     }
 
-                    IndiaBoundaryOverlay.show(
-                        context,
-                        map,
-                        IndiaBoundaryOverlay.Style(
-                            lineColor = if (isDarkTheme) Color.WHITE else Color.BLACK,
-                            lineWidthPx = 2.5f,
-                            haloColor = Color.TRANSPARENT,
-                            haloWidthPx = 0f,
-                        ),
-                    )
+                    IndiaBoundaryOverlay.show(context, map, MapStyle.boundary(isDarkTheme, density))
 
                     map.invalidate()
                 }
