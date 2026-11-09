@@ -26,14 +26,6 @@
             </intent-filter>
         </activity>
 
-        <activity
-            android:name=".widgets.WidgetConfigActivity"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
-            </intent-filter>
-        </activity>
-
         <receiver
             android:name=".widgets.BreatheWidgetReceiver"
             android:label="@string/aqi_widget_label"
