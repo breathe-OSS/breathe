@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /*
- * BreatheWidget.kt
+ * WidgetActions.kt - Next and previous buttons that cycle the widgets through pinned zones
  *
  * Copyright (C) 2026 The Breathe Open Source Project
  * Copyright (C) 2026 sidharthify <wednisegit@gmail.com>

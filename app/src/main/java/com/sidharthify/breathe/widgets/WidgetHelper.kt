@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /*
- * WidgetHelper.kt
+ * WidgetHelper.kt - Tells the widgets to refetch after pins or settings change
  *
  * Copyright (C) 2026 The Breathe Open Source Project
  * Copyright (C) 2026 sidharthify <wednisegit@gmail.com>

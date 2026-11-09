@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /*
- * BreatheTrendWidget.kt
+ * BreatheTrendWidget.kt - Home screen widget with the last 24 hours of AQI for a pinned zone
  *
  * Copyright (C) 2026 The Breathe Open Source Project
  * Copyright (C) 2026 sidharthify <wednisegit@gmail.com>

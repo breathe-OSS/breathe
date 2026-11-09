@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /*
- * BreatheWidgetWorker.kt
+ * BreatheWidgetWorker.kt - Fetches the pinned zone each widget is showing and saves it into its state
  *
  * Copyright (C) 2026 The Breathe Open Source Project
  * Copyright (C) 2026 sidharthify <wednisegit@gmail.com>
