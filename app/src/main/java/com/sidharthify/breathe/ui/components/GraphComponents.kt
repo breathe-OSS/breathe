@@ -605,7 +605,7 @@ fun DotHistoryGraph(
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    if (isUsAqi) "Hazardous" else "Severe",
+                    if (isUsAqi) "Severe" else "Hazardous",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
