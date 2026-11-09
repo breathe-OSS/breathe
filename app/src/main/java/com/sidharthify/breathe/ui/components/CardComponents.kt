@@ -55,21 +55,24 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.sidharthify.breathe.data.AqiResponse
 import com.sidharthify.breathe.data.LocalAnimationSettings
 import com.sidharthify.breathe.data.Zone
-import com.sidharthify.breathe.expressiveClickable
+import com.sidharthify.breathe.ui.expressiveClickable
 import com.sidharthify.breathe.util.displayAqi
 import com.sidharthify.breathe.util.getAqiColor
 
@@ -161,70 +164,89 @@ fun PinnedZonesButtonGroup(
 fun ZoneListItem(
     zone: Zone,
     isPinned: Boolean,
-    onPinClick: () -> Unit,
+    onPinToggle: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
+    val isLive = zone.provider.equals("airgradient", ignoreCase = true)
+
+    // the whole card is the pin toggle, the icon only shows the state
     Card(
         shape = MaterialTheme.shapes.medium,
         colors =
             CardDefaults.cardColors(
-                containerColor = if (isPinned) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer,
+                containerColor =
+                    if (isPinned) {
+                        MaterialTheme.colorScheme.secondaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.surfaceContainer
+                    },
             ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        modifier = Modifier.fillMaxWidth(),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .semantics { stateDescription = if (isPinned) "Pinned" else "Not pinned" }
+                .expressiveClickable(
+                    role = Role.Switch,
+                    onClickLabel = if (isPinned) "Unpin" else "Pin",
+                    onClick = onPinToggle,
+                ),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 24.dp),
+            modifier = Modifier.fillMaxWidth().padding(24.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(zone.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                val providerLower = zone.provider?.lowercase()
-                val providerText = when (providerLower) {
-                    "openmeteo" -> "Satellite & Model Data"
-                    "airgradient" -> "Live Ground Sensors"
-                    else -> zone.provider ?: "Unknown"
-                }
-
-                if (providerLower == "airgradient") {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(androidx.compose.ui.graphics.Color(0xFF4CAF50))
-                        )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (isLive) {
+                        LiveDot(size = 8.dp)
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            providerText,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
                     }
-                } else {
                     Text(
-                        providerText,
+                        providerLabel(zone.provider),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
-            // Pin Button with Expressive Click
-            Box(
-                modifier =
-                    Modifier
-                        .size(48.dp)
-                        .expressiveClickable { onPinClick() },
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    if (isPinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
-                    contentDescription = "Pin",
-                    tint = if (isPinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            Icon(
+                if (isPinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
+                contentDescription = null,
+                tint =
+                    if (isPinned) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                modifier = Modifier.padding(12.dp),
+            )
         }
     }
 }
+
+fun providerLabel(provider: String?): String =
+    when (provider?.lowercase()) {
+        "openmeteo" -> "Satellite & Model Data"
+        "airgradient" -> "Live Ground Sensors"
+        else -> provider ?: "Unknown"
+    }
+
+// the little green dot that means a zone has real ground sensors
+@Composable
+fun LiveDot(
+    modifier: Modifier = Modifier,
+    size: Dp = 6.dp,
+) {
+    Box(
+        modifier =
+            modifier
+                .size(size)
+                .background(LiveGreen, CircleShape),
+    )
+}
+
+val LiveGreen = Color(0xFF4CAF50)
 
 @Composable
 fun ErrorCard(

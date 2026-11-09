@@ -40,13 +40,9 @@ import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -83,24 +79,21 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
@@ -114,6 +107,7 @@ import com.sidharthify.breathe.navigation.AppScreen
 import com.sidharthify.breathe.navigation.LocalIsTabletLandscape
 import com.sidharthify.breathe.navigation.LocalNavBarClearance
 import com.sidharthify.breathe.ui.components.MorphingPill
+import com.sidharthify.breathe.ui.expressiveClickable
 import com.sidharthify.breathe.ui.screens.ExploreScreen
 import com.sidharthify.breathe.ui.screens.HomeScreen
 import com.sidharthify.breathe.ui.screens.MapScreen
@@ -486,7 +480,10 @@ private fun NavigationItem(
     )
 
     Box(
-        modifier = modifier.expressiveClickable(onClick),
+        modifier =
+            modifier
+                .semantics { selected = isSelected }
+                .expressiveClickable(role = Role.Tab, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         MorphingPill(
@@ -504,49 +501,6 @@ private fun NavigationItem(
         )
     }
 }
-
-fun Modifier.expressiveClickable(onClick: () -> Unit): Modifier =
-    composed {
-        val animationSettings = LocalAnimationSettings.current
-        val maxSquishPx = with(LocalDensity.current) { 32.dp.toPx() }
-        var isPressed by remember { mutableStateOf(false) }
-        var longestSidePx by remember { mutableIntStateOf(0) }
-        val pressedScale =
-            if (longestSidePx > 0) {
-                (1f - maxSquishPx / longestSidePx).coerceAtLeast(0.90f)
-            } else {
-                0.90f
-            }
-        val scale by animateFloatAsState(
-            targetValue = if (isPressed && animationSettings.pressFeedback) pressedScale else 1f,
-            animationSpec =
-                if (animationSettings.pressFeedback) {
-                    spring(dampingRatio = 0.4f, stiffness = 400f)
-                } else {
-                    spring(stiffness = 10000f)
-                },
-            label = "Squish",
-        )
-
-        this
-            .onSizeChanged { longestSidePx = maxOf(it.width, it.height) }
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            }.pointerInput(Unit) {
-                awaitPointerEventScope {
-                    while (true) {
-                        awaitFirstDown(requireUnconsumed = false)
-                        isPressed = true
-                        val up = waitForUpOrCancellation()
-                        isPressed = false
-                        if (up != null) {
-                            onClick()
-                        }
-                    }
-                }
-            }
-    }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable

@@ -82,7 +82,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.sidharthify.breathe.data.AqiResponse
 import com.sidharthify.breathe.data.LocalAnimationSettings
-import com.sidharthify.breathe.expressiveClickable
+import com.sidharthify.breathe.ui.expressiveClickable
 import com.sidharthify.breathe.util.displayAqi
 import com.sidharthify.breathe.util.getAqiCategory
 import com.sidharthify.breathe.util.getAqiColor
@@ -235,7 +235,7 @@ private fun SnapshotRow(
                 .graphicsLayer {
                     alpha = progress.coerceIn(0f, 1f)
                     translationY = (1f - progress) * 24.dp.toPx()
-                }.expressiveClickable(onClick)
+                }.expressiveClickable(onClick = onClick)
                 .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -303,7 +303,7 @@ private fun PinnedOverviewCard(
     Surface(
         shape = MaterialTheme.shapes.large,
         color = aqiColor.copy(alpha = 0.12f),
-        modifier = modifier.expressiveClickable(onClick),
+        modifier = modifier.expressiveClickable(onClick = onClick),
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

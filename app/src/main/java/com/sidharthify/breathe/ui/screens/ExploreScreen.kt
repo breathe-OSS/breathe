@@ -61,7 +61,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.sidharthify.breathe.data.LocalAnimationSettings
 import com.sidharthify.breathe.data.Zone
-import com.sidharthify.breathe.expressiveClickable
 import com.sidharthify.breathe.navigation.LocalNavBarClearance
 import com.sidharthify.breathe.ui.components.ErrorCard
 import com.sidharthify.breathe.ui.components.ZoneListItem
@@ -189,23 +188,16 @@ private fun LazyGridScope.zoneSection(
     }
 
     items(zones, key = { it.id }) { zone ->
-        Box(
+        ZoneListItem(
+            zone = zone,
+            isPinned = zone.id in pinnedIds,
+            onPinToggle = { onPinToggle(zone.id) },
             modifier =
-                Modifier
-                    .then(
-                        if (animateItems) {
-                            Modifier.animateItem(tween(durationMillis = 300))
-                        } else {
-                            Modifier
-                        }
-                    )
-                    .expressiveClickable { onPinToggle(zone.id) },
-        ) {
-            ZoneListItem(
-                zone = zone,
-                isPinned = pinnedIds.contains(zone.id),
-                onPinClick = {},
-            )
-        }
+                if (animateItems) {
+                    Modifier.animateItem(tween(durationMillis = 300))
+                } else {
+                    Modifier
+                },
+        )
     }
 }

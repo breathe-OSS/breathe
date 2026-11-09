@@ -103,7 +103,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sidharthify.breathe.data.AnimationSettings
-import com.sidharthify.breathe.expressiveClickable
+import com.sidharthify.breathe.ui.expressiveClickable
 import com.sidharthify.breathe.navigation.LocalNavBarClearance
 import com.sidharthify.breathe.viewmodel.BreatheViewModel
 import kotlinx.coroutines.Dispatchers
@@ -640,7 +640,7 @@ private fun SettingsRow(
             .settingsItemBackground(LocalSettingsAmoled.current)
     val clickable =
         if (onClick != null) {
-            base.expressiveClickable(onClick)
+            base.expressiveClickable(onClick = onClick)
         } else {
             base
         }

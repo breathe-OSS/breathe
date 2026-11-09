@@ -122,7 +122,8 @@ import com.sidharthify.breathe.data.LocalAnimationSettings
 import com.sidharthify.breathe.data.NodeReading
 import com.sidharthify.breathe.data.SensorInfo
 import com.sidharthify.breathe.data.WeatherInfo
-import com.sidharthify.breathe.expressiveClickable
+import com.sidharthify.breathe.ui.expressiveClickable
+import com.sidharthify.breathe.ui.pressSquish
 import com.sidharthify.breathe.util.PollutantText
 import com.sidharthify.breathe.util.calculateChange1h
 import com.sidharthify.breathe.util.calculateCigarettes
@@ -220,7 +221,7 @@ fun MainDashboardDetail(
                     modifier =
                         Modifier
                             .padding(bottom = 12.dp)
-                            .expressiveClickable {},
+                            .pressSquish(),
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
@@ -564,7 +565,7 @@ private fun AqiHeroCard(
     val aqiBgColor = aqiColor.copy(alpha = 0.12f)
 
     Box(
-        modifier = modifier.expressiveClickable {},
+        modifier = modifier.pressSquish(),
     ) {
         Surface(
             shape = MaterialTheme.shapes.large,
@@ -740,7 +741,7 @@ private fun AqiCategoryCard(
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
         ),
         shape = MaterialTheme.shapes.medium,
-        modifier = modifier.expressiveClickable {},
+        modifier = modifier.pressSquish(),
     ) {
         Column(
             modifier = Modifier
@@ -820,7 +821,7 @@ private fun CigaretteCard(
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         shape = MaterialTheme.shapes.medium,
-        modifier = modifier.expressiveClickable {},
+        modifier = modifier.pressSquish(),
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -1269,7 +1270,7 @@ fun PollutantChip(
         modifier =
             modifier
                 .height(80.dp)
-                .expressiveClickable {},
+                .pressSquish(),
     ) {
         Surface(
             modifier = Modifier.fillMaxSize(),
