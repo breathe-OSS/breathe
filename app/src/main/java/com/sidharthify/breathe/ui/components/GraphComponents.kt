@@ -36,6 +36,7 @@ import androidx.compose.foundation.LocalOverscrollFactory
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.PagerState
@@ -43,13 +44,15 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,6 +67,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sidharthify.breathe.data.HistoryPoint
@@ -168,8 +172,7 @@ fun AqiHistoryGraph(
             )
         }
 
-    // Label shown in header next to the hamburger icon
-    val graphLabel = if (selectedNodeKey == null) "Zone Average" else selectedNodeKey ?: "Zone Average"
+    val graphLabel = selectedNodeKey ?: "Zone Average"
 
     Box(
         modifier =
@@ -178,59 +181,40 @@ fun AqiHistoryGraph(
                 .padding(16.dp),
     ) {
         Column {
-            // Header row
+            // the dropdown shows what's picked, so there's no separate subtitle
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "24 Hour Trend",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    if (nodeKeysWithHistory.isNotEmpty()) {
-                        Text(
-                            graphLabel,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                    }
-                }
+                Text(
+                    "24 Hour Trend",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f),
+                )
                 if (nodeKeysWithHistory.isNotEmpty()) {
                     Box {
-                        IconButton(onClick = { menuExpanded = true }) {
-                            Icon(
-                                Icons.Filled.Menu,
-                                contentDescription = "Select node",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        TextButton(onClick = { menuExpanded = true }) {
+                            Text(
+                                graphLabel,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.widthIn(max = 160.dp),
                             )
+                            Icon(Icons.Filled.ArrowDropDown, contentDescription = "Select node")
                         }
                         DropdownMenu(
                             expanded = menuExpanded,
                             onDismissRequest = { menuExpanded = false },
                         ) {
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        "Zone Average",
-                                        fontWeight = if (selectedNodeKey == null) FontWeight.Bold else FontWeight.Normal,
-                                    )
-                                },
-                                onClick = {
-                                    selectedNodeKey = null
-                                    menuExpanded = false
-                                },
-                            )
-                            nodeKeysWithHistory.forEach { key ->
+                            (listOf<String?>(null) + nodeKeysWithHistory).forEach { key ->
                                 DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            key,
-                                            fontWeight = if (selectedNodeKey == key) FontWeight.Bold else FontWeight.Normal,
-                                        )
+                                    text = { Text(key ?: "Zone Average") },
+                                    trailingIcon = {
+                                        if (selectedNodeKey == key) {
+                                            Icon(Icons.Filled.Check, contentDescription = null)
+                                        }
                                     },
                                     onClick = {
                                         selectedNodeKey = key

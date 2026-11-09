@@ -265,7 +265,12 @@ fun EmptyStateCard(onGoToExplore: () -> Unit) {
         modifier = Modifier.fillMaxWidth().padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Icon(Icons.Filled.PushPin, null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.surfaceVariant)
+        Icon(
+            Icons.Filled.PushPin,
+            contentDescription = null,
+            modifier = Modifier.size(64.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+        )
         Spacer(modifier = Modifier.height(16.dp))
         Text("No Pinned Zones", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
         Spacer(modifier = Modifier.height(8.dp))
@@ -275,20 +280,8 @@ fun EmptyStateCard(onGoToExplore: () -> Unit) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(modifier = Modifier.height(24.dp))
-        // Expressive Button
-        Box(modifier = Modifier.expressiveClickable { onGoToExplore() }) {
-            Surface(
-                color = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                shape = CircleShape,
-            ) {
-                Text(
-                    "Go to Explore",
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
-                )
-            }
+        Button(onClick = onGoToExplore) {
+            Text("Go to Explore")
         }
     }
 }
