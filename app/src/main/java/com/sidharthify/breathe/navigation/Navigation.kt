@@ -60,6 +60,8 @@ enum class AppScreen(
     Settings("Settings", Icons.Filled.Settings, Icons.Outlined.Settings, shape = SoftBurst),
 }
 
+// bottom padding a screen needs so its last item clears the floating toolbar
 val LocalNavBarClearance = compositionLocalOf<Dp> { 0.dp }
 
+// true when the toolbar is a side rail, screens use it to go two column
 val LocalIsTabletLandscape = compositionLocalOf { false }

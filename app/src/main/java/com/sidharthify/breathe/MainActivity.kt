@@ -230,11 +230,15 @@ fun BreatheApp(
     var currentScreen by rememberSaveable { mutableStateOf(AppScreen.Home) }
     val motionScheme = MaterialTheme.motionScheme
 
+    // landscape tablets get the toolbar as a rail on the right, everything else
+    // gets the floating pill at the bottom
     val configuration = LocalConfiguration.current
     val useNavRail =
         configuration.smallestScreenWidthDp >= 600 &&
             configuration.screenWidthDp > configuration.screenHeightDp
 
+    // how much room screens leave at the bottom (and the end, with the rail) so
+    // the last bit of content can scroll out from under the floating toolbar
     val navBarPadding = WindowInsets.navigationBars.asPaddingValues()
     val navBarClearance =
         if (useNavRail) {
@@ -249,7 +253,7 @@ fun BreatheApp(
             0.dp
         }
 
-    // navigate to Home first, then exit
+    // back goes to Home first and only leaves the app from there
     BackHandler(enabled = currentScreen != AppScreen.Home) {
         currentScreen = AppScreen.Home
     }
@@ -395,6 +399,7 @@ fun BreatheApp(
                     }
                 }
             } else {
+                // fades content out behind the pill so text never runs straight into it
                 Box(
                     modifier =
                         Modifier
@@ -527,12 +532,14 @@ fun BreatheTheme(
             }
         }
 
+    // amoled keeps the dynamic accent colours and only swaps the backgrounds
+    // for true black, plus two near blacks so cards still separate
     val colorScheme =
         if (darkTheme && amoledMode) {
             baseScheme.copy(
                 background = Color.Black,
                 surface = Color.Black,
-                surfaceContainer = Color(0xFF000000), // Very dark
+                surfaceContainer = Color(0xFF000000),
                 surfaceContainerHigh = Color(0xFF141414),
                 surfaceContainerHighest = Color(0xFF1F1F1F),
             )

@@ -146,7 +146,8 @@ fun HomeScreen(
         )
     }
 
-    // Track whether we just came back from history to scroll to bottom
+    // coming back from extended history lands on the dashboard (where the
+    // button was) instead of the top of the list
     var scrollToBottom by remember { mutableStateOf(false) }
     val lazyColumnState = rememberLazyListState()
 
@@ -155,10 +156,13 @@ fun HomeScreen(
         scrollToBottom = true
     }
 
+    // with the overview grid on, back from a single zone goes to the grid
     BackHandler(enabled = isOverviewHome && isOverviewExpanded && !showHistory) {
         isOverviewExpanded = false
     }
 
+    // zones with real ground sensors. the welcome dialog only ranks these and
+    // the overview cards mark them with the live dot
     val liveZoneIds =
         remember(zones) {
             zones
@@ -167,6 +171,7 @@ fun HomeScreen(
                 .toSet()
         }
 
+    // tapping a zone anywhere on home pins it if needed and jumps to its dashboard
     val openZone: (AqiResponse) -> Unit = { zone ->
         if (zone.zoneId !in pinnedIds) {
             viewModel.togglePin(zone.zoneId)
@@ -192,7 +197,6 @@ fun HomeScreen(
         )
     }
 
-    // Scroll to the dashboard_detail item after returning from history
     LaunchedEffect(scrollToBottom) {
         if (scrollToBottom) {
             lazyColumnState.animateScrollToItem(3)

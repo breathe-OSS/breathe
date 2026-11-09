@@ -45,6 +45,9 @@ import androidx.graphics.shapes.Morph
 import androidx.graphics.shapes.RoundedPolygon
 import com.sidharthify.breathe.data.LocalAnimationSettings
 
+// the selected nav tab's background. it grows from a circle into the tab's
+// own shape once when picked, unselected tabs draw nothing at all so only one
+// morph is ever running
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun MorphingPill(
@@ -56,7 +59,7 @@ fun MorphingPill(
 ) {
     val animationSettings = LocalAnimationSettings.current
     val morphSpec = MaterialTheme.motionScheme.fastSpatialSpec<Float>()
-    
+
     val morph =
         remember(from, to) {
             Morph(from.normalized(), to.normalized())
@@ -108,6 +111,7 @@ fun MorphingPill(
     )
 }
 
+// the morph comes out in a 0..1 box, this scales it up to the pill and centres it
 private fun processPath(
     path: Path,
     size: Size,

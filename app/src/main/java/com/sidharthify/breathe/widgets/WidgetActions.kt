@@ -55,6 +55,8 @@ class PrevLocationAction : ActionCallback {
     }
 }
 
+// moves this widget one pin along (wrapping at both ends) and shows the
+// loading state right away, the worker fills in the new zone when it lands
 private suspend fun cycleLocation(
     context: Context,
     glanceId: GlanceId,
@@ -64,19 +66,25 @@ private suspend fun cycleLocation(
     val pinnedIds = appPrefs.getStringSet("pinned_ids", emptySet()) ?: emptySet()
     val size = pinnedIds.size
 
-    if (size <= 1) return
+    if (size <= 1) {
+        return
+    }
 
     updateAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId) { prefs ->
         val currentIndex = prefs[BreatheWidgetWorker.PREF_CURRENT_INDEX] ?: 0
 
         var newIndex = currentIndex + direction
 
-        if (newIndex >= size) newIndex = 0
-        if (newIndex < 0) newIndex = size - 1
+        if (newIndex >= size) {
+            newIndex = 0
+        }
+        if (newIndex < 0) {
+            newIndex = size - 1
+        }
 
         prefs.toMutablePreferences().apply {
             this[BreatheWidgetWorker.PREF_CURRENT_INDEX] = newIndex
-            this[BreatheWidgetWorker.PREF_STATUS] = "Loading" // Trigger "..." on refresh button
+            this[BreatheWidgetWorker.PREF_STATUS] = "Loading"
         }
     }
 

@@ -44,6 +44,8 @@ interface BreatheApi {
     @GET("/sensor-info")
     suspend fun getSensorInfo(): SensorInfoResponse
 
+    // location is a zone id, or zone_node for one sensor. time_range is 1w, 1mo,
+    // 6mo, a custom 14d style range or a start_end pair of dates
     @GET("/historical-data/{location}/{time_range}/{interval}/{metrics}")
     suspend fun getHistoricalData(
         @Path("location") location: String,
@@ -53,6 +55,8 @@ interface BreatheApi {
         @Query("format") format: String = "json",
     ): HistoricalDataResponse
 
+    // weather buckets line up with the history buckets through anchor, see
+    // WeatherHistory.kt
     @GET("/weather-history/{zone_id}/{time_range}/{interval}")
     suspend fun getWeatherHistory(
         @Path("zone_id") zoneId: String,

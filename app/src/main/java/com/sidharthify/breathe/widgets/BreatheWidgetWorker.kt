@@ -100,6 +100,8 @@ class BreatheWidgetWorker(
         pinnedIds: List<String>,
         useNaqi: Boolean,
     ) {
+        // each widget remembers which pin it's on, so two widgets can show
+        // different zones. reading it goes through an update that changes nothing
         var currentIndex = 0
         updateAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId) { prefs ->
             currentIndex = prefs[PREF_CURRENT_INDEX] ?: 0
@@ -114,7 +116,10 @@ class BreatheWidgetWorker(
             return
         }
 
-        if (currentIndex >= pinnedIds.size) currentIndex = 0
+        // a pin got removed since this widget last moved
+        if (currentIndex >= pinnedIds.size) {
+            currentIndex = 0
+        }
         val currentZoneId = pinnedIds[currentIndex]
 
         try {

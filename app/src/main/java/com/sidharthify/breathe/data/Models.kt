@@ -34,6 +34,8 @@ data class SensorInfoResponse(
     val sensors: List<SensorInfo>
 )
 
+// zone here is the zone name ('Srinagar'), not its id, and name matches the
+// key the sensor has in AqiResponse.nodes
 data class SensorInfo(
     val name: String,
     val zone: String,
@@ -63,6 +65,8 @@ data class Trends(
     @SerializedName("change_24h") val change24h: Int?,
 )
 
+// one zone right now. aqi is the indian NAQI and us_aqi the US EPA number,
+// use displayAqi() instead of picking between them by hand
 data class AqiResponse(
     @SerializedName("zone_id") val zoneId: String,
     @SerializedName("zone_name") val zoneName: String,
@@ -118,6 +122,7 @@ data class NodeHistoryPoint(
     @SerializedName("pm10") val pm10: Double?,
 )
 
+// a single ground sensor in a zone. pm2_5 comes back null when it's offline
 data class NodeReading(
     @SerializedName("pm2_5") val pm25: Double?,
     @SerializedName("pm10") val pm10: Double?,
