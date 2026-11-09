@@ -426,7 +426,7 @@ fun SettingsScreen(
                 title = "Indian NAQI",
                 subtitle = "Switch to Indian National AQI",
                 checked = useNaqi,
-                onCheckedChange = { viewModel.toggleAqiStandard(context) },
+                onCheckedChange = { viewModel.toggleAqiStandard() },
                 showDivider = true,
             )
 
@@ -434,7 +434,7 @@ fun SettingsScreen(
                 title = "Pinned Overview",
                 subtitle = "Show pinned locations as cards on Home",
                 checked = isOverviewHome,
-                onCheckedChange = { viewModel.toggleOverviewHome(context) },
+                onCheckedChange = { viewModel.toggleOverviewHome() },
                 showDivider = true,
             )
 

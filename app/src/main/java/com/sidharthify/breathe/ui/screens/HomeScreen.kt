@@ -51,7 +51,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -94,7 +94,7 @@ fun HomeScreen(
     val isOverviewHome by viewModel.isOverviewHome.collectAsState()
     val hasOnboarded by viewModel.hasOnboarded.collectAsState()
     val historyState by viewModel.historyState.collectAsState()
-    val context = LocalContext.current
+    val uriHandler = LocalUriHandler.current
 
     val pullRefreshState = rememberPullToRefreshState()
 
@@ -110,7 +110,7 @@ fun HomeScreen(
         ReorderPinnedZonesSheet(
             zones = pinnedZones,
             useNaqi = useNaqi,
-            onReorder = { order -> viewModel.reorderPinnedZones(context, order) },
+            onReorder = { order -> viewModel.reorderPinnedZones(order) },
             onDismiss = { showReorderSheet = false },
         )
     }
@@ -138,7 +138,7 @@ fun HomeScreen(
 
     val openZone: (AqiResponse) -> Unit = { zone ->
         if (zone.zoneId !in pinnedIds) {
-            viewModel.togglePin(context, zone.zoneId)
+            viewModel.togglePin(zone.zoneId)
         }
         selectedZone = zone
         isOverviewExpanded = true
@@ -223,7 +223,9 @@ fun HomeScreen(
                 onSensorSelected = { viewModel.setHistorySensor(it) },
                 onTogglePm25 = { viewModel.toggleHistoryPm25() },
                 onTogglePm10 = { viewModel.toggleHistoryPm10() },
-                onDownloadCSV = { viewModel.downloadHistoryCSV(context) },
+                onDownloadCSV = {
+                    viewModel.historyCsvUrl()?.let { uriHandler.openUri(it) }
+                },
                 onWeatherFilterSelected = { viewModel.setWeatherFilter(it) },
             )
         } else {

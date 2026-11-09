@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /*
- * BreatheViewModel.kt - ViewModel to manage app state, handle data fetching, caching, and user interactions for the Breathe app
+ * BreatheViewModel.kt - App state, fetching, caching, pins and the extended history screen
  *
  * Copyright (C) 2026 The Breathe Open Source Project
  * Copyright (C) 2026 sidharthify <wednisegit@gmail.com>
@@ -26,27 +26,25 @@
 
 package com.sidharthify.breathe.viewmodel
 
+import android.app.Application
 import android.content.Context
-import android.content.Intent
 import androidx.core.content.edit
-import androidx.core.net.toUri
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.sidharthify.breathe.data.AppState
 import com.sidharthify.breathe.data.AqiResponse
 import com.sidharthify.breathe.data.HistoryState
-import com.sidharthify.breathe.util.HistoryPeriod
-import com.sidharthify.breathe.util.HistoryPeriodMode
-import java.time.LocalDate
 import com.sidharthify.breathe.data.RetrofitClient
 import com.sidharthify.breathe.data.SensorInfo
 import com.sidharthify.breathe.data.Zone
-import com.sidharthify.breathe.widgets.forceWidgetUpdate
+import com.sidharthify.breathe.util.HistoryPeriod
+import com.sidharthify.breathe.util.HistoryPeriodMode
 import com.sidharthify.breathe.util.loadPinnedOrder
 import com.sidharthify.breathe.util.savePinnedOrder
 import com.sidharthify.breathe.util.weatherPm25Groups
+import com.sidharthify.breathe.widgets.forceWidgetUpdate
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -59,9 +57,25 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.withContext
+import java.time.LocalDate
+import kotlin.time.Duration.Companion.minutes
 
-class BreatheViewModel : ViewModel() {
+private const val PREFS = "breathe_prefs"
+private const val CACHE = "breathe_cache"
+
+// the backend pulls new readings about every 15 minutes, no point asking sooner
+private val REFRESH_INTERVAL = 16.minutes
+
+// holds onto the application, never an activity, so rotating doesn't leak
+// the old activity through the polling loop
+class BreatheViewModel(application: Application) : AndroidViewModel(application) {
+    private val app: Context
+        get() = getApplication()
+
+    private val prefs = application.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    private val gson = Gson()
+
     private val _uiState = MutableStateFlow(AppState())
     val uiState = _uiState.asStateFlow()
 
@@ -70,213 +84,68 @@ class BreatheViewModel : ViewModel() {
 
     // US EPA is the default, this only flips on for the indian NAQI. the pref
     // key is still is_us_aqi from back when the flag had the opposite name
-    private val _useNaqi = MutableStateFlow(false)
+    private val _useNaqi = MutableStateFlow(prefs.getBoolean("is_us_aqi", false))
     val useNaqi = _useNaqi.asStateFlow()
 
-    private val _isOverviewHome = MutableStateFlow(false)
+    private val _isOverviewHome = MutableStateFlow(prefs.getBoolean("is_overview_home", false))
     val isOverviewHome = _isOverviewHome.asStateFlow()
 
-    private val _hasOnboarded = MutableStateFlow(true)
+    // people who pinned something before the welcome dialog existed count as onboarded
+    private val _hasOnboarded =
+        MutableStateFlow(prefs.getBoolean("has_onboarded", false) || loadPinnedOrder(prefs).isNotEmpty())
     val hasOnboarded = _hasOnboarded.asStateFlow()
 
-    // Extended History state
     private val _historyState = MutableStateFlow(HistoryState())
     val historyState = _historyState.asStateFlow()
 
-    private var _historyZoneId: String? = null
+    private var historyZoneId: String? = null
     private var historyFetchJob: Job? = null
-
-    private val gson = Gson()
     private var pollingJob: Job? = null
-    private var isInitialLoad = true
+    private var lastRefreshMillis = 0L
 
-    fun init(context: Context) {
-        val prefs = context.getSharedPreferences("breathe_prefs", Context.MODE_PRIVATE)
-        _useNaqi.value = prefs.getBoolean("is_us_aqi", false)
-        _isOverviewHome.value = prefs.getBoolean("is_overview_home", false)
-        _hasOnboarded.value = prefs.getBoolean("has_onboarded", false) || loadPinnedOrder(prefs).isNotEmpty()
-
-        if (isInitialLoad) {
-            loadFromCache(context)
-            isInitialLoad = false
-        }
-
-        refreshData(context)
-        startPolling(context)
+    init {
+        loadFromCache()
+        refreshData()
     }
 
-    private fun startPolling(context: Context) {
-        if (pollingJob?.isActive == true) return
+    // called from the ui when the app comes to the foreground. catches up
+    // straight away if we were gone longer than one refresh, then keeps polling
+    fun onForeground() {
+        if (pollingJob?.isActive == true) {
+            return
+        }
         pollingJob =
             viewModelScope.launch {
+                val sinceLast = System.currentTimeMillis() - lastRefreshMillis
+                if (sinceLast >= REFRESH_INTERVAL.inWholeMilliseconds) {
+                    refreshData(isAutoRefresh = true)
+                }
                 while (isActive) {
-                    delay(960000.milliseconds) // auto refresh every 16 minutes
-                    refreshData(context, isAutoRefresh = true)
+                    delay(REFRESH_INTERVAL)
+                    refreshData(isAutoRefresh = true)
                 }
             }
     }
 
-    fun toggleAqiStandard(context: Context) {
+    fun onBackground() {
+        pollingJob?.cancel()
+        pollingJob = null
+    }
+
+    fun toggleAqiStandard() {
         val newValue = !_useNaqi.value
         _useNaqi.value = newValue
-        context
-            .getSharedPreferences("breathe_prefs", Context.MODE_PRIVATE)
-            .edit {
-                putBoolean("is_us_aqi", newValue)
-            }
+        prefs.edit {
+            putBoolean("is_us_aqi", newValue)
+        }
+        forceWidgetUpdate(app)
     }
 
-    fun toggleOverviewHome(context: Context) {
+    fun toggleOverviewHome() {
         val newValue = !_isOverviewHome.value
         _isOverviewHome.value = newValue
-        context
-            .getSharedPreferences("breathe_prefs", Context.MODE_PRIVATE)
-            .edit {
-                putBoolean("is_overview_home", newValue)
-            }
-    }
-
-    fun refreshData(
-        context: Context,
-        isAutoRefresh: Boolean = false,
-    ) {
-        viewModelScope.launch {
-            if (!isAutoRefresh) {
-                _uiState.update { it.copy(isLoading = true, error = null) }
-            }
-
-            val prefs = context.getSharedPreferences("breathe_prefs", Context.MODE_PRIVATE)
-            val pinnedOrder = loadPinnedOrder(prefs)
-            val pinnedSet = pinnedOrder.toSet()
-
-            try {
-                val zonesDeferred = async(Dispatchers.IO) { RetrofitClient.api.getZones().zones }
-                val sensorsDeferred = async(Dispatchers.IO) {
-                    try { RetrofitClient.api.getSensorInfo().sensors } catch (_: Exception) { emptyList() }
-                }
-
-                val zonesList = zonesDeferred.await()
-                val sensorsList = sensorsDeferred.await()
-
-                _uiState.update { it.copy(zones = zonesList, sensorInfos = sensorsList) }
-
-                val (pinnedZones, unpinnedZones) = zonesList.partition { it.id in pinnedSet }
-
-                val pinnedResults =
-                    pinnedZones
-                        .map { zone ->
-                            async(Dispatchers.IO) {
-                                try {
-                                    RetrofitClient.api.getZoneAqi(zone.id)
-                                } catch (_: Exception) {
-                                    null
-                                }
-                            }
-                        }.awaitAll()
-                        .filterNotNull()
-                        .sortedBy { pinnedOrder.indexOf(it.zoneId) }
-
-                _uiState.update { current ->
-                    val unpinnedIds = unpinnedZones.map { it.id }.toSet()
-                    val preservedUnpinned = current.allAqiData.filter { it.zoneId in unpinnedIds }
-
-                    current.copy(
-                        allAqiData = pinnedResults + preservedUnpinned,
-                        pinnedZones = pinnedResults,
-                        pinnedIds = pinnedSet,
-                    )
-                }
-
-                val unpinnedResults =
-                    if (unpinnedZones.isNotEmpty()) {
-                        unpinnedZones
-                            .map { zone ->
-                                async(Dispatchers.IO) {
-                                    try {
-                                        RetrofitClient.api.getZoneAqi(zone.id)
-                                    } catch (_: Exception) {
-                                        null
-                                    }
-                                }
-                            }.awaitAll()
-                            .filterNotNull()
-                    } else {
-                        emptyList()
-                    }
-
-                val completeList = pinnedResults + unpinnedResults
-
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        allAqiData = completeList,
-                        sensorInfos = sensorsList,
-                    )
-                }
-
-                saveToCache(context, zonesList, completeList, sensorsList)
-            } catch (e: Exception) {
-                if (!isAutoRefresh) {
-                    _uiState.update {
-                        it.copy(isLoading = false, error = "Error: ${e.localizedMessage}")
-                    }
-                }
-            }
-        }
-    }
-
-    private fun saveToCache(
-        context: Context,
-        zones: List<Zone>,
-        aqiData: List<AqiResponse>,
-        sensors: List<SensorInfo>,
-    ) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val prefs = context.getSharedPreferences("breathe_cache", Context.MODE_PRIVATE)
-            prefs.edit {
-                putString("cached_zones", gson.toJson(zones))
-                putString("cached_aqi", gson.toJson(aqiData))
-                putString("cached_sensors", gson.toJson(sensors))
-            }
-        }
-    }
-
-    private fun loadFromCache(context: Context) {
-        try {
-            val prefs = context.getSharedPreferences("breathe_cache", Context.MODE_PRIVATE)
-            val zonesJson = prefs.getString("cached_zones", null)
-            val aqiJson = prefs.getString("cached_aqi", null)
-            val sensorsJson = prefs.getString("cached_sensors", null)
-
-            val pinPrefs = context.getSharedPreferences("breathe_prefs", Context.MODE_PRIVATE)
-            val pinnedOrder = loadPinnedOrder(pinPrefs)
-            val pinnedSet = pinnedOrder.toSet()
-
-            if (zonesJson != null && aqiJson != null) {
-                val zonesType = object : TypeToken<List<Zone>>() {}.type
-                val aqiType = object : TypeToken<List<AqiResponse>>() {}.type
-                val sensorsType = object : TypeToken<List<SensorInfo>>() {}.type
-
-                val zones: List<Zone> = gson.fromJson(zonesJson, zonesType)
-                val aqiData: List<AqiResponse> = gson.fromJson(aqiJson, aqiType)
-                val sensors: List<SensorInfo> = if (sensorsJson != null) gson.fromJson(sensorsJson, sensorsType) else emptyList()
-                val pinnedResults =
-                    aqiData
-                        .filter { it.zoneId in pinnedSet }
-                        .sortedBy { pinnedOrder.indexOf(it.zoneId) }
-
-                _uiState.value =
-                    AppState(
-                        isLoading = false,
-                        zones = zones,
-                        allAqiData = aqiData,
-                        pinnedZones = pinnedResults,
-                        pinnedIds = pinnedSet,
-                        sensorInfos = sensors,
-                    )
-            }
-        } catch (_: Exception) {
-            // Fail silently on cache load error
+        prefs.edit {
+            putBoolean("is_overview_home", newValue)
         }
     }
 
@@ -284,13 +153,135 @@ class BreatheViewModel : ViewModel() {
         _searchQuery.value = query
     }
 
-    fun togglePin(
-        context: Context,
-        zoneId: String,
-    ) {
-        val prefs = context.getSharedPreferences("breathe_prefs", Context.MODE_PRIVATE)
-        val currentOrder = loadPinnedOrder(prefs)
+    // auto refreshes stay quiet, they don't flash the spinner or replace
+    // cached data with an error card
+    fun refreshData(isAutoRefresh: Boolean = false) {
+        viewModelScope.launch {
+            if (!isAutoRefresh) {
+                _uiState.update { it.copy(isLoading = true, error = null) }
+            }
 
+            val pinnedOrder = loadPinnedOrder(prefs)
+            val pinnedSet = pinnedOrder.toSet()
+
+            try {
+                val (zones, sensors) =
+                    coroutineScope {
+                        val zonesDeferred = async(Dispatchers.IO) { RetrofitClient.api.getZones().zones }
+                        val sensorsDeferred =
+                            async(Dispatchers.IO) {
+                                runCatching { RetrofitClient.api.getSensorInfo().sensors }.getOrDefault(emptyList())
+                            }
+                        zonesDeferred.await() to sensorsDeferred.await()
+                    }
+
+                _uiState.update { it.copy(zones = zones, sensorInfos = sensors) }
+
+                // pinned zones go first so home fills in before the map's
+                // twenty odd other zones have come back
+                val (pinnedZones, otherZones) = zones.partition { it.id in pinnedSet }
+
+                val pinnedResults = sortedByPinOrder(fetchAqi(pinnedZones), pinnedOrder)
+                _uiState.update { current ->
+                    val otherIds = otherZones.map { it.id }.toSet()
+                    val keptOthers = current.allAqiData.filter { it.zoneId in otherIds }
+                    current.copy(
+                        allAqiData = pinnedResults + keptOthers,
+                        pinnedZones = pinnedResults,
+                        pinnedIds = pinnedSet,
+                    )
+                }
+
+                val allResults = pinnedResults + fetchAqi(otherZones)
+                _uiState.update {
+                    it.copy(isLoading = false, allAqiData = allResults)
+                }
+
+                lastRefreshMillis = System.currentTimeMillis()
+                saveToCache(zones, allResults, sensors)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (isAutoRefresh) {
+                    return@launch
+                }
+                _uiState.update {
+                    it.copy(isLoading = false, error = "Error: ${e.localizedMessage}")
+                }
+            }
+        }
+    }
+
+    // one bad zone shouldn't take the rest down with it, so failures just drop out
+    private suspend fun fetchAqi(zones: List<Zone>): List<AqiResponse> =
+        coroutineScope {
+            zones
+                .map { zone ->
+                    async(Dispatchers.IO) {
+                        runCatching { RetrofitClient.api.getZoneAqi(zone.id) }.getOrNull()
+                    }
+                }.awaitAll()
+                .filterNotNull()
+        }
+
+    private fun sortedByPinOrder(
+        zones: List<AqiResponse>,
+        order: List<String>,
+    ): List<AqiResponse> {
+        val rank = order.withIndex().associate { (index, id) -> id to index }
+        return zones.sortedBy { rank[it.zoneId] ?: Int.MAX_VALUE }
+    }
+
+    private suspend fun saveToCache(
+        zones: List<Zone>,
+        aqiData: List<AqiResponse>,
+        sensors: List<SensorInfo>,
+    ) {
+        withContext(Dispatchers.IO) {
+            app.getSharedPreferences(CACHE, Context.MODE_PRIVATE).edit {
+                putString("cached_zones", gson.toJson(zones))
+                putString("cached_aqi", gson.toJson(aqiData))
+                putString("cached_sensors", gson.toJson(sensors))
+            }
+        }
+    }
+
+    // lets the app open straight into the last readings instead of a spinner.
+    // a broken cache just means we wait for the network like a fresh install
+    private fun loadFromCache() {
+        try {
+            val cache = app.getSharedPreferences(CACHE, Context.MODE_PRIVATE)
+            val zonesJson = cache.getString("cached_zones", null) ?: return
+            val aqiJson = cache.getString("cached_aqi", null) ?: return
+            val sensorsJson = cache.getString("cached_sensors", null)
+
+            val zones: List<Zone> = gson.fromJson(zonesJson, object : TypeToken<List<Zone>>() {}.type)
+            val aqiData: List<AqiResponse> = gson.fromJson(aqiJson, object : TypeToken<List<AqiResponse>>() {}.type)
+            val sensors: List<SensorInfo> =
+                if (sensorsJson != null) {
+                    gson.fromJson(sensorsJson, object : TypeToken<List<SensorInfo>>() {}.type)
+                } else {
+                    emptyList()
+                }
+
+            val pinnedOrder = loadPinnedOrder(prefs)
+            val pinnedSet = pinnedOrder.toSet()
+
+            _uiState.value =
+                AppState(
+                    isLoading = false,
+                    zones = zones,
+                    allAqiData = aqiData,
+                    pinnedZones = sortedByPinOrder(aqiData.filter { it.zoneId in pinnedSet }, pinnedOrder),
+                    pinnedIds = pinnedSet,
+                    sensorInfos = sensors,
+                )
+        } catch (_: Exception) {
+        }
+    }
+
+    fun togglePin(zoneId: String) {
+        val currentOrder = loadPinnedOrder(prefs)
         val updatedOrder =
             if (zoneId in currentOrder) {
                 currentOrder - zoneId
@@ -307,41 +298,29 @@ class BreatheViewModel : ViewModel() {
             }
         }
 
-        val updatedPinnedList =
-            updatedOrder.mapNotNull { id ->
-                _uiState.value.allAqiData.find { it.zoneId == id }
-            }
-
-        _uiState.update {
-            it.copy(
-                pinnedIds = updatedOrder.toSet(),
-                pinnedZones = updatedPinnedList,
-            )
-        }
-
-        forceWidgetUpdate(context)
-    }
-
-    fun reorderPinnedZones(
-        context: Context,
-        order: List<String>,
-    ) {
-        val prefs = context.getSharedPreferences("breathe_prefs", Context.MODE_PRIVATE)
-        savePinnedOrder(prefs, order)
-
         _uiState.update { state ->
+            val byId = state.allAqiData.associateBy { it.zoneId }
             state.copy(
-                pinnedZones = state.pinnedZones.sortedBy { order.indexOf(it.zoneId) },
+                pinnedIds = updatedOrder.toSet(),
+                pinnedZones = updatedOrder.mapNotNull { byId[it] },
             )
         }
 
-        forceWidgetUpdate(context)
+        forceWidgetUpdate(app)
     }
 
-    // ── Extended History ──
+    fun reorderPinnedZones(order: List<String>) {
+        savePinnedOrder(prefs, order)
+        _uiState.update { state ->
+            state.copy(pinnedZones = sortedByPinOrder(state.pinnedZones, order))
+        }
+        forceWidgetUpdate(app)
+    }
+
+    // extended history
 
     fun openHistory(zoneId: String) {
-        _historyZoneId = zoneId
+        historyZoneId = zoneId
         _historyState.value = HistoryState()
         fetchHistoricalData()
     }
@@ -363,10 +342,16 @@ class BreatheViewModel : ViewModel() {
         applyHistoryPeriod(state.periodMode, period)
     }
 
+    // switching mode keeps you around the same dates, but never in the future
     fun setHistoryPeriodMode(mode: HistoryPeriodMode) {
         val today = LocalDate.now()
         val end = _historyState.value.period?.end ?: today
-        val anchor = if (end.isAfter(today)) today else end
+        val anchor =
+            if (end.isAfter(today)) {
+                today
+            } else {
+                end
+            }
         applyHistoryPeriod(mode, HistoryPeriod.containing(mode, anchor))
     }
 
@@ -376,7 +361,11 @@ class BreatheViewModel : ViewModel() {
         applyHistoryPeriod(state.periodMode, period.shifted(state.periodMode, direction))
     }
 
-    fun pickHistoryPeriod(start: LocalDate, end: LocalDate) {
+    // in month and week mode any picked day snaps to the month or week around it
+    fun pickHistoryPeriod(
+        start: LocalDate,
+        end: LocalDate,
+    ) {
         val mode = _historyState.value.periodMode
         val period =
             if (mode == HistoryPeriodMode.DAYS) {
@@ -387,7 +376,10 @@ class BreatheViewModel : ViewModel() {
         applyHistoryPeriod(mode, period)
     }
 
-    private fun applyHistoryPeriod(mode: HistoryPeriodMode, period: HistoryPeriod) {
+    private fun applyHistoryPeriod(
+        mode: HistoryPeriodMode,
+        period: HistoryPeriod,
+    ) {
         _historyState.update {
             it.copy(
                 periodActive = true,
@@ -400,6 +392,7 @@ class BreatheViewModel : ViewModel() {
         fetchHistoricalData()
     }
 
+    // keeps every range somewhere around a couple hundred points
     private fun historyInterval(state: HistoryState): String {
         val period = state.period
         if (state.periodActive && period != null) {
@@ -409,7 +402,6 @@ class BreatheViewModel : ViewModel() {
             return state.customInterval
         }
         return when (state.selectedRange) {
-            "1w" -> "1h"
             "1mo" -> "4h"
             "6mo" -> "1d"
             else -> "1h"
@@ -448,87 +440,104 @@ class BreatheViewModel : ViewModel() {
         _historyState.update { it.copy(weatherFilter = condition) }
     }
 
+    // a single node is addressed as zone_node on the backend
+    private fun historyLocation(
+        zoneId: String,
+        state: HistoryState,
+    ): String {
+        if (state.selectedSensor == "zone") {
+            return zoneId
+        }
+        return "${zoneId}_${state.selectedSensor}"
+    }
+
     private fun fetchHistoricalData() {
-        val zoneId = _historyZoneId ?: return
+        val zoneId = historyZoneId ?: return
         val state = _historyState.value
-
-        val location = if (state.selectedSensor == "zone") zoneId else "${zoneId}_${state.selectedSensor}"
-
+        val location = historyLocation(zoneId, state)
         val interval = historyInterval(state)
 
-        val metrics = buildList {
-            if (state.showPm25) add("pm2.5")
-            if (state.showPm10) add("pm10")
-            if (isEmpty()) { add("pm2.5"); add("pm10") }
-        }.joinToString(",")
+        // turning both off would just give an empty chart, so treat it as both on
+        val metrics =
+            buildList {
+                if (state.showPm25) {
+                    add("pm2.5")
+                }
+                if (state.showPm10) {
+                    add("pm10")
+                }
+                if (isEmpty()) {
+                    add("pm2.5")
+                    add("pm10")
+                }
+            }.joinToString(",")
 
         _historyState.update { it.copy(isLoading = true, error = null) }
 
+        // only the newest request gets to write its result
         historyFetchJob?.cancel()
-        historyFetchJob = viewModelScope.launch(Dispatchers.IO) {
-            try {
-                coroutineScope {
-                    val historyDeferred =
-                        async {
-                            RetrofitClient.api.getHistoricalData(
-                                location = location,
-                                timeRange = state.selectedRange,
-                                interval = interval,
-                                metrics = metrics,
-                            )
-                        }
-                    val weatherDeferred =
-                        async {
-                            runCatching {
-                                RetrofitClient.api.getWeatherHistory(
-                                    zoneId = zoneId,
+        historyFetchJob =
+            viewModelScope.launch(Dispatchers.IO) {
+                try {
+                    coroutineScope {
+                        val historyDeferred =
+                            async {
+                                RetrofitClient.api.getHistoricalData(
+                                    location = location,
                                     timeRange = state.selectedRange,
                                     interval = interval,
+                                    metrics = metrics,
                                 )
-                            }.getOrNull()
+                            }
+                        val weatherDeferred =
+                            async {
+                                runCatching {
+                                    RetrofitClient.api.getWeatherHistory(
+                                        zoneId = zoneId,
+                                        timeRange = state.selectedRange,
+                                        interval = interval,
+                                    )
+                                }.getOrNull()
+                            }
+                        val response = historyDeferred.await()
+                        val weather = weatherDeferred.await()
+
+                        // drop back to all if the new range has no hours with the picked weather
+                        val groups = weatherPm25Groups(response.data, weather)
+                        val filterHasData = (groups[state.weatherFilter]?.second ?: 0) > 0
+                        val nextFilter =
+                            if (state.weatherFilter != "all" && !filterHasData) {
+                                "all"
+                            } else {
+                                state.weatherFilter
+                            }
+
+                        _historyState.update {
+                            it.copy(
+                                isLoading = false,
+                                data = response.data,
+                                stats = response.stats,
+                                weatherHistory = weather,
+                                weatherFilter = nextFilter,
+                            )
                         }
-                    val response = historyDeferred.await()
-                    val weather = weatherDeferred.await()
-                    val groups = weatherPm25Groups(response.data, weather)
-                    val nextFilter =
-                        if (state.weatherFilter != "all" &&
-                            (groups[state.weatherFilter]?.second ?: 0) == 0
-                        ) {
-                            "all"
-                        } else {
-                            state.weatherFilter
-                        }
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
                     _historyState.update {
-                        it.copy(
-                            isLoading = false,
-                            data = response.data,
-                            stats = response.stats,
-                            weatherHistory = weather,
-                            weatherFilter = nextFilter,
-                        )
+                        it.copy(isLoading = false, error = "Failed to load: ${e.localizedMessage}")
                     }
                 }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _historyState.update {
-                    it.copy(isLoading = false, error = "Failed to load: ${e.localizedMessage}")
-                }
             }
-        }
     }
 
-    fun downloadHistoryCSV(context: Context) {
-        val zoneId = _historyZoneId ?: return
+    // the csv always carries both pollutants, whatever the chart is showing
+    fun historyCsvUrl(): String? {
+        val zoneId = historyZoneId ?: return null
         val state = _historyState.value
-
-        val location = if (state.selectedSensor == "zone") zoneId else "${zoneId}_${state.selectedSensor}"
+        val location = historyLocation(zoneId, state)
         val interval = historyInterval(state)
-
-        val url = "https://api.breatheoss.app/historical-data/$location/${state.selectedRange}/$interval/pm2.5,pm10?format=csv"
-        val intent = Intent(Intent.ACTION_VIEW, url.toUri())
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        context.startActivity(intent)
+        return "https://api.breatheoss.app/historical-data/$location/${state.selectedRange}/$interval/pm2.5,pm10?format=csv"
     }
 }
-

@@ -80,7 +80,6 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -107,6 +106,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.core.content.edit
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sidharthify.breathe.data.AnimationSettings
 import com.sidharthify.breathe.data.LocalAnimationSettings
@@ -218,9 +218,12 @@ fun BreatheApp(
     onAnimationSettingsChange: (AnimationSettings) -> Unit,
     viewModel: BreatheViewModel = viewModel(),
 ) {
-    val context = LocalContext.current
-    LaunchedEffect(Unit) {
-        viewModel.init(context)
+    // only poll while someone can actually see the numbers
+    LifecycleStartEffect(viewModel) {
+        viewModel.onForeground()
+        onStopOrDispose {
+            viewModel.onBackground()
+        }
     }
 
     val uiState by viewModel.uiState.collectAsState()
@@ -321,7 +324,7 @@ fun BreatheApp(
                                         zones = uiState.zones,
                                         sensorInfos = uiState.sensorInfos,
                                         onGoToExplore = { currentScreen = AppScreen.Explore },
-                                        onRetry = { viewModel.refreshData(context) },
+                                        onRetry = { viewModel.refreshData() },
                                     )
                                 }
 
@@ -333,7 +336,7 @@ fun BreatheApp(
                                         isDarkTheme = isDarkTheme,
                                         useNaqi = useNaqi,
                                         sensorInfos = uiState.sensorInfos,
-                                        onPinToggle = { id -> viewModel.togglePin(context, id) },
+                                        onPinToggle = { id -> viewModel.togglePin(id) },
                                     )
                                 }
 
@@ -346,8 +349,8 @@ fun BreatheApp(
                                         pinnedIds = uiState.pinnedIds,
                                         query = searchQuery,
                                         onSearchChange = viewModel::onSearchQueryChanged,
-                                        onPinToggle = { id -> viewModel.togglePin(context, id) },
-                                        onRetry = { viewModel.refreshData(context) },
+                                        onPinToggle = { id -> viewModel.togglePin(id) },
+                                        onRetry = { viewModel.refreshData() },
                                     )
                                 }
 
