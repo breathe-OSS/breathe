@@ -125,8 +125,12 @@ fun HomeScreen(
 
     val pullRefreshState = rememberPullToRefreshState()
 
-    var selectedZone by remember { mutableStateOf(pinnedZones.firstOrNull()) }
-    var showHistory by remember { mutableStateOf(false) }
+    // only the id is kept (and saved across rotation), the zone itself is
+    // looked up fresh so a refresh shows up straight away. falls back to the
+    // first pin when nothing is picked or the picked one got unpinned
+    var selectedZoneId by rememberSaveable { mutableStateOf<String?>(null) }
+    val selectedZone = pinnedZones.find { it.zoneId == selectedZoneId } ?: pinnedZones.firstOrNull()
+    var showHistory by rememberSaveable { mutableStateOf(false) }
     var showReorderSheet by remember { mutableStateOf(false) }
     var showPinnedHint by rememberSaveable { mutableStateOf(false) }
     var isOverviewExpanded by rememberSaveable { mutableStateOf(false) }
@@ -167,14 +171,14 @@ fun HomeScreen(
         if (zone.zoneId !in pinnedIds) {
             viewModel.togglePin(zone.zoneId)
         }
-        selectedZone = zone
+        selectedZoneId = zone.zoneId
         isOverviewExpanded = true
         coroutineScope.launch {
             lazyColumnState.animateScrollToItem(0)
         }
     }
 
-    val snapshotZones = allAqiData.filter { it.zoneId in liveZoneIds }
+    val snapshotZones = remember(allAqiData, liveZoneIds) { allAqiData.filter { it.zoneId in liveZoneIds } }
 
     if (!hasOnboarded && pinnedZones.isEmpty() && snapshotZones.size >= 2) {
         WelcomeDialog(
@@ -186,19 +190,6 @@ fun HomeScreen(
             },
             onGoToExplore = onGoToExplore,
         )
-    }
-
-    LaunchedEffect(pinnedZones) {
-        if (selectedZone == null && pinnedZones.isNotEmpty()) {
-            selectedZone = pinnedZones.first()
-        } else if (pinnedZones.isNotEmpty()) {
-            val updatedZone = pinnedZones.find { it.zoneId == selectedZone?.zoneId }
-            if (updatedZone != null) {
-                selectedZone = updatedZone
-            } else {
-                selectedZone = pinnedZones.first()
-            }
-        }
     }
 
     // Scroll to the dashboard_detail item after returning from history
@@ -227,11 +218,11 @@ fun HomeScreen(
     ) { isHistoryVisible ->
         if (isHistoryVisible && selectedZone != null) {
             val nodeKeys = remember(selectedZone) {
-                selectedZone?.nodes?.keys?.toList() ?: emptyList()
+                selectedZone.nodes?.keys?.toList() ?: emptyList()
             }
 
             ExtendedHistoryScreen(
-                zoneName = selectedZone!!.zoneName,
+                zoneName = selectedZone.zoneName,
                 historyState = historyState,
                 nodeKeys = nodeKeys,
                 onBack = {
@@ -344,7 +335,7 @@ fun HomeScreen(
                                             selectedZoneId = selectedZone?.zoneId,
                                             useNaqi = useNaqi,
                                             isAmoled = isAmoled,
-                                            onZoneSelected = { selectedZone = it },
+                                            onZoneSelected = { selectedZoneId = it.zoneId },
                                         )
                                     }
                                 }
@@ -382,16 +373,16 @@ fun HomeScreen(
                             item(key = "dashboard_detail") {
                                 val provider =
                                     remember(selectedZone, zones) {
-                                        zones.find { it.id == selectedZone!!.zoneId }?.provider
+                                        zones.find { it.id == selectedZone.zoneId }?.provider
                                     }
                                 MainDashboardDetail(
-                                    zone = selectedZone!!,
+                                    zone = selectedZone,
                                     provider = provider,
                                     isDarkTheme = isDarkTheme,
                                     useNaqi = useNaqi,
                                     sensorInfos = sensorInfos,
                                     onOpenHistory = {
-                                        viewModel.openHistory(selectedZone!!.zoneId)
+                                        viewModel.openHistory(selectedZone.zoneId)
                                         showHistory = true
                                     },
                                     isWideLayout = LocalIsTabletLandscape.current,
