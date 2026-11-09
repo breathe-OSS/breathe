@@ -1001,66 +1001,18 @@ fun NodeReadingCard(
     var menuExpanded by remember { mutableStateOf(false) }
     var sheetVisible by remember { mutableStateOf(false) }
 
-    // Bottom sheet for sensor info
     if (sheetVisible) {
         ModalBottomSheet(onDismissRequest = { sheetVisible = false }) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-                    .padding(bottom = 32.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text(
-                    nodeName,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                if (isDown) {
-                    Text(
-                        "Sensor is currently offline.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                } else {
-                    NodeInfoRow("AQI", displayAqi?.toString() ?: "—")
-                    NodeInfoRow("AQI Standard", aqiLabel)
-                    NodeInfoRow("PM2.5", reading.pm25.let { "$it µg/m³" })
-                    NodeInfoRow("PM10", reading.pm10?.let { "$it µg/m³" } ?: "—")
-                    NodeInfoRow("Temperature", reading.temp?.let { "$it °C" } ?: "—")
-                    NodeInfoRow("Humidity", reading.humidity?.let { "${it}%" } ?: "—")
-                    Surface(
-                        shape = MaterialTheme.shapes.medium,
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            verticalAlignment = Alignment.Top,
-                        ) {
-                            Icon(
-                                Icons.Filled.Info,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(18.dp).padding(top = 1.dp),
-                            )
-                            Text(
-                                "The internal sensor measures conditions inside the module to improve PM accuracy, requiring dashboard corrections that may not perfectly match true ambient temperature and humidity.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                    if (sensorInfo != null) {
-                        NodeInfoRow("Provider", sensorInfo.provider)
-                        NodeInfoRow("Model", sensorInfo.model)
-                        NodeInfoRow("Location ID", sensorInfo.locationId.toString())
-                        NodeInfoRow("Install Date", sensorInfo.installationDate)
-                    }
-                }
-            }
+            SensorDetails(
+                nodeName = nodeName,
+                reading = reading,
+                useNaqi = useNaqi,
+                sensorInfo = sensorInfo,
+                modifier =
+                    Modifier
+                        .padding(horizontal = 24.dp)
+                        .padding(bottom = 32.dp),
+            )
         }
     }
 
@@ -1191,25 +1143,6 @@ fun NodeReadingCard(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun NodeInfoRow(label: String, value: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Text(
-            label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            value,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-        )
     }
 }
 
