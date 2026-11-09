@@ -74,12 +74,10 @@ import androidx.work.OneTimeWorkRequest
 import androidx.work.WorkManager
 import com.sidharthify.breathe.MainActivity
 import com.sidharthify.breathe.R
-import com.sidharthify.breathe.util.calculateUsAqi
 import com.sidharthify.breathe.util.getAqiCategory
 import com.sidharthify.breathe.widgets.BreatheWidgetWorker.Companion.PREF_AQI
 import com.sidharthify.breathe.widgets.BreatheWidgetWorker.Companion.PREF_HISTORY_CSV
 import com.sidharthify.breathe.widgets.BreatheWidgetWorker.Companion.PREF_USE_NAQI
-import com.sidharthify.breathe.widgets.BreatheWidgetWorker.Companion.PREF_PM25
 import com.sidharthify.breathe.widgets.BreatheWidgetWorker.Companion.PREF_STATUS
 import com.sidharthify.breathe.widgets.BreatheWidgetWorker.Companion.PREF_TOTAL_PINS
 import com.sidharthify.breathe.widgets.BreatheWidgetWorker.Companion.PREF_ZONE_NAME
@@ -135,10 +133,9 @@ class BreatheTrendWidget : GlanceAppWidget() {
         val zoneName = prefs[PREF_ZONE_NAME] ?: "…"
         val rawAqi = prefs[PREF_AQI] ?: 0
         val useNaqi = prefs[PREF_USE_NAQI] ?: false
-        val pm25 = prefs[PREF_PM25] ?: 0.0
         val totalPins = prefs[PREF_TOTAL_PINS] ?: 1
 
-        val displayAqi = (if (!useNaqi && pm25 > 0) calculateUsAqi(pm25) else rawAqi).coerceAtMost(500)
+        val displayAqi = rawAqi.coerceAtMost(500)
         val category = getAqiCategory(displayAqi, !useNaqi).label
 
         val values: List<Int> =

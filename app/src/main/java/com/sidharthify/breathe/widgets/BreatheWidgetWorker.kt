@@ -40,6 +40,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.sidharthify.breathe.data.RetrofitClient
 import com.sidharthify.breathe.util.displayAqi
+import com.sidharthify.breathe.util.pm25
 import com.sidharthify.breathe.util.loadPinnedOrder
 
 class BreatheWidgetWorker(
@@ -138,7 +139,9 @@ class BreatheWidgetWorker(
             updateAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId) { prefs ->
                 prefs.toMutablePreferences().apply {
                     this[PREF_ZONE_ID] = response.zoneId
-                    this[PREF_AQI] = response.nAqi
+                    // already the number the app would show for this standard, so the
+                    // widgets never have to redo the US AQI maths themselves
+                    this[PREF_AQI] = response.displayAqi(useNaqi)
                     this[PREF_ZONE_NAME] = response.zoneName
                     this[PREF_PROVIDER] = "Source: $providerName"
                     this[PREF_STATUS] = "Success"
@@ -146,7 +149,7 @@ class BreatheWidgetWorker(
                     this[PREF_TOTAL_PINS] = pinnedIds.size
                     this[PREF_USE_NAQI] = useNaqi
 
-                    this[PREF_PM25] = concentrations["pm2_5"] ?: -1.0
+                    this[PREF_PM25] = response.pm25.takeIf { it > 0 } ?: -1.0
                     this[PREF_PM10] = concentrations["pm10"] ?: -1.0
                     this[PREF_NO2] = concentrations["no2"] ?: -1.0
                     this[PREF_SO2] = concentrations["so2"] ?: -1.0
