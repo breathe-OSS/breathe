@@ -167,8 +167,6 @@ fun ZoneListItem(
     onPinToggle: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val isLive = zone.provider.equals("airgradient", ignoreCase = true)
-
     // the whole card is the pin toggle, the icon only shows the state
     Card(
         shape = MaterialTheme.shapes.medium,
@@ -193,23 +191,17 @@ fun ZoneListItem(
                 ),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(24.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(zone.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (isLive) {
-                        LiveDot(size = 8.dp)
-                        Spacer(modifier = Modifier.width(6.dp))
-                    }
-                    Text(
-                        providerLabel(zone.provider),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
+            // explore groups zones under live and model headers, so the card
+            // doesnt need to repeat which one it is
+            Text(
+                zone.name,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f),
+            )
             Icon(
                 if (isPinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
                 contentDescription = null,
@@ -224,13 +216,6 @@ fun ZoneListItem(
         }
     }
 }
-
-fun providerLabel(provider: String?): String =
-    when (provider?.lowercase()) {
-        "openmeteo" -> "Satellite & Model Data"
-        "airgradient" -> "Live Ground Sensors"
-        else -> provider ?: "Unknown"
-    }
 
 // the little green dot that means a zone has real ground sensors
 @Composable

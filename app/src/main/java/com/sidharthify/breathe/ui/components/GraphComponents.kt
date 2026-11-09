@@ -38,6 +38,7 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerDefaults
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -63,7 +64,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.sidharthify.breathe.data.HistoryPoint
 import com.sidharthify.breathe.data.NodeHistoryPoint
@@ -659,18 +659,35 @@ fun HistoryGraphPager(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            repeat(2) { i ->
-                val active = pagerState.currentPage == i
-                Box(
-                    modifier = Modifier
+        PagerDots(pagerState)
+    }
+}
+
+// shared by the dashboard and extended history pagers, the dots are the only
+// hint that there's a second chart to swipe to
+@Composable
+fun PagerDots(
+    pagerState: PagerState,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        repeat(pagerState.pageCount) { i ->
+            val active = pagerState.currentPage == i
+            Box(
+                modifier =
+                    Modifier
                         .padding(horizontal = 3.dp)
-                        .size(if (active) 8.dp else 6.dp)
-                        .background(
+                        .size(
+                            if (active) {
+                                8.dp
+                            } else {
+                                6.dp
+                            },
+                        ).background(
                             if (active) {
                                 MaterialTheme.colorScheme.primary
                             } else {
@@ -678,18 +695,7 @@ fun HistoryGraphPager(
                             },
                             CircleShape,
                         ),
-                )
-            }
+            )
         }
-
-        Spacer(modifier = Modifier.height(6.dp))
-
-        Text(
-            text = if (pagerState.currentPage == 0) "Swipe for Dots History" else "Swipe for Trend Graph",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.fillMaxWidth(),
-            textAlign = TextAlign.Center,
-        )
     }
 }

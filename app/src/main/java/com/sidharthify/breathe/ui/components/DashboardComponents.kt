@@ -60,7 +60,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.SmokingRooms
 import androidx.compose.material.icons.filled.WarningAmber
@@ -191,8 +190,7 @@ fun MainDashboardDetail(
         provider?.contains("Open-Meteo", ignoreCase = true) == true ||
                 provider?.contains("OpenMeteo", ignoreCase = true) == true
     val isAirGradient =
-        provider?.contains("AirGradient", ignoreCase = true) == true ||
-                provider?.contains("AirGradient", ignoreCase = true) == true
+        provider?.contains("AirGradient", ignoreCase = true) == true
 
     Column(modifier = Modifier.padding(vertical = 12.dp)) {
         Row(
@@ -204,33 +202,6 @@ fun MainDashboardDetail(
             verticalAlignment = Alignment.Top,
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Surface(
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    shape = RoundedCornerShape(100),
-                    modifier =
-                        Modifier
-                            .padding(bottom = 12.dp)
-                            .pressSquish(),
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(
-                            Icons.Filled.LocationOn,
-                            null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(12.dp),
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            "Now Viewing",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-
                 Text(
                     text = zone.zoneName,
                     style = MaterialTheme.typography.headlineLarge.copy(fontSize = 36.sp),
@@ -242,12 +213,7 @@ fun MainDashboardDetail(
 
                 if (isAirGradient) {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
-                        Box(
-                            modifier =
-                                Modifier
-                                    .size(6.dp)
-                                    .background(Color(0xFF4CAF50), CircleShape),
-                        )
+                        LiveDot()
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             "Live Ground Sensors",
