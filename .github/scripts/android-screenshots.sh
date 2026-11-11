@@ -57,7 +57,9 @@ tap_label() {
 }
 
 shoot() {
-  adb exec-out screencap -p > "shots/$1.png"
+  adb wait-for-device
+  adb shell screencap -p /sdcard/shot.png
+  adb pull /sdcard/shot.png "shots/$1.png"
 }
 
 launch() {
