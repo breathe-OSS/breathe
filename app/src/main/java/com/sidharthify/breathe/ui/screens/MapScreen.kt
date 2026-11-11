@@ -241,7 +241,7 @@ fun MapScreen(
             val aqiById = allAqiData.associateBy { it.zoneId }
             val zonesWithSensors =
                 if (layer == MapLayer.Sensors) {
-                    sensorPoints.map { it.zoneId }.toSet()
+                    sensorPoints.filter { it.reading.pm25 != null }.map { it.zoneId }.toSet()
                 } else {
                     emptySet()
                 }
@@ -256,7 +256,9 @@ fun MapScreen(
                 if (zone.id in zonesWithSensors) {
                     return@forEach
                 }
-                val isLive = zone.provider.equals("airgradient", ignoreCase = true)
+                val isLive =
+                    zone.provider.equals("airgradient", ignoreCase = true) &&
+                        aqiById[zone.id]?.nodes.orEmpty().values.any { it.pm25 != null }
                 bubbles +=
                     MapBubble(
                         point = GeoPoint(lat, lon),
@@ -274,7 +276,7 @@ fun MapScreen(
             }
 
             if (layer == MapLayer.Sensors) {
-                sensorPoints.forEach { sensor ->
+                sensorPoints.filter { it.zoneId in zonesWithSensors }.forEach { sensor ->
                     bubbles +=
                         MapBubble(
                             point = GeoPoint(sensor.latitude, sensor.longitude),
