@@ -10,9 +10,12 @@
   <img src="assets/screenshot-1.png" alt="Screenshot 1" width="200" style="border-radius:26px;"/>
   <img src="assets/screenshot-2.png" alt="Screenshot 2" width="200" style="border-radius:26px;"/>
   <img src="assets/screenshot-3.png" alt="Screenshot 3" width="200" style="border-radius:26px;"/>
+  <img src="assets/screenshot-4.png" alt="Screenshot 4" width="200" style="border-radius:26px;"/>
 </p>
 
-**Breathe** is a modern, MD3 Android application designed to monitor real-time Air Quality Index (AQI) levels across J&K & Ladakh. Built with **Kotlin** and **Jetpack Compose**, it provides a clean, fluid interface to track pollution levels using the Indian National Air Quality Index (NAQI) standards.
+**Breathe** is a Material 3 Expressive Android app for real-time Air Quality Index (AQI) levels across J&K & Ladakh. It is built with **Kotlin** and **Jetpack Compose** and shows both the US AQI (EPA breakpoints) and India's National Air Quality Index (NAQI).
+
+> Looking for iOS? See the [Breathe (iOS) repository](https://github.com/breathe-OSS/breathe-ios) or get it on the [App Store](https://apps.apple.com/app/id6761560112).
 
 - Check the [**breathe api**](https://github.com/breathe-OSS/api?tab=readme-ov-file#how-the-aqi-is-calculated) repo to know how the AQI is calculated.
 
@@ -37,7 +40,9 @@
 - **A map with data laid across**
 - **24 Hour graph of AQI Data**
 - **Detailed extended graph data for sensor based locations**
-- **Widget Support**
+- **Every ground sensor on the map**, grouped when zoomed out, offline ones included
+- **Weather filters** for extended history
+- **Widget Support**, including a 24 hour trend widget
 
 ## Tech Stack
 
@@ -52,34 +57,24 @@
 
 The project follows a standard but modularized android app structure.
 
-```app/src/main/java/com/sidharthify/breathe/
-├── data/    
+```
+app/src/main/java/com/sidharthify/breathe/
+├── data/
 │   ├── AnimationSettings.kt
 │   ├── BreatheApi.kt
 │   └── Models.kt
 ├── navigation/
 │   └── Navigation.kt
-├── ui/                    # All UI related code
-│   ├── components/        # Reusable UI elements (Cards, Graphs, Dashboards)
-│   │   ├── CardComponents.kt
-│   │   ├── DashboardComponents.kt
-│   │   └── GraphComponents.kt
-│   │   └── MorphingPill.kt
-│   └── screens/           # Full-page screen composables
-│       ├── ExploreScreen.kt
-│       ├── HomeScreen.kt
-│       ├── MapScreen.kt
-│       └── SettingsScreen.kt
-├── util/                  # Helper functions and extensions
-│   └── Utils.kt
-│   └── IndiaBoundaryOverlay.kt
-├── viewmodel/             # Caching and loading
+├── ui/
+│   ├── Expressive.kt          # Shapes and motion shared across screens
+│   ├── components/            # Cards, dashboards, graphs, history, sensor sheets
+│   └── screens/               # Home, Map, Explore and Settings
+├── util/                      # AQI scale, formatting, history periods, map
+│                              # clusters, markers, style and tiles, pins, sensors
+├── viewmodel/
 │   └── BreatheViewModel.kt
-├── widgets/               # Widget logic
-│   ├── BreatheWidget.kt
-│   ├── BreatheWidgetWorker.kt
-│   └── WidgetActions.kt
-└── MainActivity.kt        # Application Entry Point
+├── widgets/                   # AQI and trend widgets and their worker
+└── MainActivity.kt            # Application entry point
 ```
 
 ## Build and deploy locally
@@ -108,6 +103,11 @@ The project follows a standard but modularized android app structure.
 
 - GUI: Sync Gradle files, select your device, and click Run.
 - Terminal: Ensure your device is connected (`adb devices`) and run: `./gradlew installDebug`
+
+### CI
+
+- **Build & Sign Release** builds a signed APK and AAB on every push.
+- **Emulator Screenshots** shoots Home, Map, Explore and Settings in light and dark on a Pixel 7 emulator whenever the app changes.
 
 ## AQI Data Providers
 
