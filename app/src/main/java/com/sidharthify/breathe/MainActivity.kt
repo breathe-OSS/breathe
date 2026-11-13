@@ -106,6 +106,7 @@ import com.sidharthify.breathe.data.AnimationSettings
 import com.sidharthify.breathe.data.LocalAnimationSettings
 import com.sidharthify.breathe.navigation.AppScreen
 import com.sidharthify.breathe.navigation.LocalIsTabletLandscape
+import com.sidharthify.breathe.navigation.LiquidNavBar
 import com.sidharthify.breathe.navigation.LocalNavBarClearance
 import com.sidharthify.breathe.ui.components.MorphingPill
 import com.sidharthify.breathe.ui.expressiveClickable
@@ -400,18 +401,17 @@ fun BreatheApp(
                     contentPadding = PaddingValues(8.dp),
                     expandedShadowElevation = 12.dp,
                 ) {
-                    AppScreen.entries.forEach { screen ->
-                        NavigationItem(
-                            screen = screen,
-                            isSelected = currentScreen == screen,
-                            animationSettings = animationSettings,
-                            onClick = { currentScreen = screen },
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .height(72.dp),
-                        )
-                    }
+                    LiquidNavBar(
+                        screens = AppScreen.entries,
+                        current = currentScreen,
+                        animationSettings = animationSettings,
+                        vertical = true,
+                        onSelect = { currentScreen = it },
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .height(72.dp * AppScreen.entries.size),
+                    )
                 }
             } else {
                 // fades content out behind the pill so text never runs straight into it
@@ -443,86 +443,23 @@ fun BreatheApp(
                     contentPadding = PaddingValues(8.dp),
                     expandedShadowElevation = 12.dp,
                 ) {
-                    AppScreen.entries.forEach { screen ->
-                        NavigationItem(
-                            screen = screen,
-                            isSelected = currentScreen == screen,
-                            animationSettings = animationSettings,
-                            onClick = { currentScreen = screen },
-                            modifier =
-                                Modifier
-                                    .weight(1f)
-                                    .fillMaxHeight(),
-                        )
-                    }
+                    LiquidNavBar(
+                        screens = AppScreen.entries,
+                        current = currentScreen,
+                        animationSettings = animationSettings,
+                        vertical = false,
+                        onSelect = { currentScreen = it },
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .fillMaxHeight(),
+                    )
                 }
             }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-private fun NavigationItem(
-    screen: AppScreen,
-    isSelected: Boolean,
-    animationSettings: AnimationSettings,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val iconColor by animateColorAsState(
-        targetValue =
-            if (isSelected) {
-                MaterialTheme.colorScheme.onSecondaryContainer
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-            },
-        animationSpec =
-            if (isSelected && animationSettings.colorTransitions) {
-                tween(durationMillis = 150)
-            } else {
-                tween(durationMillis = 0)
-            },
-        label = "IconColor",
-    )
-    val pillColor by animateColorAsState(
-        targetValue =
-            if (isSelected) {
-                MaterialTheme.colorScheme.secondaryContainer
-            } else {
-                Color.Transparent
-            },
-        animationSpec =
-            if (isSelected && animationSettings.colorTransitions) {
-                tween(durationMillis = 150)
-            } else {
-                tween(durationMillis = 0)
-            },
-        label = "PillColor",
-    )
-
-    Box(
-        modifier =
-            modifier
-                .semantics { selected = isSelected }
-                .expressiveClickable(role = Role.Tab, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        MorphingPill(
-            isSelected = isSelected,
-            from = MaterialShapes.Circle,
-            to = screen.shape,
-            color = pillColor,
-            modifier = Modifier.size(50.dp),
-        )
-        Icon(
-            if (isSelected) screen.iconFilled else screen.iconOutlined,
-            contentDescription = screen.label,
-            tint = iconColor,
-            modifier = Modifier.size(24.dp),
-        )
-    }
-}
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
