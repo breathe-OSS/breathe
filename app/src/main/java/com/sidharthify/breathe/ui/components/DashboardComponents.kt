@@ -44,6 +44,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
@@ -136,6 +138,7 @@ import com.sidharthify.breathe.util.asAqiText
 import com.sidharthify.breathe.util.displayAqi
 import com.sidharthify.breathe.util.onAqiColor
 import com.sidharthify.breathe.util.getAqiCategory
+import com.sidharthify.breathe.navigation.LocalIsTabletLandscape
 import com.sidharthify.breathe.util.getAqiColor
 import com.sidharthify.breathe.util.getHealthAdvice
 import com.sidharthify.breathe.util.getTimeAgo
@@ -207,7 +210,14 @@ fun MainDashboardDetail(
     val offline = zone.isSensorOffline
     val place = placeLine(zone.district, zone.division)
 
-    Column(modifier = Modifier.padding(vertical = 12.dp)) {
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .wrapContentWidth()
+                .widthIn(max = 1200.dp)
+                .padding(vertical = 12.dp),
+    ) {
         Row(
             modifier =
                 Modifier
@@ -925,7 +935,15 @@ private fun ConcentrationsSection(
         )
         Spacer(modifier = Modifier.height(16.dp))
 
-        SimpleFlowGrid(items = pollutants.entries.toList())
+        SimpleFlowGrid(
+            items = pollutants.entries.toList(),
+            columns =
+                if (LocalIsTabletLandscape.current) {
+                    3
+                } else {
+                    2
+                },
+        )
     }
 }
 
@@ -994,24 +1012,15 @@ fun WeatherContextCard(
 fun SimpleFlowGrid(
     items: List<Map.Entry<String, Double>>,
     modifier: Modifier = Modifier,
+    columns: Int = 2,
 ) {
-    val rows = ceil(items.size / 2f).toInt()
-
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        for (i in 0 until rows) {
+        items.chunked(columns).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                val firstIndex = i * 2
-                val secondIndex = firstIndex + 1
-
-                if (firstIndex < items.size) {
-                    val (k1, v1) = items[firstIndex]
-                    PollutantChip(k1, v1, Modifier.weight(1f))
+                row.forEach { (key, value) ->
+                    PollutantChip(key, value, Modifier.weight(1f))
                 }
-
-                if (secondIndex < items.size) {
-                    val (k2, v2) = items[secondIndex]
-                    PollutantChip(k2, v2, Modifier.weight(1f))
-                } else {
+                repeat(columns - row.size) {
                     Spacer(modifier = Modifier.weight(1f))
                 }
             }
