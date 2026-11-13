@@ -24,11 +24,11 @@ seed_prefs() {
 <?xml version='1.0' encoding='utf-8' standalone='yes' ?>
 <map>
     <set name="pinned_ids">
-        <string>srinagar</string>
-        <string>kargil_town</string>
-        <string>jammu_city</string>
+        <string>hazratbal</string>
+        <string>central-kargil</string>
+        <string>gandhi-nagar</string>
     </set>
-    <string name="pinned_order">srinagar,kargil_town,jammu_city</string>
+    <string name="pinned_order">hazratbal,central-kargil,gandhi-nagar</string>
     <boolean name="has_onboarded" value="true" />
     <boolean name="is_dark_theme" value="$dark" />
 </map>
