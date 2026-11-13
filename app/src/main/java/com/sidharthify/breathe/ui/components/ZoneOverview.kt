@@ -384,34 +384,45 @@ private fun PanelHero(
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            val tonal = color.copy(alpha = 0.22f).compositeOver(color.copy(alpha = 0.12f).compositeOver(MaterialTheme.colorScheme.surface))
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 val pollutant =
                     if (!useNaqi && !zone.usMainPollutant.isNullOrBlank() && zone.usMainPollutant != "n/a") {
                         zone.usMainPollutant
                     } else {
                         zone.mainPollutant
                     }
-                Text(
-                    "Main pollutant ${formatPollutantName(pollutant)}",
-                    style = MaterialTheme.typography.labelLarge,
-                )
-                if (zone.pm25 > 0) {
+                HeroPill(color = tonal) {
                     Text(
-                        "PM2.5 ${zone.pm25} µg/m³",
+                        "Main ${formatPollutantName(pollutant)}",
                         style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
                     )
                 }
+                if (zone.pm25 > 0) {
+                    HeroPill(color = tonal) {
+                        Text(
+                            "PM2.5 ${zone.pm25} µg/m³",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
                 if (change != null && change != 0) {
-                    val sign =
-                        if (change > 0) {
-                            "+"
-                        } else {
-                            ""
-                        }
-                    Text(
-                        "$sign$change in the last hour",
-                        style = MaterialTheme.typography.labelLarge,
-                    )
+                    HeroPill(color = tonal) {
+                        Text(
+                            if (change < 0) {
+                                "${-change} better in 1h"
+                            } else {
+                                "$change worse in 1h"
+                            },
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
                 }
             }
         }
@@ -422,47 +433,21 @@ private fun PanelHero(
 fun HealthAdviceCard(
     aqi: Int,
     useNaqi: Boolean,
-    modifier: Modifier = Modifier,
 ) {
     val advice = getHealthAdvice(aqi, !useNaqi)
     val color = getAqiColor(aqi, !useNaqi)
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        shape = MaterialTheme.shapes.large,
-        modifier = modifier.fillMaxWidth(),
+    InfoRow(
+        shape = MaterialTheme.shapes.extraLarge,
+        iconContainer = color.copy(alpha = 0.22f).compositeOver(MaterialTheme.colorScheme.surfaceContainerHigh),
+        title = advice.title,
+        body = advice.text,
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                modifier =
-                    Modifier
-                        .size(40.dp)
-                        .background(color.copy(alpha = 0.18f), RoundedCornerShape(100)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    Icons.Filled.Favorite,
-                    contentDescription = null,
-                    tint = color.asAqiText(MaterialTheme.colorScheme.surface),
-                    modifier = Modifier.size(20.dp),
-                )
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                Text(
-                    advice.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    advice.text,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
+        Icon(
+            Icons.Filled.Favorite,
+            contentDescription = null,
+            tint = color.asAqiText(MaterialTheme.colorScheme.surface),
+            modifier = Modifier.size(24.dp),
+        )
     }
 }
 

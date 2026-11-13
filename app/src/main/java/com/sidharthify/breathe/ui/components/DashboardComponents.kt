@@ -37,6 +37,8 @@ import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -61,6 +63,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.SmokingRooms
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Card
@@ -88,12 +91,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.asComposePath
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -130,6 +137,7 @@ import com.sidharthify.breathe.util.displayAqi
 import com.sidharthify.breathe.util.onAqiColor
 import com.sidharthify.breathe.util.getAqiCategory
 import com.sidharthify.breathe.util.getAqiColor
+import com.sidharthify.breathe.util.getHealthAdvice
 import com.sidharthify.breathe.util.getTimeAgo
 import com.sidharthify.breathe.util.pm25
 import com.sidharthify.breathe.util.weatherConditionIconRes
@@ -381,35 +389,16 @@ fun MainDashboardDetail(
                     modifier =
                         Modifier
                             .weight(1f)
-                            .fillMaxHeight()
-                            .heightIn(min = 220.dp),
+                            .fillMaxHeight(),
                 )
 
-                Column(
+                ContextRows(
+                    displayAqi = displayAqi,
+                    useNaqi = useNaqi,
+                    weather = weather,
+                    cigarettes = cigarettes,
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    AqiCategoryCard(
-                        displayAqi = displayAqi,
-                        useNaqi = useNaqi,
-                        aqiTextColor = aqiTextColor,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-
-                    if (weather != null && weather.text.isNotBlank()) {
-                        WeatherContextCard(
-                            weather = weather,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-
-                    if (cigarettes > 0.1) {
-                        CigaretteCard(
-                            cigarettes = cigarettes,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-                }
+                )
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -455,45 +444,20 @@ fun MainDashboardDetail(
                 modifier =
                     Modifier
                         .padding(horizontal = 24.dp)
-                        .fillMaxWidth()
-                        .height(220.dp),
+                        .fillMaxWidth(),
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            AqiCategoryCard(
+            ContextRows(
                 displayAqi = displayAqi,
                 useNaqi = useNaqi,
-                aqiTextColor = aqiTextColor,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp),
+                weather = weather,
+                cigarettes = cigarettes,
+                modifier = Modifier.padding(horizontal = 24.dp),
             )
 
             Spacer(modifier = Modifier.height(24.dp))
-
-            if (weather != null && weather.text.isNotBlank()) {
-                WeatherContextCard(
-                    weather = weather,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 24.dp),
-                )
-                Spacer(modifier = Modifier.height(24.dp))
-            }
-
-            if (cigarettes > 0.1) {
-                CigaretteCard(
-                    cigarettes = cigarettes,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 24.dp),
-                )
-                Spacer(modifier = Modifier.height(24.dp))
-            }
 
             if (pollutants.isNotEmpty()) {
                 ConcentrationsSection(
@@ -567,13 +531,20 @@ private fun AqiHeroCard(
         } else {
             standardLabel
         }
+    val category = getAqiCategory(displayAqi, !useNaqi).label
 
     val screenWidth = with(LocalDensity.current) {
         LocalWindowInfo.current.containerSize.width.toDp()
     }
-    // If screen is narrow (<390dp), reduce font to prevent line wrap
-    val aqiFontSize = if (screenWidth < 390.dp) 64.sp else 84.sp
-    val aqiLineHeight = if (screenWidth < 390.dp) 64.sp else 84.sp
+    val compact = screenWidth < 390.dp
+    val burstSize = if (compact) 132.dp else 156.dp
+    val aqiFontSize =
+        when {
+            displayAqi >= 100 && compact -> 40.sp
+            displayAqi >= 100 -> 48.sp
+            compact -> 52.sp
+            else -> 60.sp
+        }
 
     val animatedAqi by animateIntAsState(
         targetValue = displayAqi,
@@ -588,7 +559,7 @@ private fun AqiHeroCard(
     val breatheScale by loopingFloat(
         enabled = animationSettings.pulseEffects,
         initialValue = 1f,
-        targetValue = 1.02f,
+        targetValue = 1.04f,
         animationSpec =
             infiniteRepeatable(
                 animation = tween(4000, easing = FastOutSlowInEasing),
@@ -597,266 +568,319 @@ private fun AqiHeroCard(
         label = "breatheScale",
     )
 
-    val aqiBgColor = aqiColor.copy(alpha = 0.12f)
+    val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val container = aqiColor.copy(alpha = if (dark) 0.18f else 0.14f).compositeOver(MaterialTheme.colorScheme.surfaceContainer)
+    val pillColor = aqiColor.copy(alpha = if (dark) 0.26f else 0.22f).compositeOver(container)
+    val burst = remember { SoftBurstShape() }
+    val change1h = remember(zone.history, displayAqi, useNaqi) {
+        calculateChange1h(history = zone.history, currentAqi = displayAqi, useNaqi = useNaqi)
+    }
+    val pollutant =
+        if (!useNaqi && !zone.usMainPollutant.isNullOrBlank() && zone.usMainPollutant != "n/a") {
+            zone.usMainPollutant
+        } else {
+            zone.mainPollutant
+        }
 
-    Box(
+    Surface(
+        shape = MaterialTheme.shapes.extraLarge,
+        color = container,
         modifier = modifier.pressSquish(),
     ) {
-        Surface(
-            shape = MaterialTheme.shapes.large,
-            color = aqiBgColor,
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        scaleX = breatheScale
-                        scaleY = breatheScale
-                    },
-        ) {}
-
-        // Content
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(24.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.Center,
-            ) {
-                Text(
-                    text = "$animatedAqi",
-                    style = MaterialTheme.typography.displayLarge.copy(fontSize = aqiFontSize),
-                    fontWeight = FontWeight.Black,
-                    color = aqiTextColor,
-                    letterSpacing = (-3).sp,
-                    lineHeight = aqiLineHeight,
-                )
-                Surface(
-                    color = aqiColor,
-                    shape = RoundedCornerShape(100),
-                    modifier = Modifier.padding(top = 4.dp),
-                ) {
+        Column(modifier = Modifier.padding(24.dp)) {
+            Row(verticalAlignment = Alignment.Top) {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                        text = aqiLabel,
-                        style = MaterialTheme.typography.labelMedium,
+                        category,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = aqiTextColor,
+                    )
+                    Text(
+                        zone.timestampUnix?.let { "Updated ${getTimeAgo(it.toLong()).replaceFirstChar { c -> c.lowercase() }}" } ?: "Live",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Surface(color = aqiColor, shape = RoundedCornerShape(100)) {
+                    Text(
+                        aqiLabel,
+                        style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold,
                         color = aqiColor.onAqiColor(),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                     )
                 }
             }
 
-            Column(
-                modifier =
-                    Modifier
-                        .weight(0.8f)
-                        .fillMaxHeight(),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.End,
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(vertical = 12.dp),
             ) {
-                Text(
-                    "Primary",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                )
-                // val displayPollutant = zone.usMainPollutant ?: zone.mainPollutant
-                PollutantText(
-                    rawKey = zone.mainPollutant,
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-                val change1h = remember(zone.history, displayAqi, useNaqi) {
-                calculateChange1h(
-                    history = zone.history,
-                    currentAqi = displayAqi,
-                    useNaqi = useNaqi,
-                )
-            }
-
-                if (change1h != null && change1h != 0) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        val isWorse = change1h > 0
-                        val trendColor = if (isWorse) Color(0xFFFF5252) else Color(0xFF4CAF50)
-                        val icon = if (isWorse) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown
-
-                        Icon(icon, null, tint = trendColor, modifier = Modifier.size(16.dp))
+                Box(contentAlignment = Alignment.Center) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .size(burstSize)
+                                .graphicsLayer {
+                                    scaleX = breatheScale
+                                    scaleY = breatheScale
+                                }.background(pillColor, burst),
+                    )
+                    Text(
+                        text = "$animatedAqi",
+                        style = MaterialTheme.typography.displayLarge.copy(fontSize = aqiFontSize),
+                        fontWeight = FontWeight.Black,
+                        color = aqiTextColor,
+                        letterSpacing = (-1).sp,
+                        maxLines = 1,
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    HeroPill(color = pillColor) {
                         Text(
-                            text = "${if (isWorse) "+" else ""}$change1h /hr",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            "Main ",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        PollutantText(
+                            rawKey = pollutant,
+                            style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
                         )
                     }
-                    Spacer(modifier = Modifier.height(4.dp))
-                }
-
-                val statusText =
-                    when {
-                        zone.timestampUnix != null -> getTimeAgo(zone.timestampUnix.toLong())
-                        else -> "Live"
+                    if (change1h != null && change1h != 0) {
+                        val better = change1h < 0
+                        HeroPill(color = pillColor) {
+                            Icon(
+                                if (better) Icons.Filled.KeyboardArrowDown else Icons.Filled.KeyboardArrowUp,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Text(
+                                if (better) {
+                                    "${-change1h} better in 1h"
+                                } else {
+                                    "$change1h worse in 1h"
+                                },
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                    } else if (change1h == 0) {
+                        HeroPill(color = pillColor) {
+                            Text(
+                                "Steady in 1h",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
                     }
-                Text(
-                    text = statusText,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                    textAlign = TextAlign.End,
-                )
+                }
             }
+
+            AqiSegmentGauge(displayAqi = displayAqi, useNaqi = useNaqi)
         }
     }
 }
 
 @Composable
-private fun AqiCategoryCard(
+fun HeroPill(
+    color: Color,
+    content: @Composable RowScope.() -> Unit,
+) {
+    Surface(color = color, shape = RoundedCornerShape(100)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            content = content,
+        )
+    }
+}
+
+@Composable
+private fun AqiSegmentGauge(
     displayAqi: Int,
     useNaqi: Boolean,
-    aqiTextColor: Color,
-    modifier: Modifier = Modifier,
 ) {
     val animationSettings = LocalAnimationSettings.current
-
-    val aqiCategory = getAqiCategory(displayAqi, !useNaqi)
-
-    // Calculate position on spectrum (0-500 for US, 0-500 for NAQI)
-    val maxAqi = if (!useNaqi) 500f else 500f
-    val targetIndicatorPosition = (displayAqi.coerceIn(0, 500) / maxAqi).coerceIn(0f, 1f)
-
-    // Animate indicator position
-    val animatedIndicatorPosition by animateFloatAsState(
-        targetValue = targetIndicatorPosition,
-        animationSpec = if (animationSettings.numberAnimations) {
-            tween(durationMillis = 800, easing = FastOutSlowInEasing)
+    val bands =
+        if (useNaqi) {
+            listOf(0 to 50, 51 to 100, 101 to 200, 201 to 300, 301 to 400, 401 to 500)
         } else {
-            tween(durationMillis = 0)
-        },
-        label = "IndicatorPosition",
-    )
-    val spectrumColorStops = if (!useNaqi) {
-        // US AQI breakpoints
-        arrayOf(
-            0.00f to Color(0xFF00E400),
-            0.10f to Color(0xFF00E400),
-            0.10f to Color(0xFFFFFF00),
-            0.20f to Color(0xFFFFFF00),
-            0.20f to Color(0xFFFF7E00),
-            0.30f to Color(0xFFFF7E00),
-            0.30f to Color(0xFFFF0000),
-            0.40f to Color(0xFFFF0000),
-            0.40f to Color(0xFF8F3F97),
-            0.60f to Color(0xFF8F3F97),
-            0.60f to Color(0xFF7E0023),
-            1.00f to Color(0xFF7E0023)
-        )
-    } else {
-        // NAQI breakpoints
-        arrayOf(
-            0.00f to Color(0xFF55A84F),
-            0.10f to Color(0xFF55A84F),
-            0.10f to Color(0xFFA3C853),
-            0.20f to Color(0xFFA3C853),
-            0.20f to Color(0xFFFDD74B),
-            0.40f to Color(0xFFFDD74B),
-            0.40f to Color(0xFFFB9A34),
-            0.60f to Color(0xFFFB9A34),
-            0.60f to Color(0xFFE93F33),
-            0.80f to Color(0xFFE93F33),
-            0.80f to Color(0xFFAF2D24),
-            1.00f to Color(0xFFAF2D24)
-        )
-    }
-
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        ),
-        shape = MaterialTheme.shapes.medium,
-        modifier = modifier.pressSquish(),
-    ) {
-        Column(
-            modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth(),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = aqiCategory.label,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = aqiTextColor,
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Spectrum meter
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(28.dp),
-            ) {
-                // Gradient bar
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(8.dp)
-                        .align(Alignment.Center)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(
-                            Brush.horizontalGradient(colorStops = spectrumColorStops)
-                        ),
-                )
-
-                // Indicator
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(28.dp),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(animatedIndicatorPosition.coerceAtLeast(0.01f))
-                            .align(Alignment.CenterStart),
-                        contentAlignment = Alignment.CenterEnd,
-                    ) {
-                        // Circle indicator
-                        Surface(
-                            modifier = Modifier.size(16.dp),
-                            shape = CircleShape,
-                            color = Color.White,
-                            shadowElevation = 2.dp,
-                            border = androidx.compose.foundation.BorderStroke(
-                                2.dp,
-                                MaterialTheme.colorScheme.surface
-                            ),
-                        ) {}
-                    }
-                }
-            }
+            listOf(0 to 50, 51 to 100, 101 to 150, 151 to 200, 201 to 300, 301 to 500)
         }
+    val clamped = displayAqi.coerceIn(0, 500)
+    val position by animateFloatAsState(
+        targetValue = clamped / 500f,
+        animationSpec =
+            if (animationSettings.numberAnimations) {
+                tween(durationMillis = 800, easing = FastOutSlowInEasing)
+            } else {
+                tween(durationMillis = 0)
+            },
+        label = "GaugePosition",
+    )
+    val handle = MaterialTheme.colorScheme.onSurface
+    val ring = MaterialTheme.colorScheme.surface
+    val dim =
+        if (ring.luminance() < 0.5f) {
+            0.4f
+        } else {
+            0.45f
+        }
+    Canvas(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(24.dp),
+    ) {
+        val gap = 4.dp.toPx()
+        val trackH = 10.dp.toPx()
+        val top = (size.height - trackH) / 2
+        val usable = size.width - gap * (bands.size - 1)
+        var x = 0f
+        bands.forEach { (low, high) ->
+            val w = usable * ((high - low + 1).toFloat() / 501f)
+            val sample = (low + high) / 2
+            val inside = clamped in low..high
+            drawRoundRect(
+                color =
+                    if (inside) {
+                        getAqiColor(sample, !useNaqi)
+                    } else {
+                        getAqiColor(sample, !useNaqi).copy(alpha = dim).compositeOver(ring)
+                    },
+                topLeft = Offset(x, top),
+                size = Size(w, trackH),
+                cornerRadius = CornerRadius(trackH / 2, trackH / 2),
+            )
+            x += w + gap
+        }
+        val hx = (position * size.width).coerceIn(3.dp.toPx(), size.width - 3.dp.toPx())
+        val hw = 4.dp.toPx()
+        drawRoundRect(
+            color = ring,
+            topLeft = Offset(hx - hw / 2 - 2.dp.toPx(), 0f),
+            size = Size(hw + 4.dp.toPx(), size.height),
+            cornerRadius = CornerRadius(hw, hw),
+        )
+        drawRoundRect(
+            color = handle,
+            topLeft = Offset(hx - hw / 2, 2.dp.toPx()),
+            size = Size(hw, size.height - 4.dp.toPx()),
+            cornerRadius = CornerRadius(hw / 2, hw / 2),
+        )
     }
 }
 
 @Composable
-private fun CigaretteCard(
+private fun ContextRows(
+    displayAqi: Int,
+    useNaqi: Boolean,
+    weather: WeatherInfo?,
     cigarettes: Double,
     modifier: Modifier = Modifier,
 ) {
-    val softBurstShape = remember { SoftBurstShape() }
+    val colorScheme = MaterialTheme.colorScheme
+    val locale = LocalLocale.current.platformLocale
+    val advice = getHealthAdvice(displayAqi, !useNaqi)
+    val aqiColor = getAqiColor(displayAqi, !useNaqi)
+    val showWeather = weather != null && weather.text.isNotBlank()
+    val showCigarettes = cigarettes > 0.1
+    val count = 1 + (if (showWeather) 1 else 0) + (if (showCigarettes) 1 else 0)
+    var index = 0
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        InfoRow(
+            shape = groupShape(index++, count),
+            iconContainer = aqiColor.copy(alpha = 0.22f).compositeOver(colorScheme.surfaceContainerHigh),
+            title = advice.title,
+            body = advice.text,
+        ) {
+            Icon(
+                Icons.Filled.Favorite,
+                contentDescription = null,
+                tint = aqiColor.asAqiText(colorScheme.surface),
+                modifier = Modifier.size(24.dp),
+            )
+        }
+        if (showWeather && weather != null) {
+            val condition = weather.condition.replaceFirstChar { it.titlecase(locale) }
+            val season = weather.season.replaceFirstChar { it.titlecase(locale) }
+            InfoRow(
+                shape = groupShape(index++, count),
+                iconContainer = colorScheme.secondaryContainer,
+                title = "$condition · $season",
+                body = weather.text,
+            ) {
+                Icon(
+                    painter = painterResource(weatherConditionIconRes(weather.condition)),
+                    contentDescription = condition,
+                    tint = colorScheme.onSecondaryContainer,
+                    modifier = Modifier.size(24.dp),
+                )
+            }
+        }
+        if (showCigarettes) {
+            InfoRow(
+                shape = groupShape(index, count),
+                iconContainer = colorScheme.errorContainer,
+                title = "≈ $cigarettes cigarettes",
+                body = "Equivalent PM2.5 inhalation today",
+            ) {
+                Icon(
+                    Icons.Filled.SmokingRooms,
+                    contentDescription = null,
+                    tint = colorScheme.onErrorContainer,
+                    modifier = Modifier.size(24.dp),
+                )
+            }
+        }
+    }
+}
 
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        shape = MaterialTheme.shapes.medium,
-        modifier = modifier.pressSquish(),
+fun groupShape(
+    index: Int,
+    count: Int,
+): Shape {
+    val outer = 24.dp
+    val inner = 6.dp
+    val top =
+        if (index == 0) {
+            outer
+        } else {
+            inner
+        }
+    val bottom =
+        if (index == count - 1) {
+            outer
+        } else {
+            inner
+        }
+    return RoundedCornerShape(topStart = top, topEnd = top, bottomStart = bottom, bottomEnd = bottom)
+}
+
+@Composable
+fun InfoRow(
+    shape: Shape,
+    iconContainer: Color,
+    title: String,
+    body: String,
+    icon: @Composable () -> Unit,
+) {
+    val burst = remember { SoftBurstShape() }
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = shape,
+        modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -865,30 +889,22 @@ private fun CigaretteCard(
             Box(
                 modifier =
                     Modifier
-                        .size(56.dp)
-                        .background(
-                            color = MaterialTheme.colorScheme.errorContainer,
-                            shape = softBurstShape,
-                        ),
+                        .size(48.dp)
+                        .background(iconContainer, burst),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    Icons.Filled.SmokingRooms,
-                    null,
-                    tint = MaterialTheme.colorScheme.onErrorContainer,
-                    modifier = Modifier.size(24.dp),
-                )
+                icon()
             }
             Spacer(modifier = Modifier.width(16.dp))
             Column {
                 Text(
-                    "≈ $cigarettes cigarettes",
+                    title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
-                    "Equivalent PM2.5 inhalation today",
-                    style = MaterialTheme.typography.bodySmall,
+                    body,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }

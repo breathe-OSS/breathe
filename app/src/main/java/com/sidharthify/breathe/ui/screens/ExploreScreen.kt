@@ -37,6 +37,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -50,7 +51,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -80,6 +81,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -225,9 +227,18 @@ fun ExploreScreen(
         } else if (error != null && zones.isEmpty()) {
             ErrorCard(msg = error, onRetry = onRetry)
         } else {
+            BoxWithConstraints {
+            val multiColumn = maxWidth >= 744.dp
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 360.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement =
+                    Arrangement.spacedBy(
+                        if (multiColumn) {
+                            12.dp
+                        } else {
+                            3.dp
+                        },
+                    ),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(bottom = LocalNavBarClearance.current),
                 modifier = Modifier.fillMaxSize(),
@@ -247,14 +258,20 @@ fun ExploreScreen(
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(start = 8.dp, top = 12.dp),
+                                modifier = Modifier.padding(start = 8.dp, top = 20.dp, bottom = 8.dp),
                             )
                         }
-                        items(divisionGroups, key = { it.key }) { group ->
+                        itemsIndexed(divisionGroups, key = { _, it -> it.key }) { index, group ->
                             val expanded = needle.isNotEmpty() || group.key in openDistricts
                             DistrictCard(
                                 group = group,
                                 expanded = expanded,
+                                shape =
+                                    if (multiColumn) {
+                                        RoundedCornerShape(24.dp)
+                                    } else {
+                                        segmentShape(index, divisionGroups.size)
+                                    },
                                 aqiById = aqiById,
                                 useNaqi = useNaqi,
                                 pinnedIds = pinnedIds,
@@ -282,6 +299,7 @@ fun ExploreScreen(
                             )
                         }
                     }
+            }
             }
         }
     }
@@ -328,6 +346,7 @@ fun ExploreScreen(
 private fun DistrictCard(
     group: DistrictGroup,
     expanded: Boolean,
+    shape: Shape,
     aqiById: Map<String, AqiResponse>,
     useNaqi: Boolean,
     pinnedIds: Set<String>,
@@ -349,7 +368,7 @@ private fun DistrictCard(
     )
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainer,
-        shape = MaterialTheme.shapes.large,
+        shape = shape,
         modifier = modifier.fillMaxWidth().animateContentSize(),
     ) {
         Column {
@@ -441,6 +460,27 @@ private fun DistrictCard(
             }
         }
     }
+}
+
+private fun segmentShape(
+    index: Int,
+    count: Int,
+): Shape {
+    val outer = 24.dp
+    val inner = 6.dp
+    val top =
+        if (index == 0) {
+            outer
+        } else {
+            inner
+        }
+    val bottom =
+        if (index == count - 1) {
+            outer
+        } else {
+            inner
+        }
+    return RoundedCornerShape(topStart = top, topEnd = top, bottomStart = bottom, bottomEnd = bottom)
 }
 
 @Composable
