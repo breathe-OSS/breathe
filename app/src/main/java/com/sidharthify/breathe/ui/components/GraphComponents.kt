@@ -73,10 +73,49 @@ import androidx.compose.ui.unit.sp
 import com.sidharthify.breathe.data.HistoryPoint
 import com.sidharthify.breathe.data.NodeReading
 import com.sidharthify.breathe.util.displayAqi
+import com.sidharthify.breathe.navigation.LocalIsTabletLandscape
 import com.sidharthify.breathe.util.getAqiColor
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.roundToInt
+
+fun aqiBandBrush(
+    minAqi: Float,
+    maxAqi: Float,
+    height: Float,
+    useNaqi: Boolean,
+    alpha: Float,
+): Brush {
+    val limits =
+        if (useNaqi) {
+            listOf(0f, 50f, 100f, 200f, 300f, 400f, Float.MAX_VALUE)
+        } else {
+            listOf(0f, 50f, 100f, 150f, 200f, 300f, Float.MAX_VALUE)
+        }
+    val samples =
+        if (useNaqi) {
+            listOf(25, 75, 150, 250, 350, 450)
+        } else {
+            listOf(25, 75, 125, 175, 250, 400)
+        }
+    val range = (maxAqi - minAqi).coerceAtLeast(1f)
+    fun fraction(aqi: Float): Float = ((maxAqi - aqi) / range).coerceIn(0f, 1f)
+    val stops = mutableListOf<Pair<Float, Color>>()
+    for (i in samples.indices.reversed()) {
+        val low = maxOf(limits[i], minAqi)
+        val high = minOf(limits[i + 1], maxAqi)
+        if (high <= low) {
+            continue
+        }
+        val color = getAqiColor(samples[i], !useNaqi).copy(alpha = alpha)
+        stops += fraction(high) to color
+        stops += fraction(low) to color
+    }
+    if (stops.isEmpty()) {
+        return Brush.verticalGradient(listOf(getAqiColor(samples.first(), !useNaqi).copy(alpha = alpha), getAqiColor(samples.first(), !useNaqi).copy(alpha = alpha)))
+    }
+    return Brush.verticalGradient(*stops.toTypedArray(), startY = 0f, endY = height)
+}
 
 @Composable
 fun AqiHistoryGraph(
@@ -229,7 +268,7 @@ fun AqiHistoryGraph(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .height(150.dp)
+                        .height(if (LocalIsTabletLandscape.current) 220.dp else 150.dp)
                         .pointerInput(values) {
                             detectHorizontalDragGestures(
                                 onDragStart = { offset ->
@@ -289,8 +328,8 @@ fun AqiHistoryGraph(
                 fillPath.lineTo(labelWidth, height)
                 fillPath.close()
 
-                drawPath(path = fillPath, brush = gradientBrush)
-                drawPath(path = path, color = graphColor, style = Stroke(width = 3.dp.toPx()))
+                drawPath(path = fillPath, brush = aqiBandBrush(minAqi, maxAqi, height, useNaqi, 0.22f))
+                drawPath(path = path, brush = aqiBandBrush(minAqi, maxAqi, height, useNaqi, 1f), style = Stroke(width = 3.dp.toPx()))
 
                 drawIntoCanvas { canvas ->
                     val nativeCanvas = canvas.nativeCanvas
