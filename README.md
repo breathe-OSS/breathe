@@ -11,6 +11,8 @@
   <img src="assets/screenshot-2.png" alt="Screenshot 2" width="200" style="border-radius:26px;"/>
   <img src="assets/screenshot-3.png" alt="Screenshot 3" width="200" style="border-radius:26px;"/>
   <img src="assets/screenshot-4.png" alt="Screenshot 4" width="200" style="border-radius:26px;"/>
+  <img src="assets/screenshot-5.png" alt="Screenshot 5" width="200" style="border-radius:26px;"/>
+  <img src="assets/screenshot-6.png" alt="Screenshot 6" width="200" style="border-radius:26px;"/>
 </p>
 
 **Breathe** is a Material 3 Expressive Android app for real-time Air Quality Index (AQI) levels across J&K & Ladakh. It is built with **Kotlin** and **Jetpack Compose** and shows both the US AQI (EPA breakpoints) and India's National Air Quality Index (NAQI).
@@ -40,8 +42,11 @@
 - **A map with data laid across**
 - **24 Hour graph of AQI Data**
 - **Detailed extended graph data for sensor based locations**
-- **Every ground sensor on the map**, grouped when zoomed out, offline ones included
-- **Weather filters** for extended history
+- **Every sensor is its own place**, grouped by district and division in Explore
+- **Map overview panel** with health advice, 30 and 180 day PM2.5, the last 10 days by hour and where the data comes from
+- **Raw readings** from the sensors before AirGradient's correction, switchable everywhere including widgets
+- **Extended history** for AQI, PM2.5, PM10, temperature and humidity, calibrated, raw or both, with time in each category, an hour of day profile, weather filters and sensor comparison
+- **Liquid Glass** on the nav bar and map controls, turned on automatically on phones that can handle it
 - **Widget Support**, including a 24 hour trend widget
 
 ## Tech Stack
@@ -50,6 +55,7 @@
 - **UI Framework:** Jetpack Compose (Material3)
 - **Architecture:** MVVM (Model-View-ViewModel)
 - **Networking:** Retrofit & Gson
+- **Liquid Glass:** [Kyant0/AndroidLiquidGlass](https://github.com/Kyant0/AndroidLiquidGlass) (backdrop)
 - **Concurrency:** Kotlin Coroutines & Flow
 - **Theme:** Dynamic Material You (Monet)
 
@@ -64,12 +70,15 @@ app/src/main/java/com/sidharthify/breathe/
 │   ├── BreatheApi.kt
 │   └── Models.kt
 ├── navigation/
+│   ├── LiquidNavBar.kt        # Floating nav with the stretchy, draggable selection
 │   └── Navigation.kt
 ├── ui/
 │   ├── Expressive.kt          # Shapes and motion shared across screens
-│   ├── components/            # Cards, dashboards, graphs, history, sensor sheets
+│   ├── Glass.kt               # Liquid glass surface for floating controls
+│   ├── components/            # Cards, dashboards, graphs, history, overview panel
 │   └── screens/               # Home, Map, Explore and Settings
-├── util/                      # AQI scale, formatting, history periods, map
+├── util/                      # AQI scale, places and raw readings, history
+│                              # analysis and periods, liquid glass checks, map
 │                              # clusters, markers, style and tiles, pins, sensors
 ├── viewmodel/
 │   └── BreatheViewModel.kt
@@ -142,7 +151,7 @@ The limitations of our current project is that we do not have ground sensors in 
 
 We are actively working to deploy custom physical sensors to improve data density in Jammu. If you are interested in hosting a sensor node, please contact us at: [contact@breatheoss.app](mailto:contact@breatheoss.app)
 
-We have deployed **AirGradient** sensors in Bandipora, Doda, Ganderbal, Jammu, Kargil, Kathua, Leh, Rajouri, Reasi, Samba, Srinagar & Udhampur (21 sensors across 12 cities as of 24/10/26), which provide an accurate measurement of PM10 and PM2.5 values. The live list is always at [api.breatheoss.app/sensor-info](https://api.breatheoss.app/sensor-info). We are working
+We have deployed **AirGradient** sensors in Bandipora, Budgam, Doda, Ganderbal, Jammu, Kargil, Kathua, Leh, Rajouri, Reasi, Samba, Srinagar & Udhampur (20 sensors across 13 districts as of 13/11/26), which provide an accurate measurement of PM10 and PM2.5 values. The live list is always at [api.breatheoss.app/sensor-info](https://api.breatheoss.app/sensor-info). We are working
 to deploy them in all other regions.
 
 ## Credits & Developers
