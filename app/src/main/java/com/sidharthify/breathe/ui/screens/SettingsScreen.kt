@@ -72,6 +72,9 @@ import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonGroupDefaults
+import androidx.compose.material3.ToggleButton
+import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -105,6 +108,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sidharthify.breathe.data.AnimationSettings
 import com.sidharthify.breathe.ui.components.RawExplainerPoints
 import com.sidharthify.breathe.ui.expressiveClickable
+import com.sidharthify.breathe.ui.LocalGlassEnabled
+import com.sidharthify.breathe.util.GlassMode
+import com.sidharthify.breathe.util.GlassSupport
+import com.sidharthify.breathe.util.glassSupport
 import com.sidharthify.breathe.navigation.LocalNavBarClearance
 import com.sidharthify.breathe.viewmodel.BreatheViewModel
 import kotlinx.coroutines.Dispatchers
@@ -236,6 +243,10 @@ fun SettingsScreen(
     val useNaqi by viewModel.useNaqi.collectAsState()
     val isOverviewHome by viewModel.isOverviewHome.collectAsState()
     val rawMode by viewModel.rawMode.collectAsState()
+    val glassMode by viewModel.glassMode.collectAsState()
+    val glassAutoOff by viewModel.glassAutoOff.collectAsState()
+    val glassOn = LocalGlassEnabled.current
+    val glassSupport = remember { glassSupport(context) }
     var rawExpanded by rememberSaveable { mutableStateOf(false) }
 
     val currentVersion = remember { currentVersionTag(context) }
@@ -344,6 +355,47 @@ fun SettingsScreen(
                     checked = isAmoled,
                     onCheckedChange = { onAmoledToggle() },
                 )
+            }
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .settingsItemBackground(isAmoled)
+                        .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                SettingsText(
+                    "Liquid Glass",
+                    glassStatus(glassMode, glassOn, glassSupport, glassAutoOff),
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+                ) {
+                    GlassMode.entries.forEachIndexed { index, mode ->
+                        ToggleButton(
+                            checked = glassMode == mode,
+                            onCheckedChange = { checked ->
+                                if (checked) {
+                                    viewModel.setGlassMode(mode)
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors =
+                                ToggleButtonDefaults.toggleButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                ),
+                            shapes =
+                                when (index) {
+                                    0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+                                    GlassMode.entries.size - 1 -> ButtonGroupDefaults.connectedTrailingButtonShapes()
+                                    else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
+                                },
+                        ) {
+                            Text(mode.label)
+                        }
+                    }
+                }
             }
         }
 
@@ -521,6 +573,30 @@ fun SettingsScreen(
                 }
             }
         }
+    }
+}
+
+private fun glassStatus(
+    mode: GlassMode,
+    on: Boolean,
+    support: GlassSupport,
+    autoOff: Boolean,
+): String {
+    if (mode == GlassMode.ON) {
+        if (support == GlassSupport.OLD_ANDROID) {
+            return "On. Refraction needs Android 13, so this phone gets a tinted pill"
+        }
+        return "On for the nav bar and map controls"
+    }
+    if (mode == GlassMode.OFF) {
+        return "Off"
+    }
+    return when {
+        on -> "Auto. On, this phone handles it fine"
+        support == GlassSupport.OLD_ANDROID -> "Auto. Off, needs Android 13 or newer"
+        support == GlassSupport.LOW_END -> "Auto. Off, kept off to save this phone's GPU"
+        autoOff -> "Auto. Off, it turned itself off after dropping frames"
+        else -> "Auto. Off while battery saver or reduced animations are on"
     }
 }
 

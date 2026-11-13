@@ -77,6 +77,7 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -106,7 +107,17 @@ import com.sidharthify.breathe.data.AnimationSettings
 import com.sidharthify.breathe.data.LocalAnimationSettings
 import com.sidharthify.breathe.navigation.AppScreen
 import com.sidharthify.breathe.navigation.LocalIsTabletLandscape
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.sidharthify.breathe.navigation.LiquidNavBar
+import com.sidharthify.breathe.ui.LocalGlassEnabled
+import com.sidharthify.breathe.ui.glass
+import com.sidharthify.breathe.util.FrameWatch
+import com.sidharthify.breathe.util.GlassMode
+import com.sidharthify.breathe.util.GlassSupport
+import com.sidharthify.breathe.util.glassSupport
+import com.sidharthify.breathe.util.isPowerSaving
+import kotlinx.coroutines.delay
 import com.sidharthify.breathe.navigation.LocalNavBarClearance
 import com.sidharthify.breathe.ui.components.MorphingPill
 import com.sidharthify.breathe.ui.expressiveClickable
@@ -230,6 +241,28 @@ fun BreatheApp(
     val useNaqi by viewModel.useNaqi.collectAsState()
     val rawMode by viewModel.rawMode.collectAsState()
     val rawHintHidden by viewModel.rawHintHidden.collectAsState()
+    val glassMode by viewModel.glassMode.collectAsState()
+    val glassAutoOff by viewModel.glassAutoOff.collectAsState()
+    val context = LocalContext.current
+    val view = LocalView.current
+    val glassSupport = remember { glassSupport(context) }
+    val powerSaving = remember { isPowerSaving(context) }
+    val glassOn =
+        when (glassMode) {
+            GlassMode.ON -> true
+            GlassMode.OFF -> false
+            GlassMode.AUTO -> glassSupport == GlassSupport.CAPABLE && !glassAutoOff && !powerSaving && animationSettings.animationsEnabled
+        }
+    val backdrop = rememberLayerBackdrop()
+
+    LaunchedEffect(glassOn, glassMode) {
+        if (!glassOn || glassMode != GlassMode.AUTO) {
+            return@LaunchedEffect
+        }
+        delay(3000)
+        val rate = view.display?.refreshRate ?: 60f
+        FrameWatch(rate, 15_000L) { ratio -> viewModel.reportGlassFrames(ratio) }.start()
+    }
 
     var currentScreen by rememberSaveable { mutableStateOf(AppScreen.Home) }
     val motionScheme = MaterialTheme.motionScheme
@@ -271,7 +304,13 @@ fun BreatheApp(
                 modifier =
                     Modifier
                         .fillMaxSize()
-                        .windowInsetsPadding(WindowInsets.statusBars)
+                        .then(
+                            if (glassOn) {
+                                Modifier.layerBackdrop(backdrop)
+                            } else {
+                                Modifier
+                            },
+                        ).windowInsetsPadding(WindowInsets.statusBars)
                         .padding(end = navRailClearance),
             ) {
                 AnimatedContent(
@@ -314,6 +353,7 @@ fun BreatheApp(
                         CompositionLocalProvider(
                             LocalNavBarClearance provides navBarClearance,
                             LocalIsTabletLandscape provides useNavRail,
+                            LocalGlassEnabled provides glassOn,
                         ) {
                             when (screen) {
                                 AppScreen.Home -> {
@@ -387,73 +427,87 @@ fun BreatheApp(
                 }
             }
 
+            val navBar: @Composable (Modifier) -> Unit = { barModifier ->
+                LiquidNavBar(
+                    screens = AppScreen.entries,
+                    current = currentScreen,
+                    animationSettings = animationSettings,
+                    vertical = useNavRail,
+                    onSelect = { currentScreen = it },
+                    modifier = barModifier,
+                )
+            }
+
             if (useNavRail) {
-                VerticalFloatingToolbar(
-                    expanded = true,
-                    modifier =
-                        Modifier
-                            .align(Alignment.CenterEnd)
-                            .windowInsetsPadding(WindowInsets.navigationBars)
-                            .padding(end = 24.dp)
-                            .width(72.dp)
-                            .zIndex(1f),
-                    shape = RoundedCornerShape(100),
-                    contentPadding = PaddingValues(8.dp),
-                    expandedShadowElevation = 12.dp,
-                ) {
-                    LiquidNavBar(
-                        screens = AppScreen.entries,
-                        current = currentScreen,
-                        animationSettings = animationSettings,
-                        vertical = true,
-                        onSelect = { currentScreen = it },
+                val railModifier =
+                    Modifier
+                        .align(Alignment.CenterEnd)
+                        .windowInsetsPadding(WindowInsets.navigationBars)
+                        .padding(end = 24.dp)
+                        .width(72.dp)
+                        .zIndex(1f)
+                if (glassOn) {
+                    Box(
                         modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .height(72.dp * AppScreen.entries.size),
-                    )
+                            railModifier
+                                .glass(backdrop, RoundedCornerShape(100))
+                                .padding(8.dp),
+                    ) {
+                        navBar(Modifier.fillMaxWidth().height(72.dp * AppScreen.entries.size))
+                    }
+                } else {
+                    VerticalFloatingToolbar(
+                        expanded = true,
+                        modifier = railModifier,
+                        shape = RoundedCornerShape(100),
+                        contentPadding = PaddingValues(8.dp),
+                        expandedShadowElevation = 12.dp,
+                    ) {
+                        navBar(Modifier.fillMaxWidth().height(72.dp * AppScreen.entries.size))
+                    }
                 }
             } else {
-                // fades content out behind the pill so text never runs straight into it
-                Box(
-                    modifier =
-                        Modifier
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth()
-                            .height(140.dp)
-                            .background(
-                                Brush.verticalGradient(
-                                    0f to Color.Transparent,
-                                    1f to MaterialTheme.colorScheme.surface,
-                                ),
-                            ),
-                )
-
-                HorizontalFloatingToolbar(
-                    expanded = true,
-                    modifier =
-                        Modifier
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth()
-                            .windowInsetsPadding(WindowInsets.navigationBars)
-                            .padding(bottom = 24.dp, start = 48.dp, end = 48.dp)
-                            .height(72.dp)
-                            .zIndex(1f),
-                    shape = RoundedCornerShape(100),
-                    contentPadding = PaddingValues(8.dp),
-                    expandedShadowElevation = 12.dp,
-                ) {
-                    LiquidNavBar(
-                        screens = AppScreen.entries,
-                        current = currentScreen,
-                        animationSettings = animationSettings,
-                        vertical = false,
-                        onSelect = { currentScreen = it },
+                val pillModifier =
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .windowInsetsPadding(WindowInsets.navigationBars)
+                        .padding(bottom = 24.dp, start = 48.dp, end = 48.dp)
+                        .height(72.dp)
+                        .zIndex(1f)
+                if (glassOn) {
+                    Box(
+                        modifier =
+                            pillModifier
+                                .glass(backdrop, RoundedCornerShape(100))
+                                .padding(8.dp),
+                    ) {
+                        navBar(Modifier.fillMaxSize())
+                    }
+                } else {
+                    Box(
                         modifier =
                             Modifier
-                                .weight(1f)
-                                .fillMaxHeight(),
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .height(140.dp)
+                                .background(
+                                    Brush.verticalGradient(
+                                        0f to Color.Transparent,
+                                        1f to MaterialTheme.colorScheme.surface,
+                                    ),
+                                ),
                     )
+
+                    HorizontalFloatingToolbar(
+                        expanded = true,
+                        modifier = pillModifier,
+                        shape = RoundedCornerShape(100),
+                        contentPadding = PaddingValues(8.dp),
+                        expandedShadowElevation = 12.dp,
+                    ) {
+                        navBar(Modifier.weight(1f).fillMaxHeight())
+                    }
                 }
             }
         }

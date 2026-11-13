@@ -79,7 +79,11 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.sidharthify.breathe.data.AqiResponse
 import com.sidharthify.breathe.data.SensorInfo
 import com.sidharthify.breathe.data.Zone
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.sidharthify.breathe.navigation.LocalNavBarClearance
+import com.sidharthify.breathe.ui.LocalGlassEnabled
+import com.sidharthify.breathe.ui.glass
 import com.sidharthify.breathe.ui.components.MainDashboardDetail
 import com.sidharthify.breathe.ui.components.ZoneOverview
 import com.sidharthify.breathe.util.BreatheTileProvider
@@ -160,9 +164,21 @@ fun MapScreen(
         }
     }
 
+    val glassOn = LocalGlassEnabled.current
+    val mapBackdrop = rememberLayerBackdrop()
+
     Box(modifier = Modifier.fillMaxSize()) {
         AndroidView(
-            modifier = Modifier.fillMaxSize(),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .then(
+                        if (glassOn) {
+                            Modifier.layerBackdrop(mapBackdrop)
+                        } else {
+                            Modifier
+                        },
+                    ),
             factory = { ctx ->
                 MapView(ctx, BreatheTileProvider(ctx.applicationContext)).apply {
                     setTileSource(TileSourceFactory.MAPNIK)
@@ -312,20 +328,19 @@ fun MapScreen(
                 Modifier
                     .align(Alignment.BottomStart)
                     .padding(start = 16.dp, bottom = navBarClearance)
-                    .background(
-                        MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
-                        RoundedCornerShape(8.dp),
-                    ).padding(horizontal = 8.dp, vertical = 2.dp),
+                    .then(
+                        if (glassOn) {
+                            Modifier.glass(mapBackdrop, RoundedCornerShape(100), lensHeight = 6f, lensDepth = 10f)
+                        } else {
+                            Modifier.background(
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+                                RoundedCornerShape(8.dp),
+                            )
+                        },
+                    ).padding(horizontal = 10.dp, vertical = 4.dp),
         )
 
-        VerticalFloatingToolbar(
-            expanded = true,
-            modifier =
-                Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 16.dp, bottom = navBarClearance),
-            contentPadding = PaddingValues(4.dp),
-        ) {
+        val controls: @Composable () -> Unit = {
             IconButton(onClick = { mapViewRef?.controller?.zoomIn() }) {
                 Icon(Icons.Filled.Add, contentDescription = "Zoom in")
             }
@@ -338,6 +353,28 @@ fun MapScreen(
                 },
             ) {
                 Icon(Icons.Filled.CenterFocusStrong, contentDescription = "Show all zones")
+            }
+        }
+        val controlsModifier =
+            Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = navBarClearance)
+        if (glassOn) {
+            Column(
+                modifier =
+                    controlsModifier
+                        .glass(mapBackdrop, RoundedCornerShape(100))
+                        .padding(4.dp),
+            ) {
+                controls()
+            }
+        } else {
+            VerticalFloatingToolbar(
+                expanded = true,
+                modifier = controlsModifier,
+                contentPadding = PaddingValues(4.dp),
+            ) {
+                controls()
             }
         }
     }

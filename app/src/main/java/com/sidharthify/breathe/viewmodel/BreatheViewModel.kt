@@ -42,6 +42,7 @@ import com.sidharthify.breathe.data.RetrofitClient
 import com.sidharthify.breathe.data.SensorInfo
 import com.sidharthify.breathe.data.Zone
 import com.sidharthify.breathe.util.HistoryPeriod
+import com.sidharthify.breathe.util.GlassMode
 import com.sidharthify.breathe.util.HistoryPeriodMode
 import com.sidharthify.breathe.util.asRaw
 import com.sidharthify.breathe.util.isEstimate
@@ -100,6 +101,15 @@ class BreatheViewModel(application: Application) : AndroidViewModel(application)
 
     private val _rawHintHidden = MutableStateFlow(prefs.getBoolean("raw_hint_hidden", false))
     val rawHintHidden = _rawHintHidden.asStateFlow()
+
+    private val _glassMode =
+        MutableStateFlow(
+            runCatching { GlassMode.valueOf(prefs.getString("liquid_glass_mode", GlassMode.AUTO.name)!!) }.getOrDefault(GlassMode.AUTO),
+        )
+    val glassMode = _glassMode.asStateFlow()
+
+    private val _glassAutoOff = MutableStateFlow(prefs.getBoolean("liquid_glass_auto_off", false))
+    val glassAutoOff = _glassAutoOff.asStateFlow()
 
     private var sourceAqi: List<AqiResponse> = emptyList()
 
@@ -175,6 +185,34 @@ class BreatheViewModel(application: Application) : AndroidViewModel(application)
             )
         }
         forceWidgetUpdate(app)
+    }
+
+    fun setGlassMode(mode: GlassMode) {
+        _glassMode.value = mode
+        _glassAutoOff.value = false
+        prefs.edit {
+            putString("liquid_glass_mode", mode.name)
+            putBoolean("liquid_glass_auto_off", false)
+            putInt("liquid_glass_strikes", 0)
+        }
+    }
+
+    fun reportGlassFrames(jankRatio: Float) {
+        if (_glassMode.value != GlassMode.AUTO) {
+            return
+        }
+        val strikes =
+            if (jankRatio > 0.2f) {
+                prefs.getInt("liquid_glass_strikes", 0) + 1
+            } else {
+                0
+            }
+        val off = strikes >= 2
+        prefs.edit {
+            putInt("liquid_glass_strikes", strikes)
+            putBoolean("liquid_glass_auto_off", off)
+        }
+        _glassAutoOff.value = off
     }
 
     fun hideRawHint() {
