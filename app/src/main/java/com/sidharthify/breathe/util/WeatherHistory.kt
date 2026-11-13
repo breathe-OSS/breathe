@@ -92,13 +92,14 @@ fun filterHistoryByWeather(
 fun weatherPm25Groups(
     data: List<HistoricalDataPoint>,
     weather: WeatherHistory?,
+    valueOf: (HistoricalDataPoint) -> Double? = { it.pm25 },
 ): Map<String, Pair<Double, Int>> {
     if (weather == null || weather.points.isEmpty()) return emptyMap()
     val lookup = weather.points.associateBy { it.ts }
     val interval = weather.interval
     val groups = linkedMapOf<String, Pair<Double, Int>>()
     for (point in data) {
-        val pm25 = point.pm25 ?: continue
+        val pm25 = valueOf(point) ?: continue
         var condition = conditionForTs(point.ts, interval, weather.anchor, lookup) ?: continue
         if (condition == "thunderstorm") condition = "rain"
         val current = groups[condition] ?: (0.0 to 0)
@@ -110,8 +111,9 @@ fun weatherPm25Groups(
 fun weatherImpactCards(
     data: List<HistoricalDataPoint>,
     weather: WeatherHistory?,
+    valueOf: (HistoricalDataPoint) -> Double? = { it.pm25 },
 ): List<WeatherPm25Group> {
-    val groups = weatherPm25Groups(data, weather)
+    val groups = weatherPm25Groups(data, weather, valueOf)
     if (groups.isEmpty()) return emptyList()
     val totalSum = groups.values.sumOf { it.first }
     val totalCount = groups.values.sumOf { it.second }

@@ -222,12 +222,20 @@ fun ZoneListItem(
 fun LiveDot(
     modifier: Modifier = Modifier,
     size: Dp = 6.dp,
+    offline: Boolean = false,
 ) {
     Box(
         modifier =
             modifier
                 .size(size)
-                .background(LiveGreen, CircleShape),
+                .background(
+                    if (offline) {
+                        MaterialTheme.colorScheme.outline
+                    } else {
+                        LiveGreen
+                    },
+                    CircleShape,
+                ),
     )
 }
 

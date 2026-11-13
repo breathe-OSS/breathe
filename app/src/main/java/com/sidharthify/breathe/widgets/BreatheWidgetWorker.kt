@@ -39,6 +39,7 @@ import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.sidharthify.breathe.data.RetrofitClient
+import com.sidharthify.breathe.util.asRaw
 import com.sidharthify.breathe.util.displayAqi
 import com.sidharthify.breathe.util.pm25
 import com.sidharthify.breathe.util.loadPinnedOrder
@@ -73,6 +74,7 @@ class BreatheWidgetWorker(
         val appPrefs = context.getSharedPreferences("breathe_prefs", Context.MODE_PRIVATE)
         val pinnedIds = loadPinnedOrder(appPrefs)
         val useNaqi = appPrefs.getBoolean("is_us_aqi", false)
+        val rawMode = appPrefs.getBoolean("raw_readings", false)
 
         val targets: List<Pair<List<GlanceId>, GlanceAppWidget>> =
             listOf(
@@ -83,7 +85,7 @@ class BreatheWidgetWorker(
         targets.forEach { (glanceIds, widget) ->
             glanceIds.forEach { glanceId ->
                 try {
-                    updateWidgetForId(context, glanceId, widget, pinnedIds, useNaqi)
+                    updateWidgetForId(context, glanceId, widget, pinnedIds, useNaqi, rawMode)
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
@@ -99,6 +101,7 @@ class BreatheWidgetWorker(
         widget: GlanceAppWidget,
         pinnedIds: List<String>,
         useNaqi: Boolean,
+        rawMode: Boolean,
     ) {
         // each widget remembers which pin it's on, so two widgets can show
         // different zones. reading it goes through an update that changes nothing
@@ -123,7 +126,13 @@ class BreatheWidgetWorker(
         val currentZoneId = pinnedIds[currentIndex]
 
         try {
-            val response = RetrofitClient.api.getZoneAqi(currentZoneId)
+            val fetched = RetrofitClient.api.getZoneAqi(currentZoneId)
+            val response =
+                if (rawMode) {
+                    fetched.asRaw()
+                } else {
+                    fetched
+                }
             val concentrations = response.concentrations ?: emptyMap()
 
             val historyCsv =

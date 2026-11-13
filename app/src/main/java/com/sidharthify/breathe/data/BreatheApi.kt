@@ -34,7 +34,9 @@ import retrofit2.http.Query
 
 interface BreatheApi {
     @GET("/zones")
-    suspend fun getZones(): ZonesResponse
+    suspend fun getZones(
+        @Query("layout") layout: String = "sensors",
+    ): ZonesResponse
 
     @GET("/aqi/zone/{zone_id}")
     suspend fun getZoneAqi(
@@ -50,7 +52,7 @@ interface BreatheApi {
     @GET("/sensor-info")
     suspend fun getSensorInfo(): SensorInfoResponse
 
-    // location is a zone id, or zone_node for one sensor. time_range is 1w, 1mo,
+    // location is a zone or sensor id. time_range is 1w, 1mo,
     // 6mo, a custom 14d style range or a start_end pair of dates
     @GET("/historical-data/{location}/{time_range}/{interval}/{metrics}")
     suspend fun getHistoricalData(

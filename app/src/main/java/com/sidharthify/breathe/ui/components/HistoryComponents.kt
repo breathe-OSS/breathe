@@ -68,6 +68,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
@@ -78,13 +79,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sidharthify.breathe.data.HistoricalDataPoint
-import com.sidharthify.breathe.data.HistoricalStats
-import com.sidharthify.breathe.data.HistoryState
 import com.sidharthify.breathe.navigation.LocalNavBarClearance
 import com.sidharthify.breathe.util.HistoryPeriod
 import com.sidharthify.breathe.util.HistoryPeriodMode
 import com.sidharthify.breathe.util.WEATHER_FILTER_LABELS
 import com.sidharthify.breathe.util.WeatherPm25Group
+import com.sidharthify.breathe.util.asAqiText
 import com.sidharthify.breathe.util.calculateUsAqi
 import com.sidharthify.breathe.util.calculateUsAqiPm10
 import com.sidharthify.breathe.util.filterHistoryByWeather
@@ -101,281 +101,6 @@ import kotlin.math.roundToInt
 
 private val HistoryButtonHeight = 36.dp
 private val HistoryButtonPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
-
-@Composable
-fun ExtendedHistoryScreen(
-    zoneName: String,
-    historyState: HistoryState,
-    nodeKeys: List<String>,
-    onBack: () -> Unit,
-    onRangeSelected: (String) -> Unit,
-    onToggleCustom: () -> Unit,
-    onCustomRangeChanged: (String) -> Unit,
-    onCustomIntervalChanged: (String) -> Unit,
-    onApplyCustom: () -> Unit,
-    onShowPeriod: () -> Unit,
-    onPeriodModeSelected: (HistoryPeriodMode) -> Unit,
-    onPeriodStep: (Long) -> Unit,
-    onPeriodPicked: (LocalDate, LocalDate) -> Unit,
-    onSensorSelected: (String) -> Unit,
-    onTogglePm25: () -> Unit,
-    onTogglePm10: () -> Unit,
-    onDownloadCSV: () -> Unit,
-    onWeatherFilterSelected: (String) -> Unit,
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp),
-    ) {
-        // Header
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(top = 16.dp, bottom = 16.dp),
-        ) {
-            FilledTonalIconButton(
-                onClick = onBack,
-                modifier = Modifier.size(36.dp),
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
-                    modifier = Modifier.size(18.dp),
-                )
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                "$zoneName History",
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-        }
-
-        // Controls row: sensor selector + PM checkboxes
-        HistoryControlsBar(
-            selectedSensor = historyState.selectedSensor,
-            nodeKeys = nodeKeys,
-            showPm25 = historyState.showPm25,
-            showPm10 = historyState.showPm10,
-            onSensorSelected = onSensorSelected,
-            onTogglePm25 = onTogglePm25,
-            onTogglePm10 = onTogglePm10,
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Range selector
-        HistoryRangeSelector(
-            selectedRange = historyState.selectedRange,
-            showCustomInputs = historyState.showCustomInputs,
-            customRange = historyState.customRange,
-            customInterval = historyState.customInterval,
-            periodActive = historyState.periodActive,
-            periodMode = historyState.periodMode,
-            period = historyState.period,
-            onShowPeriod = onShowPeriod,
-            onPeriodModeSelected = onPeriodModeSelected,
-            onPeriodStep = onPeriodStep,
-            onPeriodPicked = onPeriodPicked,
-            onRangeSelected = onRangeSelected,
-            onToggleCustom = onToggleCustom,
-            onCustomRangeChanged = onCustomRangeChanged,
-            onCustomIntervalChanged = onCustomIntervalChanged,
-            onApplyCustom = onApplyCustom,
-        )
-
-        val weatherHistory = historyState.weatherHistory
-        val weatherGroups =
-            remember(historyState.data, weatherHistory) {
-                weatherPm25Groups(historyState.data, weatherHistory)
-            }
-        val filteredData =
-            remember(historyState.data, weatherHistory, historyState.weatherFilter) {
-                filterHistoryByWeather(
-                    historyState.data,
-                    weatherHistory,
-                    historyState.weatherFilter,
-                )
-            }
-        val impactCards =
-            remember(historyState.data, weatherHistory) {
-                weatherImpactCards(historyState.data, weatherHistory)
-            }
-
-        if (!historyState.isLoading &&
-            weatherHistory != null &&
-            weatherHistory.points.isNotEmpty()
-        ) {
-            Spacer(modifier = Modifier.height(16.dp))
-            WeatherFilterChips(
-                selectedFilter = historyState.weatherFilter,
-                presentConditions = weatherGroups.filterValues { it.second > 0 }.keys,
-                onFilterSelected = onWeatherFilterSelected,
-            )
-            if (impactCards.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(16.dp))
-                WeatherImpactPanel(cards = impactCards)
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Stats panel
-        if (historyState.stats != null) {
-            HistoryStatsPanel(stats = historyState.stats)
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-
-        // Chart
-        if (historyState.isLoading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(250.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                CircularWavyProgressIndicator()
-            }
-        } else if (historyState.error != null) {
-            Surface(
-                color = MaterialTheme.colorScheme.errorContainer,
-                contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                shape = MaterialTheme.shapes.medium,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(
-                    historyState.error,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(16.dp),
-                )
-            }
-        } else if (filteredData.isNotEmpty()) {
-            ExtendedHistoryPager(
-                data = filteredData,
-                showPm25 = historyState.showPm25,
-                showPm10 = historyState.showPm10,
-            )
-        } else if (historyState.data.isNotEmpty()) {
-            Text(
-                "No samples for this weather",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(16.dp),
-            )
-        } else {
-            Text(
-                "No readings for this selection",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(16.dp),
-            )
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Button(
-            onClick = onDownloadCSV,
-            modifier = Modifier.fillMaxWidth().height(HistoryButtonHeight),
-            contentPadding = HistoryButtonPadding,
-        ) {
-            Icon(
-                Icons.Filled.Download,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp),
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Download CSV", style = MaterialTheme.typography.labelLarge)
-        }
-
-        Spacer(modifier = Modifier.height(LocalNavBarClearance.current))
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun HistoryControlsBar(
-    selectedSensor: String,
-    nodeKeys: List<String>,
-    showPm25: Boolean,
-    showPm10: Boolean,
-    onSensorSelected: (String) -> Unit,
-    onTogglePm25: () -> Unit,
-    onTogglePm10: () -> Unit,
-) {
-    var sensorExpanded by remember { mutableStateOf(false) }
-
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        if (nodeKeys.isNotEmpty()) {
-            ExposedDropdownMenuBox(
-                expanded = sensorExpanded,
-                onExpandedChange = { sensorExpanded = it },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                OutlinedTextField(
-                    value = if (selectedSensor == "zone") "Zone Average" else selectedSensor,
-                    onValueChange = {},
-                    readOnly = true,
-                    singleLine = true,
-                    shape = MaterialTheme.shapes.medium,
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = sensorExpanded) },
-                    modifier =
-                        Modifier
-                            .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                            .fillMaxWidth(),
-                )
-                ExposedDropdownMenu(
-                    expanded = sensorExpanded,
-                    onDismissRequest = { sensorExpanded = false },
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("Zone Average") },
-                        onClick = {
-                            onSensorSelected("zone")
-                            sensorExpanded = false
-                        },
-                    )
-                    nodeKeys.forEach { key ->
-                        DropdownMenuItem(
-                            text = { Text(key) },
-                            onClick = {
-                                onSensorSelected(key)
-                                sensorExpanded = false
-                            },
-                        )
-                    }
-                }
-            }
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
-        ) {
-            ToggleButton(
-                checked = showPm25,
-                onCheckedChange = { checked -> if (checked != showPm25) onTogglePm25() },
-                modifier = Modifier.weight(1f).height(HistoryButtonHeight),
-                shapes = ButtonGroupDefaults.connectedLeadingButtonShapes(),
-                contentPadding = HistoryButtonPadding,
-            ) {
-                Text("PM2.5", style = MaterialTheme.typography.labelMedium, maxLines = 1)
-            }
-            ToggleButton(
-                checked = showPm10,
-                onCheckedChange = { checked -> if (checked != showPm10) onTogglePm10() },
-                modifier = Modifier.weight(1f).height(HistoryButtonHeight),
-                shapes = ButtonGroupDefaults.connectedTrailingButtonShapes(),
-                contentPadding = HistoryButtonPadding,
-            ) {
-                Text("PM10", style = MaterialTheme.typography.labelMedium, maxLines = 1)
-            }
-        }
-    }
-}
 
 @Composable
 fun HistoryRangeSelector(
@@ -699,6 +424,10 @@ fun WeatherFilterChips(
 @Composable
 fun WeatherImpactPanel(
     cards: List<WeatherPm25Group>,
+    title: String,
+    unit: String,
+    decimals: Int,
+    judged: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val colorScheme = MaterialTheme.colorScheme
@@ -713,9 +442,16 @@ fun WeatherImpactPanel(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                "Average PM2.5 by weather condition",
-                style = MaterialTheme.typography.labelSmall,
+                "Weather comparison",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                title,
+                style = MaterialTheme.typography.labelMedium,
                 color = colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth(),
             )
             Spacer(modifier = Modifier.height(12.dp))
             cards.chunked(2).forEachIndexed { index, rowCards ->
@@ -727,6 +463,9 @@ fun WeatherImpactPanel(
                     rowCards.forEach { card ->
                         WeatherImpactStat(
                             card = card,
+                            unit = unit,
+                            decimals = decimals,
+                            judged = judged,
                             modifier = Modifier.weight(1f),
                         )
                     }
@@ -742,10 +481,18 @@ fun WeatherImpactPanel(
 @Composable
 private fun WeatherImpactStat(
     card: WeatherPm25Group,
+    unit: String,
+    decimals: Int,
+    judged: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val diffColor = if (card.diffPct <= 0) colorScheme.primary else colorScheme.tertiary
+    val diffColor =
+        when {
+            !judged -> colorScheme.onSurfaceVariant
+            card.diffPct <= 0 -> getAqiColor(25, true).asAqiText(colorScheme.surface)
+            else -> getAqiColor(175, true).asAqiText(colorScheme.surface)
+        }
     val diffText =
         when {
             card.diffPct == 0 -> "same as average"
@@ -757,13 +504,13 @@ private fun WeatherImpactStat(
         modifier = modifier,
     ) {
         Text(
-            "${card.label} (${card.hours}h of data)",
+            "${card.label} · ${card.hours}h",
             style = MaterialTheme.typography.labelSmall,
             color = colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
         Text(
-            "${"%.1f".format(card.avg)} µg/m³",
+            "${formatValue(card.avg, decimals)}${unitSuffix(unit)}",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
             color = colorScheme.onSurface,
@@ -773,36 +520,6 @@ private fun WeatherImpactStat(
             style = MaterialTheme.typography.labelSmall,
             color = diffColor,
         )
-    }
-}
-
-@Composable
-fun HistoryStatsPanel(stats: HistoricalStats) {
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        contentColor = MaterialTheme.colorScheme.onSurface,
-        shape = MaterialTheme.shapes.large,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                StatItem("Max PM2.5", stats.maxPm25, Modifier.weight(1f))
-                StatItem("Min PM2.5", stats.minPm25, Modifier.weight(1f))
-                StatItem("Avg PM2.5", stats.avgPm25, Modifier.weight(1f))
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                StatItem("Max PM10", stats.maxPm10, Modifier.weight(1f))
-                StatItem("Min PM10", stats.minPm10, Modifier.weight(1f))
-                StatItem("Avg PM10", stats.avgPm10, Modifier.weight(1f))
-            }
-        }
     }
 }
 
@@ -866,373 +583,6 @@ private fun connectedToggleShapes(index: Int, count: Int) =
         else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
     }
 
-@Composable
-private fun StatItem(label: String, value: Double?, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(
-            label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            value?.let { String.format(Locale.getDefault(), "%.1f", it) } ?: "--",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-        )
-    }
-}
-
-@Composable
-fun ExtendedHistoryChart(
-    modifier: Modifier = Modifier,
-    data: List<HistoricalDataPoint>,
-    showPm25: Boolean = true,
-    showPm10: Boolean = true,
-) {
-    if (data.isEmpty()) return
-
-    val pm25Color = Color(0xFFA8C7FA)
-    val pm10Color = Color(0xFFD8B4FE)
-    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant.toArgb()
-    val highlightColor = MaterialTheme.colorScheme.onSurface
-    val highlightColorArgb = highlightColor.toArgb()
-    val surfaceColor = MaterialTheme.colorScheme.surfaceContainerHigh
-    val surfaceColorArgb = surfaceColor.toArgb()
-
-    var selectedIndex by remember { mutableStateOf<Int?>(null) }
-    val haptic = LocalHapticFeedback.current
-    val density = LocalDensity.current
-
-    val pm25Path = remember { Path() }
-    val pm10Path = remember { Path() }
-    val timeFormatter = remember { SimpleDateFormat("d/M HH:00", Locale.getDefault()) }
-
-    val axisTextPaint = remember {
-        Paint().apply {
-            textSize = with(density) { 10.5.sp.toPx() }
-            typeface = Typeface.DEFAULT
-            textAlign = Paint.Align.LEFT
-        }
-    }
-
-    val tooltipTextPaint = remember {
-        Paint().apply {
-            textSize = with(density) { 11.sp.toPx() }
-            typeface = Typeface.DEFAULT_BOLD
-            textAlign = Paint.Align.LEFT
-        }
-    }
-
-    val tooltipBgPaint = remember {
-        Paint().apply {
-            setShadowLayer(with(density) { 4.5.dp.toPx() }, 0f, with(density) { 1.5.dp.toPx() }, android.graphics.Color.argb(50, 0, 0, 0))
-        }
-    }
-
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        shape = MaterialTheme.shapes.medium,
-        modifier = modifier.fillMaxWidth(),
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                "Extended History",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Legend
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                if (showPm25) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(10.dp)
-                                .background(pm25Color, RoundedCornerShape(2.dp)),
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("PM2.5", style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-                if (showPm10) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(10.dp)
-                                .background(pm10Color, RoundedCornerShape(2.dp)),
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("PM10", style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            val labelWidth = with(density) { 40.dp.toPx() }
-
-            Canvas(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp)
-                    .pointerInput(data) {
-                        detectTapGestures(
-                            onPress = { offset ->
-                                val graphWidth = size.width.toFloat() - labelWidth
-                                val touchX = (offset.x - labelWidth).coerceAtLeast(0f)
-                                val fraction = (touchX / graphWidth).coerceIn(0f, 1f)
-                                val index = (fraction * (data.size - 1)).roundToInt()
-                                selectedIndex = index
-                                tryAwaitRelease()
-                                selectedIndex = null
-                            },
-                        )
-                    }
-                    .pointerInput(data) {
-                        detectHorizontalDragGestures(
-                            onDragStart = { offset ->
-                                val graphWidth = size.width.toFloat() - labelWidth
-                                val touchX = (offset.x - labelWidth).coerceAtLeast(0f)
-                                val fraction = (touchX / graphWidth).coerceIn(0f, 1f)
-                                val index = (fraction * (data.size - 1)).roundToInt()
-                                if (index != selectedIndex) {
-                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    selectedIndex = index
-                                }
-                            },
-                            onDragEnd = { selectedIndex = null },
-                            onDragCancel = { selectedIndex = null },
-                            onHorizontalDrag = { change, _ ->
-                                val graphWidth = size.width.toFloat() - labelWidth
-                                val touchX = (change.position.x - labelWidth).coerceAtLeast(0f)
-                                val fraction = (touchX / graphWidth).coerceIn(0f, 1f)
-                                val index = (fraction * (data.size - 1)).roundToInt()
-                                if (index != selectedIndex) {
-                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    selectedIndex = index
-                                }
-                            },
-                        )
-                    },
-            ) {
-                val width = size.width - labelWidth
-                val height = size.height
-
-                // Calculate max value across all visible datasets
-                var maxVal = 0.0
-                data.forEach { pt ->
-                    if (showPm25 && pt.pm25 != null && pt.pm25 > maxVal) maxVal = pt.pm25
-                    if (showPm10 && pt.pm10 != null && pt.pm10 > maxVal) maxVal = pt.pm10
-                }
-                if (maxVal < 10.0) maxVal = 10.0
-
-                fun getX(index: Int): Float = labelWidth + (index.toFloat() / (data.size - 1).coerceAtLeast(1)) * width
-                fun getY(value: Double): Float = height - ((value / maxVal) * height).toFloat()
-
-                // Draw PM2.5 line
-                if (showPm25) {
-                    pm25Path.rewind()
-                    var started = false
-                    data.forEachIndexed { i, pt ->
-                        val v = pt.pm25 ?: return@forEachIndexed
-                        val x = getX(i)
-                        val y = getY(v)
-                        if (!started) { pm25Path.moveTo(x, y); started = true }
-                        else {
-                            val prevX = getX(i - 1)
-                            val prevY = getY(data[i - 1].pm25 ?: v)
-                            val cx = prevX + (x - prevX) / 2
-                            pm25Path.cubicTo(cx, prevY, cx, y, x, y)
-                        }
-                    }
-                    // Fill
-                    val fillPath25 = Path().apply {
-                        addPath(pm25Path)
-                        lineTo(getX(data.size - 1), height)
-                        lineTo(labelWidth, height)
-                        close()
-                    }
-                    drawPath(fillPath25, Brush.verticalGradient(listOf(pm25Color.copy(alpha = 0.3f), pm25Color.copy(alpha = 0f))))
-                    drawPath(pm25Path, pm25Color, style = Stroke(width = 3.dp.toPx()))
-                }
-
-                // Draw PM10 line
-                if (showPm10) {
-                    pm10Path.rewind()
-                    var started = false
-                    data.forEachIndexed { i, pt ->
-                        val v = pt.pm10 ?: return@forEachIndexed
-                        val x = getX(i)
-                        val y = getY(v)
-                        if (!started) { pm10Path.moveTo(x, y); started = true }
-                        else {
-                            val prevX = getX(i - 1)
-                            val prevY = getY(data[i - 1].pm10 ?: v)
-                            val cx = prevX + (x - prevX) / 2
-                            pm10Path.cubicTo(cx, prevY, cx, y, x, y)
-                        }
-                    }
-                    val fillPath10 = Path().apply {
-                        addPath(pm10Path)
-                        lineTo(getX(data.size - 1), height)
-                        lineTo(labelWidth, height)
-                        close()
-                    }
-                    drawPath(fillPath10, Brush.verticalGradient(listOf(pm10Color.copy(alpha = 0.3f), pm10Color.copy(alpha = 0f))))
-                    drawPath(pm10Path, pm10Color, style = Stroke(width = 3.dp.toPx()))
-                }
-
-                // Axis labels
-                drawIntoCanvas { canvas ->
-                    val nativeCanvas = canvas.nativeCanvas
-                    axisTextPaint.color = labelColor
-                    axisTextPaint.textAlign = Paint.Align.LEFT
-
-                    nativeCanvas.drawText("${maxVal.toInt()}", 0f, 10.5.dp.toPx(), axisTextPaint)
-                    nativeCanvas.drawText("${(maxVal / 2).toInt()}", 0f, height / 2 + 4.dp.toPx(), axisTextPaint)
-                    nativeCanvas.drawText("0", 0f, height - 2.dp.toPx(), axisTextPaint)
-
-                    // Time labels
-                    if (selectedIndex == null && data.size > 2) {
-                        axisTextPaint.textAlign = Paint.Align.CENTER
-                        val indices = listOf(0, data.size / 2, data.size - 1)
-                        indices.forEach { i ->
-                            if (i < data.size) {
-                                val date = Date(data[i].ts * 1000)
-                                val label = timeFormatter.format(date)
-                                axisTextPaint.textAlign = when (i) {
-                                    0 -> Paint.Align.LEFT
-                                    data.size - 1 -> Paint.Align.RIGHT
-                                    else -> Paint.Align.CENTER
-                                }
-                                nativeCanvas.drawText(label, getX(i), height + 15.dp.toPx(), axisTextPaint)
-                            }
-                        }
-                    }
-
-                    // Tooltip
-                    selectedIndex?.let { idx ->
-                        if (idx in data.indices) {
-                            val pt = data[idx]
-                            val x = getX(idx)
-                            val timeStr = timeFormatter.format(Date(pt.ts * 1000))
-
-                            // Vertical line
-                            drawLine(
-                                color = highlightColor.copy(alpha = 0.5f),
-                                start = Offset(x, 0f),
-                                end = Offset(x, height),
-                                strokeWidth = 2.dp.toPx(),
-                                pathEffect = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 4.dp.toPx()), 0f),
-                            )
-
-                            val parts = mutableListOf<String>()
-                            if (showPm25 && pt.pm25 != null) {
-                                parts.add("PM2.5: ${String.format(Locale.getDefault(), "%.1f", pt.pm25)}")
-                            }
-                            if (showPm10 && pt.pm10 != null) {
-                                parts.add("PM10: ${String.format(Locale.getDefault(),"%.1f", pt.pm10)}")
-                            }
-                            val label = "${parts.joinToString("  ")} @ $timeStr"
-
-                            tooltipTextPaint.color = highlightColorArgb
-                            val textWidth = tooltipTextPaint.measureText(label)
-                            val padding = 6.dp.toPx()
-                            val boxWidth = textWidth + padding * 2
-                            val boxHeight = 23.dp.toPx()
-
-                            var boxX = x - boxWidth / 2
-                            if (boxX < labelWidth) boxX = labelWidth
-                            if (boxX + boxWidth > size.width) boxX = size.width - boxWidth
-                            val boxY = -19.dp.toPx()
-
-                            tooltipBgPaint.color = surfaceColorArgb
-                            nativeCanvas.drawRoundRect(boxX, boxY, boxX + boxWidth, boxY + boxHeight, 4.5.dp.toPx(), 4.5.dp.toPx(), tooltipBgPaint)
-                            nativeCanvas.drawText(label, boxX + padding, boxY + boxHeight - 7.5.dp.toPx(), tooltipTextPaint)
-
-                            // Dots on data points
-                            if (showPm25 && pt.pm25 != null) {
-                                val y = getY(pt.pm25)
-                                drawCircle(surfaceColor, radius = 5.dp.toPx(), center = Offset(x, y))
-                                drawCircle(pm25Color, radius = 3.dp.toPx(), center = Offset(x, y))
-                            }
-                            if (showPm10 && pt.pm10 != null) {
-                                val y = getY(pt.pm10)
-                                drawCircle(surfaceColor, radius = 5.dp.toPx(), center = Offset(x, y))
-                                drawCircle(pm10Color, radius = 3.dp.toPx(), center = Offset(x, y))
-                            }
-                        }
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // Y-axis label
-            Text(
-                "Concentration (µg/m³)",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Center,
-            )
-        }
-    }
-}
-
-@Composable
-fun ExtendedHistoryPager(
-    data: List<HistoricalDataPoint>,
-    showPm25: Boolean,
-    showPm10: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    if (data.isEmpty()) return
-
-    val pagerState = rememberPagerState(pageCount = { 2 })
-
-    Column(modifier = modifier.fillMaxWidth()) {
-        CompositionLocalProvider(LocalOverscrollFactory provides null) {
-            HorizontalPager(
-                state = pagerState,
-                verticalAlignment = Alignment.Top,
-                pageSpacing = 16.dp,
-                flingBehavior = PagerDefaults.flingBehavior(
-                    state = pagerState,
-                    snapAnimationSpec = spring(
-                        dampingRatio = Spring.DampingRatioNoBouncy,
-                        stiffness = Spring.StiffnessMediumLow,
-                    ),
-                ),
-                modifier = Modifier.height(340.dp),
-            ) { page ->
-                when (page) {
-                    0 -> ExtendedHistoryChart(
-                        data = data,
-                        showPm25 = showPm25,
-                        showPm10 = showPm10,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                    else -> ExtendedDotHistoryChart(
-                        data = data,
-                        showPm25 = showPm25,
-                        showPm10 = showPm10,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        PagerDots(pagerState)
-    }
-}
-
 private data class DotCell(
     val left: Float,
     val top: Float,
@@ -1247,16 +597,12 @@ fun ExtendedDotHistoryChart(
     showPm25: Boolean,
     showPm10: Boolean,
     modifier: Modifier = Modifier,
+    title: String = "Day by day",
 ) {
     if (data.isEmpty()) return
 
     val use25 = showPm25 || (!showPm10)
     val use10 = showPm10 || (!showPm25)
-    val title = when {
-        use25 && use10 -> "PM2.5 & PM10 Grid"
-        use25 -> "PM2.5 Grid"
-        else -> "PM10 Grid"
-    }
 
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant.toArgb()
     val emptyCellColor = MaterialTheme.colorScheme.surfaceContainerHighest
@@ -1358,6 +704,8 @@ fun ExtendedDotHistoryChart(
     }
 
     var selected by remember { mutableStateOf<DotCell?>(null) }
+    val maxCellPx = with(density) { 22.dp.toPx() }
+    var gridWidthPx by remember { mutableFloatStateOf(with(density) { 320.dp.toPx() }) }
 
     fun cellAqi(pm25v: Double, pm10v: Double): Int? {
         var aqi: Int? = null
@@ -1381,7 +729,7 @@ fun ExtendedDotHistoryChart(
         if (hourly) {
             val rows = days.size
             val cols = 24
-            val cellW = ((w - gutterPx - gapPx * (cols - 1)) / cols).coerceAtLeast(1f)
+            val cellW = ((w - gutterPx - gapPx * (cols - 1)) / cols).coerceIn(1f, maxCellPx)
             val cellH = minOf(cellW * 1.5f, (h - bottomLabelPx - gapPx * (rows - 1)) / rows).coerceAtLeast(1f)
             val col = ((x - gutterPx) / (cellW + gapPx)).toInt()
             val row = (y / (cellH + gapPx)).toInt()
@@ -1412,27 +760,40 @@ fun ExtendedDotHistoryChart(
 
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainer,
-        shape = MaterialTheme.shapes.medium,
+        shape = MaterialTheme.shapes.large,
         modifier = modifier.fillMaxWidth(),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
                 title,
-                style = MaterialTheme.typography.titleSmall,
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                if (hourly) "By Day and Hour  ·  Tap a Cell for Details" else "Daily Average  ·  Tap a Cell for Details",
+                if (hourly) "Each square is one hour, tap for the reading" else "Each square is one day, tap for the reading",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(modifier = Modifier.height(12.dp))
 
+            val canvasHeight =
+                with(density) {
+                    val widthPx = gridWidthPx
+                    if (hourly) {
+                        val cellW = ((widthPx - gutterPx - gapPx * 23) / 24f).coerceIn(1f, maxCellPx)
+                        (days.size * (cellW * 1.5f + gapPx) + bottomLabelPx + 4f).toDp()
+                    } else if (numCols > 0) {
+                        val cell = ((widthPx - gutterPx - gapPx * (numCols - 1)) / numCols).coerceIn(1f, 28.dp.toPx())
+                        (topLabelPx + 7 * (cell + gapPx)).toDp()
+                    } else {
+                        0.dp
+                    }
+                }
             Canvas(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f)
+                    .onSizeChanged { gridWidthPx = it.width.toFloat() }
+                    .height(canvasHeight)
                     .pointerInput(days, hourly, use25, use10) {
                         detectTapGestures { offset ->
                             val hit = hitTest(offset.x, offset.y, size.width.toFloat(), size.height.toFloat())
@@ -1450,7 +811,7 @@ fun ExtendedDotHistoryChart(
                 if (hourly) {
                     val rows = days.size
                     val cols = 24
-                    val cellW = ((size.width - gutterPx - gapPx * (cols - 1)) / cols).coerceAtLeast(1f)
+                    val cellW = ((size.width - gutterPx - gapPx * (cols - 1)) / cols).coerceIn(1f, maxCellPx)
                     val cellH = minOf(cellW * 1.5f, (size.height - bottomLabelPx - gapPx * (rows - 1)) / rows).coerceAtLeast(1f)
 
                     days.forEachIndexed { r, day ->

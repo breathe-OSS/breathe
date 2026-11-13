@@ -35,13 +35,18 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.sidharthify.breathe.data.AppState
 import com.sidharthify.breathe.data.AqiResponse
+import com.sidharthify.breathe.data.HistoryMetric
+import com.sidharthify.breathe.data.HistoryMode
 import com.sidharthify.breathe.data.HistoryState
 import com.sidharthify.breathe.data.RetrofitClient
 import com.sidharthify.breathe.data.SensorInfo
 import com.sidharthify.breathe.data.Zone
 import com.sidharthify.breathe.util.HistoryPeriod
 import com.sidharthify.breathe.util.HistoryPeriodMode
+import com.sidharthify.breathe.util.asRaw
+import com.sidharthify.breathe.util.isEstimate
 import com.sidharthify.breathe.util.loadPinnedOrder
+import com.sidharthify.breathe.util.migratePinnedIds
 import com.sidharthify.breathe.util.savePinnedOrder
 import com.sidharthify.breathe.util.weatherPm25Groups
 import com.sidharthify.breathe.widgets.forceWidgetUpdate
@@ -67,6 +72,9 @@ private const val CACHE = "breathe_cache"
 // the backend pulls new readings about every 15 minutes, no point asking sooner
 private val REFRESH_INTERVAL = 16.minutes
 
+const val HISTORY_METRICS =
+    "pm2.5,pm10,temp,humidity,us_aqi,pm2.5_raw,pm10_raw,temp_raw,humidity_raw,us_aqi_raw"
+
 // holds onto the application, never an activity, so rotating doesn't leak
 // the old activity through the polling loop
 class BreatheViewModel(application: Application) : AndroidViewModel(application) {
@@ -87,6 +95,14 @@ class BreatheViewModel(application: Application) : AndroidViewModel(application)
     private val _useNaqi = MutableStateFlow(prefs.getBoolean("is_us_aqi", false))
     val useNaqi = _useNaqi.asStateFlow()
 
+    private val _rawMode = MutableStateFlow(prefs.getBoolean("raw_readings", false))
+    val rawMode = _rawMode.asStateFlow()
+
+    private val _rawHintHidden = MutableStateFlow(prefs.getBoolean("raw_hint_hidden", false))
+    val rawHintHidden = _rawHintHidden.asStateFlow()
+
+    private var sourceAqi: List<AqiResponse> = emptyList()
+
     private val _isOverviewHome = MutableStateFlow(prefs.getBoolean("is_overview_home", false))
     val isOverviewHome = _isOverviewHome.asStateFlow()
 
@@ -100,6 +116,7 @@ class BreatheViewModel(application: Application) : AndroidViewModel(application)
 
     private var historyZoneId: String? = null
     private var historyFetchJob: Job? = null
+    private var compareFetchJob: Job? = null
     private var pollingJob: Job? = null
     private var lastRefreshMillis = 0L
 
@@ -141,6 +158,39 @@ class BreatheViewModel(application: Application) : AndroidViewModel(application)
         forceWidgetUpdate(app)
     }
 
+    fun setRawMode(on: Boolean) {
+        if (_rawMode.value == on) {
+            return
+        }
+        _rawMode.value = on
+        prefs.edit {
+            putBoolean("raw_readings", on)
+        }
+        _uiState.update { state ->
+            val shown = shown(sourceAqi)
+            val byId = shown.associateBy { it.zoneId }
+            state.copy(
+                allAqiData = shown,
+                pinnedZones = state.pinnedZones.mapNotNull { byId[it.zoneId] },
+            )
+        }
+        forceWidgetUpdate(app)
+    }
+
+    fun hideRawHint() {
+        _rawHintHidden.value = true
+        prefs.edit {
+            putBoolean("raw_hint_hidden", true)
+        }
+    }
+
+    private fun shown(list: List<AqiResponse>): List<AqiResponse> {
+        if (!_rawMode.value) {
+            return list
+        }
+        return list.map { it.asRaw() }
+    }
+
     fun toggleOverviewHome() {
         val newValue = !_isOverviewHome.value
         _isOverviewHome.value = newValue
@@ -161,8 +211,8 @@ class BreatheViewModel(application: Application) : AndroidViewModel(application)
                 _uiState.update { it.copy(isLoading = true, error = null) }
             }
 
-            val pinnedOrder = loadPinnedOrder(prefs)
-            val pinnedSet = pinnedOrder.toSet()
+            var pinnedOrder = loadPinnedOrder(prefs)
+            var pinnedSet = pinnedOrder.toSet()
 
             try {
                 val (zones, sensors) =
@@ -175,6 +225,14 @@ class BreatheViewModel(application: Application) : AndroidViewModel(application)
                         zonesDeferred.await() to sensorsDeferred.await()
                     }
 
+                val migrated = migratePinnedIds(pinnedOrder, zones)
+                if (migrated != pinnedOrder) {
+                    savePinnedOrder(prefs, migrated)
+                    pinnedOrder = migrated
+                    pinnedSet = migrated.toSet()
+                    forceWidgetUpdate(app)
+                }
+
                 _uiState.update { it.copy(zones = zones, sensorInfos = sensors) }
 
                 // pinned zones go first so home fills in before the map's
@@ -182,19 +240,20 @@ class BreatheViewModel(application: Application) : AndroidViewModel(application)
                 val (pinnedZones, otherZones) = zones.partition { it.id in pinnedSet }
 
                 val pinnedResults = sortedByPinOrder(fetchAqi(pinnedZones), pinnedOrder)
+                val otherIds = otherZones.map { it.id }.toSet()
+                sourceAqi = pinnedResults + sourceAqi.filter { it.zoneId in otherIds }
                 _uiState.update { current ->
-                    val otherIds = otherZones.map { it.id }.toSet()
-                    val keptOthers = current.allAqiData.filter { it.zoneId in otherIds }
                     current.copy(
-                        allAqiData = pinnedResults + keptOthers,
-                        pinnedZones = pinnedResults,
+                        allAqiData = shown(sourceAqi),
+                        pinnedZones = shown(pinnedResults),
                         pinnedIds = pinnedSet,
                     )
                 }
 
                 val allResults = pinnedResults + fetchAqi(otherZones)
+                sourceAqi = allResults
                 _uiState.update {
-                    it.copy(isLoading = false, allAqiData = allResults)
+                    it.copy(isLoading = false, allAqiData = shown(allResults))
                 }
 
                 lastRefreshMillis = System.currentTimeMillis()
@@ -276,15 +335,17 @@ class BreatheViewModel(application: Application) : AndroidViewModel(application)
                     emptyList()
                 }
 
-            val pinnedOrder = loadPinnedOrder(prefs)
+            val pinnedOrder = migratePinnedIds(loadPinnedOrder(prefs), zones)
             val pinnedSet = pinnedOrder.toSet()
+            sourceAqi = aqiData
+            val shownData = shown(aqiData)
 
             _uiState.value =
                 AppState(
                     isLoading = false,
                     zones = zones,
-                    allAqiData = aqiData,
-                    pinnedZones = sortedByPinOrder(aqiData.filter { it.zoneId in pinnedSet }, pinnedOrder),
+                    allAqiData = shownData,
+                    pinnedZones = sortedByPinOrder(shownData.filter { it.zoneId in pinnedSet }, pinnedOrder),
                     pinnedIds = pinnedSet,
                     sensorInfos = sensors,
                 )
@@ -332,14 +393,32 @@ class BreatheViewModel(application: Application) : AndroidViewModel(application)
     // extended history
 
     fun openHistory(zoneId: String) {
+        val sameZone = historyZoneId == zoneId
+        val previous = _historyState.value
         historyZoneId = zoneId
-        _historyState.value = HistoryState()
+        val mode =
+            if (_rawMode.value) {
+                HistoryMode.RAW
+            } else {
+                HistoryMode.CAL
+            }
+        _historyState.value =
+            HistoryState(
+                metric = previous.metric,
+                mode = mode,
+                compareIds =
+                    if (sameZone) {
+                        previous.compareIds
+                    } else {
+                        emptyList()
+                    },
+            )
         fetchHistoricalData()
     }
 
     fun setHistoryRange(range: String) {
         _historyState.update {
-            it.copy(selectedRange = range, showCustomInputs = false, periodActive = false)
+            it.copy(selectedRange = range, interval = "1h", showCustomInputs = false, periodActive = false)
         }
         fetchHistoricalData()
     }
@@ -354,7 +433,6 @@ class BreatheViewModel(application: Application) : AndroidViewModel(application)
         applyHistoryPeriod(state.periodMode, period)
     }
 
-    // switching mode keeps you around the same dates, but never in the future
     fun setHistoryPeriodMode(mode: HistoryPeriodMode) {
         val today = LocalDate.now()
         val end = _historyState.value.period?.end ?: today
@@ -373,7 +451,6 @@ class BreatheViewModel(application: Application) : AndroidViewModel(application)
         applyHistoryPeriod(state.periodMode, period.shifted(state.periodMode, direction))
     }
 
-    // in month and week mode any picked day snaps to the month or week around it
     fun pickHistoryPeriod(
         start: LocalDate,
         end: LocalDate,
@@ -398,26 +475,11 @@ class BreatheViewModel(application: Application) : AndroidViewModel(application)
                 periodMode = mode,
                 period = period,
                 selectedRange = period.token,
+                interval = "1h",
                 showCustomInputs = false,
             )
         }
         fetchHistoricalData()
-    }
-
-    // keeps every range somewhere around a couple hundred points
-    private fun historyInterval(state: HistoryState): String {
-        val period = state.period
-        if (state.periodActive && period != null) {
-            return period.interval
-        }
-        if (state.showCustomInputs) {
-            return state.customInterval
-        }
-        return when (state.selectedRange) {
-            "1mo" -> "4h"
-            "6mo" -> "1d"
-            else -> "1h"
-        }
     }
 
     fun setCustomRange(range: String) {
@@ -429,64 +491,54 @@ class BreatheViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun applyCustomHistory() {
-        _historyState.update { it.copy(selectedRange = it.customRange) }
+        _historyState.update {
+            val interval = it.customInterval.trim().ifEmpty { "1h" }
+            it.copy(selectedRange = it.customRange.trim(), interval = interval)
+        }
         fetchHistoricalData()
     }
 
-    fun setHistorySensor(sensor: String) {
-        _historyState.update { it.copy(selectedSensor = sensor) }
-        fetchHistoricalData()
+    fun setHistoryMetric(metric: HistoryMetric) {
+        _historyState.update { it.copy(metric = metric) }
     }
 
-    fun toggleHistoryPm25() {
-        _historyState.update { it.copy(showPm25 = !it.showPm25) }
-        fetchHistoricalData()
-    }
-
-    fun toggleHistoryPm10() {
-        _historyState.update { it.copy(showPm10 = !it.showPm10) }
-        fetchHistoricalData()
+    fun setHistoryMode(mode: HistoryMode) {
+        _historyState.update { it.copy(mode = mode) }
     }
 
     fun setWeatherFilter(condition: String) {
         _historyState.update { it.copy(weatherFilter = condition) }
     }
 
-    // a single node is addressed as zone_node on the backend
-    private fun historyLocation(
-        zoneId: String,
-        state: HistoryState,
-    ): String {
-        if (state.selectedSensor == "zone") {
-            return zoneId
+    fun toggleCompare(id: String) {
+        _historyState.update { state ->
+            val next =
+                if (id in state.compareIds) {
+                    state.compareIds - id
+                } else {
+                    state.compareIds + id
+                }
+            state.copy(compareIds = next)
         }
-        return "${zoneId}_${state.selectedSensor}"
+        fetchCompareRows()
+    }
+
+    fun setCompareIds(ids: List<String>) {
+        _historyState.update { it.copy(compareIds = ids) }
+        fetchCompareRows()
+    }
+
+    fun comparablePlaces(): List<Zone> {
+        val zoneId = historyZoneId
+        return _uiState.value.zones.filter { !it.isEstimate && it.id != zoneId }
     }
 
     private fun fetchHistoricalData() {
         val zoneId = historyZoneId ?: return
         val state = _historyState.value
-        val location = historyLocation(zoneId, state)
-        val interval = historyInterval(state)
 
-        // turning both off would just give an empty chart, so treat it as both on
-        val metrics =
-            buildList {
-                if (state.showPm25) {
-                    add("pm2.5")
-                }
-                if (state.showPm10) {
-                    add("pm10")
-                }
-                if (isEmpty()) {
-                    add("pm2.5")
-                    add("pm10")
-                }
-            }.joinToString(",")
+        _historyState.update { it.copy(isLoading = true, error = null, compareRows = emptyMap()) }
 
-        _historyState.update { it.copy(isLoading = true, error = null) }
-
-        // only the newest request gets to write its result
         historyFetchJob?.cancel()
         historyFetchJob =
             viewModelScope.launch(Dispatchers.IO) {
@@ -495,10 +547,10 @@ class BreatheViewModel(application: Application) : AndroidViewModel(application)
                         val historyDeferred =
                             async {
                                 RetrofitClient.api.getHistoricalData(
-                                    location = location,
+                                    location = zoneId,
                                     timeRange = state.selectedRange,
-                                    interval = interval,
-                                    metrics = metrics,
+                                    interval = state.interval,
+                                    metrics = HISTORY_METRICS,
                                 )
                             }
                         val weatherDeferred =
@@ -507,15 +559,15 @@ class BreatheViewModel(application: Application) : AndroidViewModel(application)
                                     RetrofitClient.api.getWeatherHistory(
                                         zoneId = zoneId,
                                         timeRange = state.selectedRange,
-                                        interval = interval,
+                                        interval = state.interval,
                                     )
                                 }.getOrNull()
                             }
                         val response = historyDeferred.await()
                         val weather = weatherDeferred.await()
+                        val rows = response.data.sortedBy { it.ts }
 
-                        // drop back to all if the new range has no hours with the picked weather
-                        val groups = weatherPm25Groups(response.data, weather)
+                        val groups = weatherPm25Groups(rows, weather)
                         val filterHasData = (groups[state.weatherFilter]?.second ?: 0) > 0
                         val nextFilter =
                             if (state.weatherFilter != "all" && !filterHasData) {
@@ -527,8 +579,7 @@ class BreatheViewModel(application: Application) : AndroidViewModel(application)
                         _historyState.update {
                             it.copy(
                                 isLoading = false,
-                                data = response.data,
-                                stats = response.stats,
+                                data = rows,
                                 weatherHistory = weather,
                                 weatherFilter = nextFilter,
                             )
@@ -541,15 +592,53 @@ class BreatheViewModel(application: Application) : AndroidViewModel(application)
                         it.copy(isLoading = false, error = "Failed to load: ${e.localizedMessage}")
                     }
                 }
+                fetchCompareRows()
             }
     }
 
-    // the csv always carries both pollutants, whatever the chart is showing
+    private fun fetchCompareRows() {
+        val state = _historyState.value
+        val missing = state.compareIds.filter { it !in state.compareRows }
+        if (missing.isEmpty()) {
+            return
+        }
+        _historyState.update { it.copy(compareLoading = true) }
+        compareFetchJob?.cancel()
+        compareFetchJob =
+            viewModelScope.launch(Dispatchers.IO) {
+                val results =
+                    coroutineScope {
+                        missing
+                            .map { id ->
+                                async {
+                                    val rows =
+                                        runCatching {
+                                            RetrofitClient.api
+                                                .getHistoricalData(
+                                                    location = id,
+                                                    timeRange = state.selectedRange,
+                                                    interval = state.interval,
+                                                    metrics = HISTORY_METRICS,
+                                                ).data
+                                                .sortedBy { it.ts }
+                                        }.getOrDefault(emptyList())
+                                    id to rows
+                                }
+                            }.awaitAll()
+                    }
+                _historyState.update { current ->
+                    if (current.selectedRange != state.selectedRange || current.interval != state.interval) {
+                        current
+                    } else {
+                        current.copy(compareRows = current.compareRows + results, compareLoading = false)
+                    }
+                }
+            }
+    }
+
     fun historyCsvUrl(): String? {
         val zoneId = historyZoneId ?: return null
         val state = _historyState.value
-        val location = historyLocation(zoneId, state)
-        val interval = historyInterval(state)
-        return "https://api.breatheoss.app/historical-data/$location/${state.selectedRange}/$interval/pm2.5,pm10?format=csv"
+        return "https://api.breatheoss.app/historical-data/$zoneId/${state.selectedRange}/${state.interval}/$HISTORY_METRICS?format=csv"
     }
 }

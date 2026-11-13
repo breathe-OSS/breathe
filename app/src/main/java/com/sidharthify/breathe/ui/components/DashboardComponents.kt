@@ -133,7 +133,11 @@ import com.sidharthify.breathe.util.getAqiColor
 import com.sidharthify.breathe.util.getTimeAgo
 import com.sidharthify.breathe.util.pm25
 import com.sidharthify.breathe.util.weatherConditionIconRes
+import com.sidharthify.breathe.util.isEstimate
+import com.sidharthify.breathe.util.isSensorOffline
+import com.sidharthify.breathe.util.placeLine
 import kotlin.math.ceil
+import kotlin.math.roundToInt
 
 class SoftBurstShape : Shape {
     override fun createOutline(
@@ -164,6 +168,10 @@ fun MainDashboardDetail(
     sensorInfos: List<SensorInfo> = emptyList(),
     onOpenHistory: (() -> Unit)? = null,
     isWideLayout: Boolean = false,
+    rawMode: Boolean = false,
+    rawHintHidden: Boolean = true,
+    onRawModeChange: ((Boolean) -> Unit)? = null,
+    onHideRawHint: (() -> Unit)? = null,
 ) {
     val pm25 = zone.pm25
     val displayAqi = zone.displayAqi(useNaqi)
@@ -186,11 +194,10 @@ fun MainDashboardDetail(
     val aqiTextColor = aqiColor.asAqiText(MaterialTheme.colorScheme.surface)
     val uriHandler = LocalUriHandler.current
 
-    val isOpenMeteo =
-        provider?.contains("Open-Meteo", ignoreCase = true) == true ||
-                provider?.contains("OpenMeteo", ignoreCase = true) == true
-    val isAirGradient =
-        provider?.contains("AirGradient", ignoreCase = true) == true
+    val isOpenMeteo = zone.isEstimate
+    val isAirGradient = !zone.isEstimate
+    val offline = zone.isSensorOffline
+    val place = placeLine(zone.district, zone.division)
 
     Column(modifier = Modifier.padding(vertical = 12.dp)) {
         Row(
@@ -211,19 +218,36 @@ fun MainDashboardDetail(
                     lineHeight = 40.sp,
                 )
 
-                if (isAirGradient) {
+                if (place.isNotEmpty()) {
+                    Text(
+                        place,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+
+                if (isAirGradient && !offline) {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
                         LiveDot()
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            "Live Ground Sensors",
+                            if (zone.showingRaw) {
+                                "Live ground sensor · raw readings"
+                            } else {
+                                "Live ground sensor"
+                            },
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                } else if (isOpenMeteo) {
+                } else {
                     Text(
-                        "Satellite & Model Data",
+                        if (offline) {
+                            "Sensor offline, showing a satellite estimate"
+                        } else {
+                            "Satellite estimate, no sensor here yet"
+                        },
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 4.dp),
@@ -261,7 +285,43 @@ fun MainDashboardDetail(
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
+
+        if (isAirGradient && onRawModeChange != null) {
+            RawModeSwitch(
+                rawMode = rawMode,
+                rawAvailable = zone.raw != null,
+                onRawModeChange = onRawModeChange,
+                modifier = Modifier.padding(horizontal = 24.dp),
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        val rawUnavailable =
+            when {
+                rawMode && zone.isEstimate -> "Raw readings are switched on, but there is no sensor here, so nothing changes."
+                rawMode && zone.raw == null -> "Raw readings are switched on, but this sensor has no live reading to show raw, so these are the calibrated satellite numbers."
+                else -> null
+            }
+        if (zone.showingRaw && !rawHintHidden) {
+            RawBanner(
+                message = "Showing this sensor's uncorrected readings.",
+                showPoints = true,
+                onHide = onHideRawHint,
+                modifier = Modifier.padding(horizontal = 24.dp),
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+        } else if (rawUnavailable != null) {
+            Text(
+                rawUnavailable,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 24.dp),
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
 
         if (!zone.warning.isNullOrBlank()) {
             Card(
@@ -368,7 +428,13 @@ fun MainDashboardDetail(
                     )
                 }
 
-                if (!zone.nodes.isNullOrEmpty()) {
+                if (isAirGradient) {
+                    AboutSensorCard(
+                        zone = zone,
+                        sensorInfo = sensorInfos.find { it.locationId == zone.locationId },
+                        modifier = Modifier.weight(1f),
+                    )
+                } else if (!zone.nodes.isNullOrEmpty()) {
                     IndividualNodeReadingsSection(
                         nodes = zone.nodes,
                         useNaqi = useNaqi,
@@ -438,7 +504,15 @@ fun MainDashboardDetail(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Individual Node Readings section (below pollutants, above graph)
+            if (isAirGradient) {
+                AboutSensorCard(
+                    zone = zone,
+                    sensorInfo = sensorInfos.find { it.locationId == zone.locationId },
+                    modifier = Modifier.padding(horizontal = 24.dp),
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+
             if (!zone.nodes.isNullOrEmpty()) {
                 IndividualNodeReadingsSection(
                     nodes = zone.nodes,
@@ -486,7 +560,13 @@ private fun AqiHeroCard(
     modifier: Modifier = Modifier,
 ) {
     val animationSettings = LocalAnimationSettings.current
-    val aqiLabel = if (!useNaqi) "US AQI" else "NAQI"
+    val standardLabel = if (!useNaqi) "US AQI" else "NAQI"
+    val aqiLabel =
+        if (zone.showingRaw) {
+            "Raw $standardLabel"
+        } else {
+            standardLabel
+        }
 
     val screenWidth = with(LocalDensity.current) {
         LocalWindowInfo.current.containerSize.width.toDp()
@@ -1195,6 +1275,95 @@ fun PollutantChip(
                         unit,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+@Composable
+fun AboutSensorCard(
+    zone: AqiResponse,
+    sensorInfo: SensorInfo?,
+    modifier: Modifier = Modifier,
+) {
+    val readings = zone.readings
+    val rawSuffix =
+        if (zone.showingRaw) {
+            " (raw)"
+        } else {
+            ""
+        }
+    fun fmt(
+        value: Double?,
+        unit: String,
+    ): String {
+        if (value == null) {
+            return "--"
+        }
+        return "${(value * 10).roundToInt() / 10.0}$unit"
+    }
+    val facts =
+        listOf(
+            "Provider" to (sensorInfo?.provider ?: "AirGradient"),
+            "Model" to (sensorInfo?.model ?: "--"),
+            "Location ID" to (zone.locationId ?: sensorInfo?.locationId)?.toString().orEmpty().ifEmpty { "--" },
+            "Installed" to (sensorInfo?.installationDate ?: "--"),
+        )
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = MaterialTheme.shapes.large,
+        modifier = modifier.fillMaxWidth(),
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                "About this sensor",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+            )
+            if (readings != null) {
+                val rows =
+                    listOf(
+                        "Temperature$rawSuffix" to fmt(readings.temp, " °C"),
+                        "Humidity$rawSuffix" to fmt(readings.humidity, "%"),
+                        "PM2.5$rawSuffix" to fmt(readings.pm25, " µg/m³"),
+                        "PM10$rawSuffix" to fmt(readings.pm10, " µg/m³"),
+                    )
+                rows.chunked(2).forEach { pair ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        pair.forEach { (label, value) ->
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    label,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(
+                                    value,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
+                        }
+                    }
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            }
+            facts.forEach { (label, value) ->
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        label,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(
+                        value,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
                     )
                 }
             }

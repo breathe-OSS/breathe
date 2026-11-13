@@ -62,6 +62,11 @@ data class Zone(
     val provider: String?,
     val lat: Double?,
     val lon: Double?,
+    val kind: String? = null,
+    val district: String? = null,
+    val division: String? = null,
+    @SerializedName("legacy_zone") val legacyZone: String? = null,
+    @SerializedName("zone_type") val zoneType: String? = null,
 )
 
 data class Trends(
@@ -89,6 +94,35 @@ data class AqiResponse(
     @SerializedName("source") val source: String? = null,
     @SerializedName("nodes") val nodes: Map<String, NodeReading>? = null,
     @SerializedName("weather") val weather: WeatherInfo? = null,
+    @SerializedName("kind") val kind: String? = null,
+    @SerializedName("district") val district: String? = null,
+    @SerializedName("division") val division: String? = null,
+    @SerializedName("location_id") val locationId: Int? = null,
+    @SerializedName("sensor_status") val sensorStatus: String? = null,
+    @SerializedName("readings") val readings: SensorReadings? = null,
+    @SerializedName("raw") val raw: RawReadings? = null,
+    @SerializedName("raw_available") val rawAvailable: Boolean? = null,
+    @SerializedName("averages_24h_raw") val averages24hRaw: Map<String, Double>? = null,
+    @Transient val showingRaw: Boolean = false,
+)
+
+data class SensorReadings(
+    @SerializedName("pm2_5") val pm25: Double?,
+    @SerializedName("pm10") val pm10: Double?,
+    @SerializedName("temp") val temp: Double?,
+    @SerializedName("humidity") val humidity: Double?,
+)
+
+data class RawReadings(
+    @SerializedName("pm2_5") val pm25: Double?,
+    @SerializedName("pm10") val pm10: Double?,
+    @SerializedName("temp") val temp: Double?,
+    @SerializedName("humidity") val humidity: Double?,
+    @SerializedName("aqi") val nAqi: Int?,
+    @SerializedName("us_aqi") val usAqi: Int?,
+    @SerializedName("main_pollutant") val mainPollutant: String?,
+    @SerializedName("us_main_pollutant") val usMainPollutant: String?,
+    @SerializedName("concentrations_us_units") val concentrations: Map<String, Double>?,
 )
 
 data class WeatherInfo(
@@ -116,6 +150,12 @@ data class HistoryPoint(
     @SerializedName("ts") val ts: Long,
     @SerializedName("aqi") val aqi: Int,
     @SerializedName("us_aqi") val usAqi: Int?,
+    @SerializedName("pm2_5") val pm25: Double? = null,
+    @SerializedName("pm10") val pm10: Double? = null,
+    @SerializedName("aqi_raw") val aqiRaw: Int? = null,
+    @SerializedName("us_aqi_raw") val usAqiRaw: Int? = null,
+    @SerializedName("pm2_5_raw") val pm25Raw: Double? = null,
+    @SerializedName("pm10_raw") val pm10Raw: Double? = null,
 )
 
 data class NodeHistoryPoint(
@@ -142,7 +182,30 @@ data class HistoricalDataPoint(
     @SerializedName("ts") val ts: Long,
     @SerializedName("pm2_5") val pm25: Double?,
     @SerializedName("pm10") val pm10: Double?,
-)
+    @SerializedName("temp") val temp: Double? = null,
+    @SerializedName("humidity") val humidity: Double? = null,
+    @SerializedName("us_aqi") val usAqi: Double? = null,
+    @SerializedName("pm2_5_raw") val pm25Raw: Double? = null,
+    @SerializedName("pm10_raw") val pm10Raw: Double? = null,
+    @SerializedName("temp_raw") val tempRaw: Double? = null,
+    @SerializedName("humidity_raw") val humidityRaw: Double? = null,
+    @SerializedName("us_aqi_raw") val usAqiRaw: Double? = null,
+) {
+    fun value(key: String): Double? =
+        when (key) {
+            "pm2_5" -> pm25
+            "pm10" -> pm10
+            "temp" -> temp
+            "humidity" -> humidity
+            "us_aqi" -> usAqi
+            "pm2_5_raw" -> pm25Raw
+            "pm10_raw" -> pm10Raw
+            "temp_raw" -> tempRaw
+            "humidity_raw" -> humidityRaw
+            "us_aqi_raw" -> usAqiRaw
+            else -> null
+        }
+}
 
 data class HistoricalStats(
     @SerializedName("max_pm2_5") val maxPm25: Double?,
@@ -158,14 +221,34 @@ data class HistoricalDataResponse(
     @SerializedName("stats") val stats: HistoricalStats?,
 )
 
+enum class HistoryMetric(
+    val label: String,
+    val unit: String,
+    val keys: List<String>,
+    val names: List<String>,
+    val decimals: Int,
+) {
+    AQI("US AQI", "US AQI", listOf("us_aqi"), listOf("US AQI"), 0),
+    PM25("PM2.5", "µg/m³", listOf("pm2_5"), listOf("PM2.5"), 1),
+    PM10("PM10", "µg/m³", listOf("pm10"), listOf("PM10"), 1),
+    PM("PM2.5 + PM10", "µg/m³", listOf("pm2_5", "pm10"), listOf("PM2.5", "PM10"), 1),
+    TEMP("Temperature", "°C", listOf("temp"), listOf("Temperature"), 1),
+    HUMIDITY("Humidity", "%", listOf("humidity"), listOf("Humidity"), 0),
+}
+
+enum class HistoryMode(val label: String) {
+    CAL("Calibrated"),
+    RAW("Raw"),
+    BOTH("Both"),
+}
+
 data class HistoryState(
     val isLoading: Boolean = false,
     val data: List<HistoricalDataPoint> = emptyList(),
-    val stats: HistoricalStats? = null,
     val selectedRange: String = "1w",
-    val selectedSensor: String = "zone",
-    val showPm25: Boolean = true,
-    val showPm10: Boolean = true,
+    val interval: String = "1h",
+    val metric: HistoryMetric = HistoryMetric.AQI,
+    val mode: HistoryMode = HistoryMode.CAL,
     val customRange: String = "14d",
     val customInterval: String = "1h",
     val showCustomInputs: Boolean = false,
@@ -175,6 +258,9 @@ data class HistoryState(
     val periodActive: Boolean = false,
     val periodMode: HistoryPeriodMode = HistoryPeriodMode.MONTH,
     val period: HistoryPeriod? = null,
+    val compareIds: List<String> = emptyList(),
+    val compareRows: Map<String, List<HistoricalDataPoint>> = emptyMap(),
+    val compareLoading: Boolean = false,
 )
 
 data class AppState(

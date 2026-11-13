@@ -98,6 +98,8 @@ import com.sidharthify.breathe.ui.components.PinnedOverviewGrid
 import com.sidharthify.breathe.ui.components.PinnedZonesButtonGroup
 import com.sidharthify.breathe.ui.components.ReorderPinnedZonesSheet
 import com.sidharthify.breathe.ui.components.WelcomeDialog
+import com.sidharthify.breathe.util.isEstimate
+import com.sidharthify.breathe.util.placeLine
 import com.sidharthify.breathe.viewmodel.BreatheViewModel
 import kotlinx.coroutines.launch
 
@@ -121,6 +123,8 @@ fun HomeScreen(
     val isOverviewHome by viewModel.isOverviewHome.collectAsState()
     val hasOnboarded by viewModel.hasOnboarded.collectAsState()
     val historyState by viewModel.historyState.collectAsState()
+    val rawMode by viewModel.rawMode.collectAsState()
+    val rawHintHidden by viewModel.rawHintHidden.collectAsState()
     val uriHandler = LocalUriHandler.current
 
     val pullRefreshState = rememberPullToRefreshState()
@@ -166,7 +170,7 @@ fun HomeScreen(
     val liveZoneIds =
         remember(zones) {
             zones
-                .filter { it.provider?.contains("airgradient", ignoreCase = true) == true }
+                .filter { !it.isEstimate }
                 .map { it.id }
                 .toSet()
         }
@@ -221,14 +225,14 @@ fun HomeScreen(
         label = "HistoryTransition",
     ) { isHistoryVisible ->
         if (isHistoryVisible && selectedZone != null) {
-            val nodeKeys = remember(selectedZone) {
-                selectedZone.nodes?.keys?.toList() ?: emptyList()
-            }
-
             ExtendedHistoryScreen(
                 zoneName = selectedZone.zoneName,
+                zoneId = selectedZone.zoneId,
+                placeLine = placeLine(selectedZone.district, selectedZone.division),
+                district = selectedZone.district,
                 historyState = historyState,
-                nodeKeys = nodeKeys,
+                comparablePlaces = remember(zones, selectedZone.zoneId) { viewModel.comparablePlaces() },
+                rawHintHidden = rawHintHidden,
                 onBack = {
                     showHistory = false
                     scrollToBottom = true
@@ -242,13 +246,15 @@ fun HomeScreen(
                 onPeriodModeSelected = { viewModel.setHistoryPeriodMode(it) },
                 onPeriodStep = { viewModel.stepHistoryPeriod(it) },
                 onPeriodPicked = { start, end -> viewModel.pickHistoryPeriod(start, end) },
-                onSensorSelected = { viewModel.setHistorySensor(it) },
-                onTogglePm25 = { viewModel.toggleHistoryPm25() },
-                onTogglePm10 = { viewModel.toggleHistoryPm10() },
+                onMetricSelected = { viewModel.setHistoryMetric(it) },
+                onModeSelected = { viewModel.setHistoryMode(it) },
                 onDownloadCSV = {
                     viewModel.historyCsvUrl()?.let { uriHandler.openUri(it) }
                 },
                 onWeatherFilterSelected = { viewModel.setWeatherFilter(it) },
+                onHideRawHint = { viewModel.hideRawHint() },
+                onToggleCompare = { viewModel.toggleCompare(it) },
+                onSetCompare = { viewModel.setCompareIds(it) },
             )
         } else {
             PullToRefreshBox(
@@ -390,6 +396,10 @@ fun HomeScreen(
                                         showHistory = true
                                     },
                                     isWideLayout = LocalIsTabletLandscape.current,
+                                    rawMode = rawMode,
+                                    rawHintHidden = rawHintHidden,
+                                    onRawModeChange = { viewModel.setRawMode(it) },
+                                    onHideRawHint = { viewModel.hideRawHint() },
                                 )
                             }
                         }

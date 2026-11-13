@@ -197,3 +197,69 @@ fun NodeHistoryPoint.displayAqi(useNaqi: Boolean): Int {
     }
     return usAqi ?: aqi
 }
+
+fun calculateNaqiPm25(pm25: Double): Int {
+    val c = pm25.roundToInt().toDouble()
+    return when {
+        c <= 30.0 -> linearInterp(c, 0.0, 30.0, 0, 50)
+        c <= 60.0 -> linearInterp(c, 31.0, 60.0, 51, 100)
+        c <= 90.0 -> linearInterp(c, 61.0, 90.0, 101, 200)
+        c <= 120.0 -> linearInterp(c, 91.0, 120.0, 201, 300)
+        c <= 250.0 -> linearInterp(c, 121.0, 250.0, 301, 400)
+        else -> minOf(linearInterp(c, 251.0, 380.0, 401, 500), 500)
+    }
+}
+
+fun pm25ToAqi(
+    pm25: Double,
+    useNaqi: Boolean,
+): Int {
+    if (useNaqi) {
+        return calculateNaqiPm25(pm25)
+    }
+    return calculateUsAqi(pm25)
+}
+
+fun aqiBandIndex(
+    aqi: Int,
+    isUsStandard: Boolean,
+): Int {
+    val limits =
+        if (isUsStandard) {
+            listOf(50, 100, 150, 200, 300)
+        } else {
+            listOf(50, 100, 200, 300, 400)
+        }
+    limits.forEachIndexed { index, limit ->
+        if (aqi <= limit) {
+            return index
+        }
+    }
+    return limits.size
+}
+
+data class HealthAdvice(
+    val title: String,
+    val text: String,
+)
+
+private val HEALTH_ADVICE =
+    listOf(
+        HealthAdvice("Good time to be outside", "The air is clean. Open the windows and enjoy it."),
+        HealthAdvice("Fine for most people", "If you're unusually sensitive to pollution, go easier on long outdoor workouts."),
+        HealthAdvice(
+            "Sensitive groups take care",
+            "Kids, older adults and anyone with asthma or heart disease should cut back on long or heavy exertion outside.",
+        ),
+        HealthAdvice("Cut back outdoors", "Everyone should ease off heavy exertion outside. Sensitive groups should keep outdoor time short."),
+        HealthAdvice(
+            "Avoid exertion outside",
+            "Keep windows shut and run a purifier if you have one. Wear an N95 if you need to be out for long.",
+        ),
+        HealthAdvice("Stay indoors", "Keep windows and doors shut. If you have to go out, wear a well fitted N95."),
+    )
+
+fun getHealthAdvice(
+    aqi: Int,
+    isUsStandard: Boolean,
+): HealthAdvice = HEALTH_ADVICE[aqiBandIndex(aqi, isUsStandard)]

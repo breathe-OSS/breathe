@@ -227,6 +227,8 @@ fun BreatheApp(
     val searchQuery by viewModel.searchQuery.collectAsState()
 
     val useNaqi by viewModel.useNaqi.collectAsState()
+    val rawMode by viewModel.rawMode.collectAsState()
+    val rawHintHidden by viewModel.rawHintHidden.collectAsState()
 
     var currentScreen by rememberSaveable { mutableStateOf(AppScreen.Home) }
     val motionScheme = MaterialTheme.motionScheme
@@ -339,6 +341,10 @@ fun BreatheApp(
                                         useNaqi = useNaqi,
                                         sensorInfos = uiState.sensorInfos,
                                         onPinToggle = { id -> viewModel.togglePin(id) },
+                                        rawMode = rawMode,
+                                        rawHintHidden = rawHintHidden,
+                                        onRawModeChange = { viewModel.setRawMode(it) },
+                                        onHideRawHint = { viewModel.hideRawHint() },
                                     )
                                 }
 
@@ -348,11 +354,18 @@ fun BreatheApp(
                                         isDarkTheme = isDarkTheme,
                                         error = uiState.error,
                                         zones = uiState.zones,
+                                        allAqiData = uiState.allAqiData,
                                         pinnedIds = uiState.pinnedIds,
+                                        useNaqi = useNaqi,
+                                        sensorInfos = uiState.sensorInfos,
                                         query = searchQuery,
                                         onSearchChange = viewModel::onSearchQueryChanged,
                                         onPinToggle = { id -> viewModel.togglePin(id) },
                                         onRetry = { viewModel.refreshData() },
+                                        rawMode = rawMode,
+                                        rawHintHidden = rawHintHidden,
+                                        onRawModeChange = { viewModel.setRawMode(it) },
+                                        onHideRawHint = { viewModel.hideRawHint() },
                                     )
                                 }
 

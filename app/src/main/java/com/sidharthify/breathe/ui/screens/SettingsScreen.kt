@@ -103,6 +103,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sidharthify.breathe.data.AnimationSettings
+import com.sidharthify.breathe.ui.components.RawExplainerPoints
 import com.sidharthify.breathe.ui.expressiveClickable
 import com.sidharthify.breathe.navigation.LocalNavBarClearance
 import com.sidharthify.breathe.viewmodel.BreatheViewModel
@@ -234,6 +235,8 @@ fun SettingsScreen(
 
     val useNaqi by viewModel.useNaqi.collectAsState()
     val isOverviewHome by viewModel.isOverviewHome.collectAsState()
+    val rawMode by viewModel.rawMode.collectAsState()
+    var rawExpanded by rememberSaveable { mutableStateOf(false) }
 
     val currentVersion = remember { currentVersionTag(context) }
     var easterEggTaps by remember { mutableIntStateOf(0) }
@@ -376,6 +379,48 @@ fun SettingsScreen(
             SettingsItem("About Breathe", "View our philosophy and vision", onClick = {
                 uriHandler.openUri("https://about.breatheoss.app")
             })
+        }
+
+        SettingsGroup(title = "Readings", isAmoled = isAmoled) {
+            SettingsSwitch(
+                title = "Raw Readings",
+                subtitle = "Show what each sensor measured before AirGradient's correction",
+                checked = rawMode,
+                onCheckedChange = { viewModel.setRawMode(it) },
+            )
+            SettingsRow(onClick = { rawExpanded = !rawExpanded }) {
+                SettingsText(
+                    "What Changes",
+                    if (rawExpanded) {
+                        "Tap to collapse"
+                    } else {
+                        "How raw readings differ from calibrated ones"
+                    },
+                    Modifier.weight(1f),
+                )
+                Icon(
+                    if (rawExpanded) {
+                        Icons.Filled.KeyboardArrowUp
+                    } else {
+                        Icons.Filled.KeyboardArrowDown
+                    },
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            AnimatedVisibility(
+                visible = rawExpanded,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut(),
+            ) {
+                RawExplainerPoints(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .settingsItemBackground(isAmoled)
+                            .padding(horizontal = 16.dp, vertical = 16.dp),
+                )
+            }
         }
 
         SettingsGroup(title = "Performance", isAmoled = isAmoled) {
