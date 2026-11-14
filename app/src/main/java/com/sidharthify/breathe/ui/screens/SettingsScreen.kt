@@ -586,7 +586,7 @@ private fun glassStatus(
         if (support == GlassSupport.OLD_ANDROID) {
             return "On. Refraction needs Android 13, so this phone gets a tinted pill"
         }
-        return "On for the nav bar and map controls"
+        return "On for the Nav Bar and Map Controls"
     }
     if (mode == GlassMode.OFF) {
         return "Off"
