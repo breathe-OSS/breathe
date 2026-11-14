@@ -33,7 +33,9 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -43,6 +45,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
@@ -78,7 +81,9 @@ import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import com.sidharthify.breathe.data.AqiResponse
 import com.sidharthify.breathe.data.HistoricalDataPoint
@@ -103,6 +108,7 @@ import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.ceil
 import kotlin.math.roundToInt
 
 private const val ABOUT_URL = "https://about.breatheoss.app"
@@ -528,33 +534,36 @@ private fun PanelChartCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            if (isLive) {
-                Row(horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)) {
-                    PanelRange.entries.forEachIndexed { index, option ->
-                        ToggleButton(
-                            checked = range == option,
-                            onCheckedChange = { checked ->
-                                if (checked) {
-                                    onRangeChange(option)
-                                }
+        }
+        if (isLive) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+            ) {
+                PanelRange.entries.forEachIndexed { index, option ->
+                    ToggleButton(
+                        checked = range == option,
+                        onCheckedChange = { checked ->
+                            if (checked) {
+                                onRangeChange(option)
+                            }
+                        },
+                        shapes =
+                            when (index) {
+                                0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+                                PanelRange.entries.size - 1 -> ButtonGroupDefaults.connectedTrailingButtonShapes()
+                                else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
                             },
-                            shapes =
-                                when (index) {
-                                    0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
-                                    PanelRange.entries.size - 1 -> ButtonGroupDefaults.connectedTrailingButtonShapes()
-                                    else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
-                                },
-                            modifier = Modifier.height(32.dp),
-                        ) {
-                            Text(option.label, style = MaterialTheme.typography.labelMedium)
-                        }
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(option.label, style = MaterialTheme.typography.labelLarge)
                     }
                 }
             }
         }
         if (range != PanelRange.DAY && daily == null) {
             Box(
-                modifier = Modifier.fillMaxWidth().height(160.dp),
+                modifier = Modifier.fillMaxWidth().height(204.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
@@ -627,56 +636,76 @@ private fun PanelBars(
 ) {
     var selected by remember(bars) { mutableStateOf<Int?>(null) }
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val labelStyle = MaterialTheme.typography.labelSmall.copy(color = labelColor)
+    val measurer = rememberTextMeasurer()
     val max = maxOf(bars.maxOf { it.value }, 10.0)
+    val scroll = rememberScrollState()
+    LaunchedEffect(bars, scroll.maxValue) {
+        scroll.scrollTo(scroll.maxValue)
+    }
     Column {
         Text(
             selected?.let { i ->
                 val bar = bars[i]
                 "${bar.label}  ·  ${"%.1f".format(bar.value)} µg/m³  ·  ${getAqiCategory(pm25ToAqi(bar.value, useNaqi), !useNaqi).label}"
-            } ?: "Tap a bar for its reading",
+            } ?: if (scroll.maxValue > 0) {
+                "Tap a bar for its reading, swipe for older days"
+            } else {
+                "Tap a bar for its reading"
+            },
             style = MaterialTheme.typography.labelMedium,
             color = labelColor,
         )
         Spacer(modifier = Modifier.height(8.dp))
-        Canvas(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(160.dp)
-                    .pointerInput(bars) {
-                        detectTapGestures { offset ->
-                            val slot = size.width.toFloat() / bars.size
-                            val index = (offset.x / slot).toInt().coerceIn(0, bars.size - 1)
-                            selected =
-                                if (selected == index) {
-                                    null
-                                } else {
-                                    index
-                                }
-                        }
-                    },
-        ) {
-            val slot = size.width / bars.size
-            val gap = slot * 0.1f
-            bars.forEachIndexed { i, bar ->
-                val h = (bar.value / max * size.height).toFloat().coerceAtLeast(2f)
-                val c = getAqiColor(pm25ToAqi(bar.value, useNaqi), !useNaqi)
-                drawRoundRect(
-                    color =
-                        if (selected == null || selected == i) {
-                            c
-                        } else {
-                            c.copy(alpha = 0.4f)
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val slot = maxOf(maxWidth / bars.size, 14.dp)
+            val every = maxOf(1, ceil(56.dp / slot).toInt())
+            Canvas(
+                modifier =
+                    Modifier
+                        .horizontalScroll(scroll)
+                        .width(slot * bars.size)
+                        .height(180.dp)
+                        .pointerInput(bars) {
+                            detectTapGestures { offset ->
+                                val step = size.width.toFloat() / bars.size
+                                val index = (offset.x / step).toInt().coerceIn(0, bars.size - 1)
+                                selected =
+                                    if (selected == index) {
+                                        null
+                                    } else {
+                                        index
+                                    }
+                            }
                         },
-                    topLeft = Offset(i * slot + gap / 2, size.height - h),
-                    size = Size(slot - gap, h),
-                    cornerRadius = CornerRadius(3.dp.toPx(), 3.dp.toPx()),
-                )
+            ) {
+                val step = size.width / bars.size
+                val gap = step * 0.15f
+                val axis = 20.dp.toPx()
+                val chart = size.height - axis
+                bars.forEachIndexed { i, bar ->
+                    val h = (bar.value / max * chart).toFloat().coerceAtLeast(2f)
+                    val c = getAqiColor(pm25ToAqi(bar.value, useNaqi), !useNaqi)
+                    drawRoundRect(
+                        color =
+                            if (selected == null || selected == i) {
+                                c
+                            } else {
+                                c.copy(alpha = 0.4f)
+                            },
+                        topLeft = Offset(i * step + gap / 2, chart - h),
+                        size = Size(step - gap, h),
+                        cornerRadius = CornerRadius(3.dp.toPx(), 3.dp.toPx()),
+                    )
+                    if ((bars.size - 1 - i) % every == 0) {
+                        val text = measurer.measure(bar.label, labelStyle)
+                        val x =
+                            (i * step + step / 2 - text.size.width / 2f)
+                                .coerceIn(0f, size.width - text.size.width)
+                        drawText(text, topLeft = Offset(x, chart + 4.dp.toPx()))
+                    }
+                }
             }
-        }
-        Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
-            Text(bars.first().label, style = MaterialTheme.typography.labelSmall, color = labelColor, modifier = Modifier.weight(1f))
-            Text(bars.last().label, style = MaterialTheme.typography.labelSmall, color = labelColor)
         }
     }
 }
