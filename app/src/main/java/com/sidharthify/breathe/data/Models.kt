@@ -281,4 +281,6 @@ data class AppState(
     val pinnedZones: List<AqiResponse> = emptyList(),
     val pinnedIds: Set<String> = emptySet(),
     val sensorInfos: List<SensorInfo> = emptyList(),
+    val districtZones: List<Zone> = emptyList(),
+    val districtAqi: List<AqiResponse> = emptyList(),
 )

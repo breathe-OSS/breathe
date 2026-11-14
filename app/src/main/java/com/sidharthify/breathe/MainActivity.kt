@@ -396,6 +396,7 @@ fun BreatheApp(
                                         error = uiState.error,
                                         zones = uiState.zones,
                                         allAqiData = uiState.allAqiData,
+                                        districtAqi = uiState.districtAqi,
                                         pinnedIds = uiState.pinnedIds,
                                         useNaqi = useNaqi,
                                         sensorInfos = uiState.sensorInfos,

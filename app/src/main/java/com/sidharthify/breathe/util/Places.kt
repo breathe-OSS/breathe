@@ -106,6 +106,23 @@ fun divisionRank(division: String?): Int {
     return index
 }
 
+fun districtAverages(
+    legacy: List<Zone>,
+    sensors: List<Zone>,
+): List<Zone> =
+    legacy.mapNotNull { zone ->
+        val members = sensors.filter { !it.isEstimate && it.legacyZone == zone.id }
+        if (members.size < 2) {
+            null
+        } else {
+            zone.copy(
+                kind = "district",
+                district = members.first().district,
+                division = members.first().division,
+            )
+        }
+    }
+
 fun migratePinnedIds(
     pinned: List<String>,
     zones: List<Zone>,

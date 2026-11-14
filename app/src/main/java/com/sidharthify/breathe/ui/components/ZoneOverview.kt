@@ -137,6 +137,7 @@ fun ZoneOverview(
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
     val isLive = !zone.isEstimate
+    val averaged = (zone.nodes?.size ?: 0) >= 2
     val offline = zone.isSensorOffline
     val aqi = zone.displayAqi(useNaqi)
     val color = getAqiColor(aqi, !useNaqi)
@@ -174,6 +175,7 @@ fun ZoneOverview(
                         when {
                             !isLive -> "Satellite estimate, no sensor here yet"
                             offline -> "Sensor offline, showing a satellite estimate"
+                            averaged -> "District average of ${zone.nodes?.size} ground sensors"
                             zone.showingRaw -> "Live ground sensor · raw readings"
                             else -> "Live ground sensor"
                         },
@@ -246,6 +248,7 @@ fun ZoneOverview(
                 when {
                     !isLive -> "There's no ground sensor in ${zone.zoneName} yet. These numbers are modelled by CAMS and served through Open-Meteo, so they can miss local smoke and dust."
                     offline -> "This BreatheOSS AirGradient sensor isn't reporting right now, so these numbers are a CAMS estimate for its location, served through Open-Meteo."
+                    averaged -> "PM2.5 and PM10 are the average of ${zone.nodes?.size} BreatheOSS AirGradient sensors in ${zone.zoneName}. Gases come from CAMS through Open-Meteo."
                     else -> {
                         val district =
                             if (zone.district != null) {

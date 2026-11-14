@@ -164,6 +164,7 @@ fun ExploreScreen(
     error: String?,
     zones: List<Zone>,
     allAqiData: List<AqiResponse>,
+    districtAqi: List<AqiResponse>,
     pinnedIds: Set<String>,
     useNaqi: Boolean,
     sensorInfos: List<SensorInfo>,
@@ -177,7 +178,7 @@ fun ExploreScreen(
     onHideRawHint: () -> Unit = {},
 ) {
     val animationSettings = LocalAnimationSettings.current
-    val aqiById = remember(allAqiData) { allAqiData.associateBy { it.zoneId } }
+    val aqiById = remember(allAqiData, districtAqi) { (allAqiData + districtAqi).associateBy { it.zoneId } }
     val groups = remember(zones) { groupPlaces(zones) }
     var openDistricts by rememberSaveable { mutableStateOf(listOf<String>()) }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -442,6 +443,27 @@ private fun DistrictCard(
                     exit = shrinkVertically() + fadeOut(),
                 ) {
                     Column(modifier = Modifier.padding(bottom = 8.dp)) {
+                        val legacyId =
+                            group.places
+                                .filter { !it.isEstimate }
+                                .mapNotNull { it.legacyZone }
+                                .distinct()
+                                .singleOrNull()
+                        val average = legacyId?.let { aqiById[it] }
+                        if (legacyId != null && average != null && group.places.count { !it.isEstimate } >= 2) {
+                            HorizontalDivider(
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                                modifier = Modifier.padding(horizontal = 20.dp),
+                            )
+                            DistrictAverageRow(
+                                data = average,
+                                sensors = group.places.count { !it.isEstimate },
+                                useNaqi = useNaqi,
+                                pinned = legacyId in pinnedIds,
+                                onOpen = { onOpen(legacyId) },
+                                onPinToggle = { onPinToggle(legacyId) },
+                            )
+                        }
                         group.places.forEach { place ->
                             HorizontalDivider(
                                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
@@ -526,6 +548,40 @@ private fun PlaceRow(
         }
         AqiChip(aqi = data?.displayAqi(useNaqi), useNaqi = useNaqi)
         PinButton(pinned = pinned, name = place.name, onClick = onPinToggle)
+    }
+}
+
+@Composable
+private fun DistrictAverageRow(
+    data: AqiResponse,
+    sensors: Int,
+    useNaqi: Boolean,
+    pinned: Boolean,
+    onOpen: () -> Unit,
+    onPinToggle: () -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .expressiveClickable(onClick = onOpen)
+                .padding(start = 20.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                "District average",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                "Average of $sensors sensors",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        AqiChip(aqi = data.displayAqi(useNaqi), useNaqi = useNaqi)
+        PinButton(pinned = pinned, name = "${data.zoneName} district average", onClick = onPinToggle)
     }
 }
 

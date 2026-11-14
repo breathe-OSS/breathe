@@ -47,6 +47,7 @@ import com.sidharthify.breathe.util.HistoryPeriodMode
 import com.sidharthify.breathe.util.asRaw
 import com.sidharthify.breathe.util.isEstimate
 import com.sidharthify.breathe.util.loadPinnedOrder
+import com.sidharthify.breathe.util.districtAverages
 import com.sidharthify.breathe.util.migratePinnedIds
 import com.sidharthify.breathe.util.savePinnedOrder
 import com.sidharthify.breathe.util.weatherPm25Groups
@@ -69,6 +70,7 @@ import kotlin.time.Duration.Companion.minutes
 
 private const val PREFS = "breathe_prefs"
 private const val CACHE = "breathe_cache"
+private const val PINS_MIGRATED = "pins_migrated_to_sensors"
 
 // the backend pulls new readings about every 15 minutes, no point asking sooner
 private val REFRESH_INTERVAL = 16.minutes
@@ -112,6 +114,7 @@ class BreatheViewModel(application: Application) : AndroidViewModel(application)
     val glassAutoOff = _glassAutoOff.asStateFlow()
 
     private var sourceAqi: List<AqiResponse> = emptyList()
+    private var districtSource: List<AqiResponse> = emptyList()
 
     private val _isOverviewHome = MutableStateFlow(prefs.getBoolean("is_overview_home", false))
     val isOverviewHome = _isOverviewHome.asStateFlow()
@@ -178,9 +181,11 @@ class BreatheViewModel(application: Application) : AndroidViewModel(application)
         }
         _uiState.update { state ->
             val shown = shown(sourceAqi)
-            val byId = shown.associateBy { it.zoneId }
+            val districts = shown(districtSource)
+            val byId = (shown + districts).associateBy { it.zoneId }
             state.copy(
                 allAqiData = shown,
+                districtAqi = districts,
                 pinnedZones = state.pinnedZones.mapNotNull { byId[it.zoneId] },
             )
         }
@@ -253,49 +258,69 @@ class BreatheViewModel(application: Application) : AndroidViewModel(application)
             var pinnedSet = pinnedOrder.toSet()
 
             try {
-                val (zones, sensors) =
+                val (zones, sensors, legacy) =
                     coroutineScope {
                         val zonesDeferred = async(Dispatchers.IO) { RetrofitClient.api.getZones().zones }
+                        val legacyDeferred =
+                            async(Dispatchers.IO) {
+                                runCatching { RetrofitClient.api.getZones(layout = "zones").zones }.getOrDefault(emptyList())
+                            }
                         val sensorsDeferred =
                             async(Dispatchers.IO) {
                                 runCatching { RetrofitClient.api.getSensorInfo().sensors }.getOrDefault(emptyList())
                             }
-                        zonesDeferred.await() to sensorsDeferred.await()
+                        Triple(zonesDeferred.await(), sensorsDeferred.await(), legacyDeferred.await())
                     }
+                val districts = districtAverages(legacy, zones)
 
-                val migrated = migratePinnedIds(pinnedOrder, zones)
-                if (migrated != pinnedOrder) {
-                    savePinnedOrder(prefs, migrated)
-                    pinnedOrder = migrated
-                    pinnedSet = migrated.toSet()
-                    forceWidgetUpdate(app)
+                if (!prefs.getBoolean(PINS_MIGRATED, false) && zones.isNotEmpty()) {
+                    val migrated = migratePinnedIds(pinnedOrder, zones)
+                    if (migrated != pinnedOrder) {
+                        savePinnedOrder(prefs, migrated)
+                        pinnedOrder = migrated
+                        pinnedSet = migrated.toSet()
+                        forceWidgetUpdate(app)
+                    }
+                    prefs.edit {
+                        putBoolean(PINS_MIGRATED, true)
+                    }
                 }
 
-                _uiState.update { it.copy(zones = zones, sensorInfos = sensors) }
+                _uiState.update { it.copy(zones = zones, sensorInfos = sensors, districtZones = districts) }
 
                 // pinned zones go first so home fills in before the map's
                 // twenty odd other zones have come back
                 val (pinnedZones, otherZones) = zones.partition { it.id in pinnedSet }
+                val (pinnedDistricts, otherDistricts) = districts.partition { it.id in pinnedSet }
 
-                val pinnedResults = sortedByPinOrder(fetchAqi(pinnedZones), pinnedOrder)
+                val pinnedResults = sortedByPinOrder(fetchAqi(pinnedZones + pinnedDistricts), pinnedOrder)
+                val districtIds = districts.map { it.id }.toSet()
+                val (pinnedDistrictResults, pinnedSensorResults) = pinnedResults.partition { it.zoneId in districtIds }
                 val otherIds = otherZones.map { it.id }.toSet()
-                sourceAqi = pinnedResults + sourceAqi.filter { it.zoneId in otherIds }
+                sourceAqi = pinnedSensorResults + sourceAqi.filter { it.zoneId in otherIds }
+                districtSource = pinnedDistrictResults + districtSource.filter { it.zoneId in districtIds && it.zoneId !in pinnedSet }
                 _uiState.update { current ->
                     current.copy(
                         allAqiData = shown(sourceAqi),
+                        districtAqi = shown(districtSource),
                         pinnedZones = shown(pinnedResults),
                         pinnedIds = pinnedSet,
                     )
                 }
 
-                val allResults = pinnedResults + fetchAqi(otherZones)
+                val allResults = pinnedSensorResults + fetchAqi(otherZones)
                 sourceAqi = allResults
+                districtSource = pinnedDistrictResults + fetchAqi(otherDistricts)
                 _uiState.update {
-                    it.copy(isLoading = false, allAqiData = shown(allResults))
+                    it.copy(
+                        isLoading = false,
+                        allAqiData = shown(allResults),
+                        districtAqi = shown(districtSource),
+                    )
                 }
 
                 lastRefreshMillis = System.currentTimeMillis()
-                saveToCache(zones, allResults, sensors)
+                saveToCache(zones, allResults, sensors, districts, districtSource)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -345,12 +370,16 @@ class BreatheViewModel(application: Application) : AndroidViewModel(application)
         zones: List<Zone>,
         aqiData: List<AqiResponse>,
         sensors: List<SensorInfo>,
+        districts: List<Zone>,
+        districtData: List<AqiResponse>,
     ) {
         withContext(Dispatchers.IO) {
             app.getSharedPreferences(CACHE, Context.MODE_PRIVATE).edit {
                 putString("cached_zones", gson.toJson(zones))
                 putString("cached_aqi", gson.toJson(aqiData))
                 putString("cached_sensors", gson.toJson(sensors))
+                putString("cached_districts", gson.toJson(districts))
+                putString("cached_district_aqi", gson.toJson(districtData))
             }
         }
     }
@@ -363,6 +392,8 @@ class BreatheViewModel(application: Application) : AndroidViewModel(application)
             val zonesJson = cache.getString("cached_zones", null) ?: return
             val aqiJson = cache.getString("cached_aqi", null) ?: return
             val sensorsJson = cache.getString("cached_sensors", null)
+            val districtsJson = cache.getString("cached_districts", null)
+            val districtAqiJson = cache.getString("cached_district_aqi", null)
 
             val zones: List<Zone> = gson.fromJson(zonesJson, object : TypeToken<List<Zone>>() {}.type)
             val aqiData: List<AqiResponse> = gson.fromJson(aqiJson, object : TypeToken<List<AqiResponse>>() {}.type)
@@ -373,19 +404,41 @@ class BreatheViewModel(application: Application) : AndroidViewModel(application)
                     emptyList()
                 }
 
-            val pinnedOrder = migratePinnedIds(loadPinnedOrder(prefs), zones)
+            val districts: List<Zone> =
+                if (districtsJson != null) {
+                    gson.fromJson(districtsJson, object : TypeToken<List<Zone>>() {}.type)
+                } else {
+                    emptyList()
+                }
+            val districtData: List<AqiResponse> =
+                if (districtAqiJson != null) {
+                    gson.fromJson(districtAqiJson, object : TypeToken<List<AqiResponse>>() {}.type)
+                } else {
+                    emptyList()
+                }
+
+            val pinnedOrder =
+                if (prefs.getBoolean(PINS_MIGRATED, false)) {
+                    loadPinnedOrder(prefs)
+                } else {
+                    migratePinnedIds(loadPinnedOrder(prefs), zones)
+                }
             val pinnedSet = pinnedOrder.toSet()
             sourceAqi = aqiData
+            districtSource = districtData
             val shownData = shown(aqiData)
+            val shownDistricts = shown(districtData)
 
             _uiState.value =
                 AppState(
                     isLoading = false,
                     zones = zones,
                     allAqiData = shownData,
-                    pinnedZones = sortedByPinOrder(shownData.filter { it.zoneId in pinnedSet }, pinnedOrder),
+                    pinnedZones = sortedByPinOrder((shownData + shownDistricts).filter { it.zoneId in pinnedSet }, pinnedOrder),
                     pinnedIds = pinnedSet,
                     sensorInfos = sensors,
+                    districtZones = districts,
+                    districtAqi = shownDistricts,
                 )
         } catch (_: Exception) {
         }
@@ -410,7 +463,7 @@ class BreatheViewModel(application: Application) : AndroidViewModel(application)
         }
 
         _uiState.update { state ->
-            val byId = state.allAqiData.associateBy { it.zoneId }
+            val byId = (state.allAqiData + state.districtAqi).associateBy { it.zoneId }
             state.copy(
                 pinnedIds = updatedOrder.toSet(),
                 pinnedZones = updatedOrder.mapNotNull { byId[it] },

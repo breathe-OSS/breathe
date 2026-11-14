@@ -254,6 +254,8 @@ fun MainDashboardDetail(
                         Text(
                             if (zone.showingRaw) {
                                 "Live ground sensor · raw readings"
+                            } else if ((zone.nodes?.size ?: 0) >= 2) {
+                                "District average of ${zone.nodes?.size} ground sensors"
                             } else {
                                 "Live ground sensor"
                             },
@@ -429,7 +431,7 @@ fun MainDashboardDetail(
                     )
                 }
 
-                if (isAirGradient) {
+                if (isAirGradient && zone.nodes.isNullOrEmpty()) {
                     AboutSensorCard(
                         zone = zone,
                         sensorInfo = sensorInfos.find { it.locationId == zone.locationId },
@@ -480,7 +482,7 @@ fun MainDashboardDetail(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            if (isAirGradient) {
+            if (isAirGradient && zone.nodes.isNullOrEmpty()) {
                 AboutSensorCard(
                     zone = zone,
                     sensorInfo = sensorInfos.find { it.locationId == zone.locationId },
