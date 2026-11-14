@@ -65,6 +65,8 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.SmokingRooms
 import androidx.compose.material.icons.filled.WarningAmber
@@ -547,13 +549,11 @@ private fun AqiHeroCard(
         LocalWindowInfo.current.containerSize.width.toDp()
     }
     val compact = screenWidth < 390.dp
-    val burstSize = if (compact) 132.dp else 156.dp
     val aqiFontSize =
-        when {
-            displayAqi >= 100 && compact -> 40.sp
-            displayAqi >= 100 -> 48.sp
-            compact -> 52.sp
-            else -> 60.sp
+        if (compact) {
+            76.sp
+        } else {
+            92.sp
         }
 
     val animatedAqi by animateIntAsState(
@@ -566,22 +566,9 @@ private fun AqiHeroCard(
         label = "DashboardNumber",
     )
 
-    val breatheScale by loopingFloat(
-        enabled = animationSettings.pulseEffects,
-        initialValue = 1f,
-        targetValue = 1.04f,
-        animationSpec =
-            infiniteRepeatable(
-                animation = tween(4000, easing = FastOutSlowInEasing),
-                repeatMode = RepeatMode.Reverse,
-            ),
-        label = "breatheScale",
-    )
-
     val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val container = aqiColor.copy(alpha = if (dark) 0.18f else 0.14f).compositeOver(MaterialTheme.colorScheme.surfaceContainer)
-    val pillColor = aqiColor.copy(alpha = if (dark) 0.26f else 0.22f).compositeOver(container)
-    val burst = remember { SoftBurstShape() }
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val change1h = remember(zone.history, displayAqi, useNaqi) {
         calculateChange1h(history = zone.history, currentAqi = displayAqi, useNaqi = useNaqi)
     }
@@ -591,112 +578,154 @@ private fun AqiHeroCard(
         } else {
             zone.mainPollutant
         }
+    val bands = aqiBands(useNaqi)
+    val clamped = displayAqi.coerceIn(0, 500)
+    val bandIndex = bands.indexOfFirst { (low, high) -> clamped in low..high }.coerceAtLeast(0)
+    val band = bands[bandIndex]
+    val nextBand = bands.getOrNull(bandIndex + 1)
 
     Surface(
         shape = MaterialTheme.shapes.extraLarge,
         color = container,
         modifier = modifier.pressSquish(),
     ) {
-        Column(modifier = Modifier.padding(24.dp)) {
-            Row(verticalAlignment = Alignment.Top) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        category,
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = aqiTextColor,
-                    )
-                    Text(
-                        zone.timestampUnix?.let { "Updated ${getTimeAgo(it.toLong()).replaceFirstChar { c -> c.lowercase() }}" } ?: "Live",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+        Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    category,
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = aqiTextColor,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(modifier = Modifier.width(12.dp))
                 Surface(color = aqiColor, shape = RoundedCornerShape(100)) {
                     Text(
                         aqiLabel,
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold,
                         color = aqiColor.onAqiColor(),
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
                     )
                 }
             }
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(vertical = 12.dp),
+                modifier = Modifier.fillMaxWidth(),
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Box(
-                        modifier =
-                            Modifier
-                                .size(burstSize)
-                                .graphicsLayer {
-                                    scaleX = breatheScale
-                                    scaleY = breatheScale
-                                }.background(pillColor, burst),
-                    )
+                Text(
+                    text = "$animatedAqi",
+                    style =
+                        MaterialTheme.typography.displayLarge.copy(
+                            fontSize = aqiFontSize,
+                            lineHeight = aqiFontSize,
+                            fontFeatureSettings = "tnum",
+                        ),
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    letterSpacing = (-2).sp,
+                    maxLines = 1,
+                    modifier = Modifier.weight(1f),
+                )
+                Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = "$animatedAqi",
-                        style = MaterialTheme.typography.displayLarge.copy(fontSize = aqiFontSize),
-                        fontWeight = FontWeight.Black,
-                        color = aqiTextColor,
-                        letterSpacing = (-1).sp,
-                        maxLines = 1,
+                        "Primary",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = muted,
                     )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    HeroPill(color = pillColor) {
-                        Text(
-                            "Main ",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        PollutantText(
-                            rawKey = pollutant,
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
-                    if (change1h != null && change1h != 0) {
-                        val better = change1h < 0
-                        HeroPill(color = pillColor) {
-                            Icon(
-                                if (better) Icons.Filled.KeyboardArrowDown else Icons.Filled.KeyboardArrowUp,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(18.dp),
-                            )
-                            Text(
-                                if (better) {
-                                    "${-change1h} better in 1h"
-                                } else {
-                                    "$change1h worse in 1h"
-                                },
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                        }
-                    } else if (change1h == 0) {
-                        HeroPill(color = pillColor) {
-                            Text(
-                                "Steady in 1h",
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                        }
-                    }
+                    PollutantText(
+                        rawKey = pollutant,
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
                 }
             }
 
+            Spacer(modifier = Modifier.height(8.dp))
             AqiSegmentGauge(displayAqi = displayAqi, useNaqi = useNaqi)
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    "${band.first} to ${band.second}",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = muted,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    if (nextBand != null) {
+                        "Next band at ${nextBand.first}"
+                    } else {
+                        "Top band"
+                    },
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = muted,
+                )
+            }
+
+            HorizontalDivider(
+                color = aqiColor.copy(alpha = 0.3f),
+                modifier = Modifier.padding(vertical = 16.dp),
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "1h trend",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = muted,
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Icon(
+                    when {
+                        change1h == null || change1h == 0 -> Icons.Filled.Remove
+                        change1h < 0 -> Icons.Filled.KeyboardArrowDown
+                        else -> Icons.Filled.KeyboardArrowUp
+                    },
+                    contentDescription =
+                        when {
+                            change1h == null || change1h == 0 -> "Steady"
+                            change1h < 0 -> "Better"
+                            else -> "Worse"
+                        },
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(modifier = Modifier.width(2.dp))
+                Text(
+                    change1h?.let { kotlin.math.abs(it).toString() } ?: "--",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f),
+                )
+                Icon(
+                    Icons.Outlined.Schedule,
+                    contentDescription = null,
+                    tint = muted,
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    zone.timestampUnix?.let { getTimeAgo(it.toLong()) } ?: "Live",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = muted,
+                )
+            }
         }
     }
+}
+
+private fun aqiBands(useNaqi: Boolean): List<Pair<Int, Int>> {
+    if (useNaqi) {
+        return listOf(0 to 50, 51 to 100, 101 to 200, 201 to 300, 301 to 400, 401 to 500)
+    }
+    return listOf(0 to 50, 51 to 100, 101 to 150, 151 to 200, 201 to 300, 301 to 500)
 }
 
 @Composable
@@ -719,12 +748,7 @@ private fun AqiSegmentGauge(
     useNaqi: Boolean,
 ) {
     val animationSettings = LocalAnimationSettings.current
-    val bands =
-        if (useNaqi) {
-            listOf(0 to 50, 51 to 100, 101 to 200, 201 to 300, 301 to 400, 401 to 500)
-        } else {
-            listOf(0 to 50, 51 to 100, 101 to 150, 151 to 200, 201 to 300, 301 to 500)
-        }
+    val bands = aqiBands(useNaqi)
     val clamped = displayAqi.coerceIn(0, 500)
     val position by animateFloatAsState(
         targetValue = clamped / 500f,
