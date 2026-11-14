@@ -298,7 +298,7 @@ fun MapScreen(
                                 } else {
                                     MapMarkerIcons.NO_DATA_GREY
                                 },
-                            ringColor = surfaceArgb,
+                            ringColor = android.graphics.Color.WHITE,
                             diameterDp = bubble.diameterDp,
                             showLiveDot = bubble.showLiveDot,
                             muted = bubble.muted,
