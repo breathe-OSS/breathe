@@ -74,7 +74,7 @@ private const val CACHE = "breathe_cache"
 private val REFRESH_INTERVAL = 16.minutes
 
 const val HISTORY_METRICS =
-    "pm2.5,pm10,temp,humidity,us_aqi,pm2.5_raw,pm10_raw,temp_raw,humidity_raw,us_aqi_raw"
+    "pm2.5,pm10,temp,humidity,us_aqi,naqi,pm2.5_raw,pm10_raw,temp_raw,humidity_raw,us_aqi_raw,naqi_raw"
 
 // holds onto the application, never an activity, so rotating doesn't leak
 // the old activity through the polling loop

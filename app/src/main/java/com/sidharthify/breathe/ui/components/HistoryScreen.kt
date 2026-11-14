@@ -103,7 +103,7 @@ import com.sidharthify.breathe.util.HistorySeries
 import com.sidharthify.breathe.util.PM10_BANDS
 import com.sidharthify.breathe.util.PM25_BANDS
 import com.sidharthify.breathe.util.SeriesHue
-import com.sidharthify.breathe.util.US_CATEGORY_SAMPLES
+import com.sidharthify.breathe.util.categorySample
 import com.sidharthify.breathe.util.VerdictTone
 import com.sidharthify.breathe.util.WEATHER_FILTER_LABELS
 import com.sidharthify.breathe.util.activeSeries
@@ -161,7 +161,7 @@ fun formatValue(
 }
 
 fun unitSuffix(unit: String): String {
-    if (unit == "US AQI") {
+    if (unit == "US AQI" || unit == "NAQI") {
         return ""
     }
     return " $unit"
@@ -527,6 +527,7 @@ private fun valueColor(
     }
     return when (key.removeSuffix("_raw")) {
         "us_aqi" -> getAqiColor(value.roundToInt(), true).asAqiText(surface)
+        "naqi" -> getAqiColor(value.roundToInt(), false).asAqiText(surface)
         "pm2_5" -> getAqiColor(bandSampleFor(value, PM25_BANDS), true).asAqiText(surface)
         "pm10" -> getAqiColor(bandSampleFor(value, PM10_BANDS), true).asAqiText(surface)
         else -> MaterialTheme.colorScheme.onSurface
@@ -578,26 +579,39 @@ private fun HistorySummaryCard(
             }
         }
 
+        val usScale = metric.usScale
+        val aqiBase =
+            if (usScale) {
+                "us_aqi"
+            } else {
+                "naqi"
+            }
+        val indexName =
+            if (usScale) {
+                "US AQI"
+            } else {
+                "NAQI"
+            }
         val aqiKey =
             if (mode == HistoryMode.RAW) {
-                "us_aqi_raw"
+                "${aqiBase}_raw"
             } else {
-                "us_aqi"
+                aqiBase
             }
         val tally = IntArray(6)
         var tallied = 0
         points.forEach { p ->
             val v = p.value(aqiKey) ?: return@forEach
-            tally[aqiBandIndex(v.roundToInt(), true)] += 1
+            tally[aqiBandIndex(v.roundToInt(), usScale)] += 1
             tallied += 1
         }
         if (tallied > 0) {
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 if (mode == HistoryMode.RAW) {
-                    "Time in each US AQI category, raw"
+                    "Time in each $indexName category, raw"
                 } else {
-                    "Time in each US AQI category"
+                    "Time in each $indexName category"
                 },
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -617,7 +631,7 @@ private fun HistorySummaryCard(
                                 Modifier
                                     .weight(n.toFloat())
                                     .fillMaxSize()
-                                    .background(getAqiColor(US_CATEGORY_SAMPLES[i], true), RoundedCornerShape(3.dp)),
+                                    .background(getAqiColor(categorySample(i, usScale), usScale), RoundedCornerShape(3.dp)),
                         )
                     }
                 }
@@ -633,11 +647,11 @@ private fun HistorySummaryCard(
                                 modifier =
                                     Modifier
                                         .size(10.dp)
-                                        .background(getAqiColor(US_CATEGORY_SAMPLES[i], true), RoundedCornerShape(2.dp)),
+                                        .background(getAqiColor(categorySample(i, usScale), usScale), RoundedCornerShape(2.dp)),
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                "${getAqiCategory(US_CATEGORY_SAMPLES[i], true).label} ${(n * 100.0 / tallied).roundToInt()}%",
+                                "${getAqiCategory(categorySample(i, usScale), usScale).label} ${(n * 100.0 / tallied).roundToInt()}%",
                                 style = MaterialTheme.typography.labelSmall,
                             )
                         }
@@ -690,7 +704,9 @@ private fun MainHistoryCard(
             else -> "hourly"
         }
     val shaded =
-        if (metric.bands() != null) {
+        if (metric.bands() != null && !metric.usScale) {
+            ", shaded by NAQI category"
+        } else if (metric.bands() != null) {
             ", shaded by US AQI category"
         } else {
             ""
@@ -714,7 +730,8 @@ private fun MainHistoryCard(
             beginAtZero = metric != HistoryMetric.TEMP,
             unit = metric.unit,
             decimals = metric.decimals,
-            showCategory = metric == HistoryMetric.AQI,
+            showCategory = metric.isIndex,
+            usScale = metric.usScale,
         )
     }
 }
@@ -764,6 +781,7 @@ private fun HourProfileCard(
             unit = metric.unit,
             decimals = metric.decimals,
             showCategory = false,
+            usScale = metric.usScale,
             height = 180.dp,
         )
     }
@@ -883,6 +901,7 @@ private fun CompareCard(
             unit = metric.unit,
             decimals = metric.decimals,
             showCategory = false,
+            usScale = metric.usScale,
             showLegend = !many,
         )
 
@@ -1058,6 +1077,7 @@ fun HistoryLineChart(
     unit: String,
     decimals: Int,
     showCategory: Boolean,
+    usScale: Boolean = true,
     height: Dp = 220.dp,
     showLegend: Boolean = lines.size > 1,
 ) {
@@ -1128,7 +1148,7 @@ fun HistoryLineChart(
                     val v = line.values.getOrNull(i) ?: return@mapNotNull null
                     var text = "${line.label} ${formatValue(v, decimals)}${unitSuffix(unit)}"
                     if (showCategory) {
-                        text += " (${getAqiCategory(v.roundToInt(), true).label})"
+                        text += " (${getAqiCategory(v.roundToInt(), usScale).label})"
                     }
                     text
                 }
@@ -1188,7 +1208,7 @@ fun HistoryLineChart(
                 val bot = yAt(bands[i]).coerceAtMost(h)
                 if (bot > top) {
                     drawRect(
-                        color = getAqiColor(US_CATEGORY_SAMPLES[i], true).copy(alpha = 0.08f),
+                        color = getAqiColor(categorySample(i, usScale), usScale).copy(alpha = 0.08f),
                         topLeft = Offset(0f, top),
                         size = androidx.compose.ui.geometry.Size(w, bot - top),
                     )

@@ -185,11 +185,13 @@ data class HistoricalDataPoint(
     @SerializedName("temp") val temp: Double? = null,
     @SerializedName("humidity") val humidity: Double? = null,
     @SerializedName("us_aqi") val usAqi: Double? = null,
+    @SerializedName("naqi") val naqi: Double? = null,
     @SerializedName("pm2_5_raw") val pm25Raw: Double? = null,
     @SerializedName("pm10_raw") val pm10Raw: Double? = null,
     @SerializedName("temp_raw") val tempRaw: Double? = null,
     @SerializedName("humidity_raw") val humidityRaw: Double? = null,
     @SerializedName("us_aqi_raw") val usAqiRaw: Double? = null,
+    @SerializedName("naqi_raw") val naqiRaw: Double? = null,
 ) {
     fun value(key: String): Double? =
         when (key) {
@@ -198,11 +200,13 @@ data class HistoricalDataPoint(
             "temp" -> temp
             "humidity" -> humidity
             "us_aqi" -> usAqi
+            "naqi" -> naqi
             "pm2_5_raw" -> pm25Raw
             "pm10_raw" -> pm10Raw
             "temp_raw" -> tempRaw
             "humidity_raw" -> humidityRaw
             "us_aqi_raw" -> usAqiRaw
+            "naqi_raw" -> naqiRaw
             else -> null
         }
 }
@@ -227,13 +231,19 @@ enum class HistoryMetric(
     val keys: List<String>,
     val names: List<String>,
     val decimals: Int,
+    val usScale: Boolean = true,
 ) {
     AQI("US AQI", "US AQI", listOf("us_aqi"), listOf("US AQI"), 0),
+    NAQI("NAQI", "NAQI", listOf("naqi"), listOf("NAQI"), 0, usScale = false),
     PM25("PM2.5", "µg/m³", listOf("pm2_5"), listOf("PM2.5"), 1),
     PM10("PM10", "µg/m³", listOf("pm10"), listOf("PM10"), 1),
     PM("PM2.5 + PM10", "µg/m³", listOf("pm2_5", "pm10"), listOf("PM2.5", "PM10"), 1),
     TEMP("Temperature", "°C", listOf("temp"), listOf("Temperature"), 1),
     HUMIDITY("Humidity", "%", listOf("humidity"), listOf("Humidity"), 0),
+    ;
+
+    val isIndex: Boolean
+        get() = this == AQI || this == NAQI
 }
 
 enum class HistoryMode(val label: String) {

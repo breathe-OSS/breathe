@@ -36,9 +36,21 @@ import kotlin.math.sqrt
 const val COMPARE_MIN_OVERLAP = 24
 
 val US_AQI_BANDS = listOf(0.0, 50.0, 100.0, 150.0, 200.0, 300.0, 500.0)
+val NAQI_BANDS = listOf(0.0, 50.0, 100.0, 200.0, 300.0, 400.0, 500.0)
 val PM25_BANDS = listOf(0.0, 9.0, 35.4, 55.4, 125.4, 225.4, 325.4)
 val PM10_BANDS = listOf(0.0, 54.0, 154.0, 254.0, 354.0, 424.0, 604.0)
 val US_CATEGORY_SAMPLES = listOf(25, 75, 125, 175, 250, 400)
+val INDIA_CATEGORY_SAMPLES = listOf(25, 75, 150, 250, 350, 450)
+
+fun categorySample(
+    index: Int,
+    usScale: Boolean,
+): Int {
+    if (usScale) {
+        return US_CATEGORY_SAMPLES[index]
+    }
+    return INDIA_CATEGORY_SAMPLES[index]
+}
 
 enum class SeriesHue {
     PRIMARY,
@@ -88,6 +100,7 @@ data class Verdict(
 fun HistoryMetric.bands(): List<Double>? =
     when (this) {
         HistoryMetric.AQI -> US_AQI_BANDS
+        HistoryMetric.NAQI -> NAQI_BANDS
         HistoryMetric.PM25 -> PM25_BANDS
         HistoryMetric.PM10 -> PM10_BANDS
         else -> null
