@@ -180,6 +180,13 @@ fun ExploreScreen(
     val animationSettings = LocalAnimationSettings.current
     val aqiById = remember(allAqiData, districtAqi) { (allAqiData + districtAqi).associateBy { it.zoneId } }
     val groups = remember(zones) { groupPlaces(zones) }
+    val averageSizes =
+        remember(zones) {
+            zones
+                .filter { !it.isEstimate && it.legacyZone != null }
+                .groupingBy { it.legacyZone!! }
+                .eachCount()
+        }
     var openDistricts by rememberSaveable { mutableStateOf(listOf<String>()) }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     var showFullDetails by rememberSaveable { mutableStateOf(false) }
@@ -275,6 +282,7 @@ fun ExploreScreen(
                                         segmentShape(index, divisionGroups.size)
                                     },
                                 aqiById = aqiById,
+                                averageSizes = averageSizes,
                                 useNaqi = useNaqi,
                                 pinnedIds = pinnedIds,
                                 onToggle = {
@@ -350,6 +358,7 @@ private fun DistrictCard(
     expanded: Boolean,
     shape: Shape,
     aqiById: Map<String, AqiResponse>,
+    averageSizes: Map<String, Int>,
     useNaqi: Boolean,
     pinnedIds: Set<String>,
     onToggle: () -> Unit,
@@ -457,7 +466,7 @@ private fun DistrictCard(
                             )
                             DistrictAverageRow(
                                 data = average,
-                                sensors = group.places.count { !it.isEstimate },
+                                sensors = averageSizes[legacyId] ?: group.places.count { !it.isEstimate },
                                 useNaqi = useNaqi,
                                 pinned = legacyId in pinnedIds,
                                 onOpen = { onOpen(legacyId) },
