@@ -44,6 +44,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.Column
@@ -140,7 +141,6 @@ import com.sidharthify.breathe.util.asAqiText
 import com.sidharthify.breathe.util.displayAqi
 import com.sidharthify.breathe.util.onAqiColor
 import com.sidharthify.breathe.util.getAqiCategory
-import com.sidharthify.breathe.navigation.LocalIsTabletLandscape
 import com.sidharthify.breathe.util.getAqiColor
 import com.sidharthify.breathe.util.getHealthAdvice
 import com.sidharthify.breathe.util.getTimeAgo
@@ -411,38 +411,37 @@ fun MainDashboardDetail(
                     useNaqi = useNaqi,
                     weather = weather,
                     cigarettes = cigarettes,
-                    modifier = Modifier.weight(1f),
+                    fill = true,
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .fillMaxHeight(),
                 )
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            Row(
+            Column(
                 modifier =
                     Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp),
             ) {
                 if (pollutants.isNotEmpty()) {
-                    ConcentrationsSection(
-                        pollutants = pollutants,
-                        modifier = Modifier.weight(1f),
-                    )
+                    ConcentrationsSection(pollutants = pollutants)
                 }
 
                 if (isAirGradient && zone.nodes.isNullOrEmpty()) {
                     AboutSensorCard(
                         zone = zone,
                         sensorInfo = sensorInfos.find { it.locationId == zone.locationId },
-                        modifier = Modifier.weight(1f),
                     )
                 } else if (!zone.nodes.isNullOrEmpty()) {
                     IndividualNodeReadingsSection(
                         nodes = zone.nodes,
                         useNaqi = useNaqi,
                         sensorInfos = sensorInfos,
-                        modifier = Modifier.weight(1f),
                     )
                 }
             }
@@ -822,6 +821,7 @@ private fun ContextRows(
     weather: WeatherInfo?,
     cigarettes: Double,
     modifier: Modifier = Modifier,
+    fill: Boolean = false,
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val locale = LocalLocale.current.platformLocale
@@ -835,11 +835,18 @@ private fun ContextRows(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {
+        val rowModifier =
+            if (fill) {
+                Modifier.weight(1f)
+            } else {
+                Modifier
+            }
         InfoRow(
             shape = groupShape(index++, count),
             iconContainer = aqiColor.copy(alpha = 0.22f).compositeOver(colorScheme.surfaceContainerHigh),
             title = advice.title,
             body = advice.text,
+            modifier = rowModifier,
         ) {
             Icon(
                 Icons.Filled.Favorite,
@@ -856,6 +863,7 @@ private fun ContextRows(
                 iconContainer = colorScheme.secondaryContainer,
                 title = "$condition · $season",
                 body = weather.text,
+                modifier = rowModifier,
             ) {
                 Icon(
                     painter = painterResource(weatherConditionIconRes(weather.condition)),
@@ -871,6 +879,7 @@ private fun ContextRows(
                 iconContainer = colorScheme.errorContainer,
                 title = "≈ $cigarettes cigarettes",
                 body = "Equivalent PM2.5 inhalation today",
+                modifier = rowModifier,
             ) {
                 Icon(
                     Icons.Filled.SmokingRooms,
@@ -910,16 +919,17 @@ fun InfoRow(
     iconContainer: Color,
     title: String,
     body: String,
+    modifier: Modifier = Modifier,
     icon: @Composable () -> Unit,
 ) {
     val burst = remember { SoftBurstShape() }
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainer,
         shape = shape,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.fillMaxHeight().padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
@@ -961,15 +971,12 @@ private fun ConcentrationsSection(
         )
         Spacer(modifier = Modifier.height(16.dp))
 
-        SimpleFlowGrid(
-            items = pollutants.entries.toList(),
-            columns =
-                if (LocalIsTabletLandscape.current) {
-                    3
-                } else {
-                    2
-                },
-        )
+        BoxWithConstraints {
+            SimpleFlowGrid(
+                items = pollutants.entries.toList(),
+                columns = (maxWidth / 180.dp).toInt().coerceIn(2, 6),
+            )
+        }
     }
 }
 
@@ -1376,19 +1383,7 @@ fun AboutSensorCard(
                     "PM2.5$rawSuffix" to fmt(readings.pm25, " µg/m³"),
                     "PM10$rawSuffix" to fmt(readings.pm10, " µg/m³"),
                 )
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                tiles.chunked(2).forEach { pair ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        pair.forEach { (label, value) ->
-                            SensorReadingTile(
-                                label = label,
-                                value = value,
-                                modifier = Modifier.weight(1f),
-                            )
-                        }
-                    }
-                }
-            }
+            SensorTileGrid(tiles)
             Spacer(modifier = Modifier.height(12.dp))
             AmbientDisclaimer(
                 modifier = Modifier,
@@ -1396,28 +1391,62 @@ fun AboutSensorCard(
             )
             Spacer(modifier = Modifier.height(16.dp))
         }
-        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            facts.forEachIndexed { index, (label, value) ->
-                Surface(
-                    color = MaterialTheme.colorScheme.surfaceContainer,
-                    shape = groupShape(index, facts.size),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            label,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        BoxWithConstraints {
+            if (maxWidth >= 600.dp) {
+                SensorTileGrid(facts)
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    facts.forEachIndexed { index, (label, value) ->
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceContainer,
+                            shape = groupShape(index, facts.size),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    label,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Text(
+                                    value,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SensorTileGrid(tiles: List<Pair<String, String>>) {
+    BoxWithConstraints {
+        val columns =
+            if (maxWidth >= 600.dp) {
+                4
+            } else {
+                2
+            }
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            tiles.chunked(columns).forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    row.forEach { (label, value) ->
+                        SensorReadingTile(
+                            label = label,
+                            value = value,
                             modifier = Modifier.weight(1f),
                         )
-                        Text(
-                            value,
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.SemiBold,
-                        )
+                    }
+                    repeat(columns - row.size) {
+                        Spacer(modifier = Modifier.weight(1f))
                     }
                 }
             }
