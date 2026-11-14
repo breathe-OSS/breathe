@@ -1359,63 +1359,93 @@ fun AboutSensorCard(
             "Location ID" to (zone.locationId ?: sensorInfo?.locationId)?.toString().orEmpty().ifEmpty { "--" },
             "Installed" to (sensorInfo?.installationDate ?: "--"),
         )
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        shape = MaterialTheme.shapes.large,
-        modifier = modifier.fillMaxWidth(),
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text(
-                "About this sensor",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-            )
-            if (readings != null) {
-                val rows =
-                    listOf(
-                        "Temperature$rawSuffix" to fmt(readings.temp, " °C"),
-                        "Humidity$rawSuffix" to fmt(readings.humidity, "%"),
-                        "PM2.5$rawSuffix" to fmt(readings.pm25, " µg/m³"),
-                        "PM10$rawSuffix" to fmt(readings.pm10, " µg/m³"),
-                    )
-                rows.chunked(2).forEach { pair ->
+    Column(modifier = modifier.fillMaxWidth()) {
+        Text(
+            "About this sensor",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        if (readings != null) {
+            val tiles =
+                listOf(
+                    "Temperature$rawSuffix" to fmt(readings.temp, " °C"),
+                    "Humidity$rawSuffix" to fmt(readings.humidity, "%"),
+                    "PM2.5$rawSuffix" to fmt(readings.pm25, " µg/m³"),
+                    "PM10$rawSuffix" to fmt(readings.pm10, " µg/m³"),
+                )
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                tiles.chunked(2).forEach { pair ->
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         pair.forEach { (label, value) ->
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    label,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                Text(
-                                    value,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                )
-                            }
+                            SensorReadingTile(
+                                label = label,
+                                value = value,
+                                modifier = Modifier.weight(1f),
+                            )
                         }
                     }
                 }
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
-            facts.forEach { (label, value) ->
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        label,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Text(
-                        value,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium,
-                    )
+            Spacer(modifier = Modifier.height(12.dp))
+            AmbientDisclaimer(
+                modifier = Modifier,
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            facts.forEachIndexed { index, (label, value) ->
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceContainer,
+                    shape = groupShape(index, facts.size),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            label,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            value,
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SensorReadingTile(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = MaterialTheme.shapes.large,
+        modifier = modifier,
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
+            Text(
+                label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                value,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+            )
         }
     }
 }

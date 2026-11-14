@@ -43,6 +43,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.sidharthify.breathe.data.NodeReading
@@ -139,11 +140,14 @@ private fun OfflineBanner() {
 }
 
 @Composable
-private fun AmbientDisclaimer() {
+fun AmbientDisclaimer(
+    modifier: Modifier = Modifier.padding(vertical = 4.dp),
+    color: Color = MaterialTheme.colorScheme.surfaceVariant,
+) {
     Surface(
         shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        color = color,
+        modifier = modifier.fillMaxWidth(),
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
