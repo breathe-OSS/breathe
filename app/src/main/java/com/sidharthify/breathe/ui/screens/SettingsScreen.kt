@@ -519,10 +519,19 @@ fun SettingsScreen(
 
         SettingsGroup(title = "We, the People of Breathe", isAmoled = isAmoled) {
             TEAM.forEach { member ->
-                SettingsItem(member.name, "${member.role} (@${member.github})", onClick = {
-                    uriHandler.openUri("https://github.com/${member.github}")
+                val subtitle =
+                    if (member.handle != null) {
+                        "${member.role} (@${member.handle})"
+                    } else {
+                        member.role
+                    }
+                SettingsItem(member.name, subtitle, onClick = {
+                    uriHandler.openUri(member.url)
                 })
             }
+            SettingsItem("All Contributors", "Everyone who has helped build Breathe", onClick = {
+                uriHandler.openUri("https://about.breatheoss.app/#people")
+            })
         }
 
         SettingsGroup(title = "Updates (from GitHub)", isAmoled = isAmoled) {
@@ -603,17 +612,20 @@ private fun glassStatus(
 private data class TeamMember(
     val name: String,
     val role: String,
-    val github: String,
+    val handle: String?,
+    val url: String,
 )
 
 private val TEAM =
     listOf(
-        TeamMember("Sidharth \"Siddhi\" Sharma", "Lead Developer", "sidharthify"),
-        TeamMember("Aaditya Gupta", "Developer", "Flashwreck"),
-        TeamMember("Sannidhya Sharma", "Developer", "SleeperOfSaturn"),
-        TeamMember("Aditya Choudhary", "Contributor", "empirea9"),
-        TeamMember("Veer P.S Singh", "Contributor", "Lostless1907"),
-        TeamMember("Suvesh Moza", "Contributor", "suveshmoza"),
+        // contributors:start
+        TeamMember("Sidharth \"Siddhi\" Sharma", "Lead Developer", "sidharthify", "https://github.com/sidharthify"),
+        TeamMember("Aaditya Gupta", "Lead Developer, DevOps", "FlashWreck", "https://github.com/FlashWreck"),
+        TeamMember("Veer P.S Sambyal", "Developer", "Lostless1907", "https://github.com/Lostless1907"),
+        TeamMember("Altair Irfan", "Core Team", null, "https://www.linkedin.com/in/altairirfan/"),
+        TeamMember("Suvesh Moza", "Developer", "suveshmoza", "https://github.com/suveshmoza"),
+        TeamMember("Aditya Choudhary", "Contributor", "empirea9", "https://github.com/empirea9"),
+        // contributors:end
     )
 
 @Composable
