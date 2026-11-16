@@ -154,13 +154,6 @@ We are actively working to deploy custom physical sensors to improve data densit
 We have deployed **AirGradient** sensors in Bandipora, Budgam, Doda, Ganderbal, Jammu, Kargil, Kathua, Leh, Rajouri, Reasi, Samba, Srinagar & Udhampur (20 sensors across 13 districts as of 13/11/26), which provide an accurate measurement of PM10 and PM2.5 values. The live list is always at [api.breatheoss.app/sensor-info](https://api.breatheoss.app/sensor-info). We are working
 to deploy them in all other regions.
 
-## Credits & Developers
+## Credits
 
-This project is fully Free & Open Source Software (FOSS).
-
-1. [sidharthify](https://github.com/sidharthify) (Lead Dev)
-2. [Flashwreck](https://github.com/Flashwreck) (Lead dev and devops maintainer)
-3. [SleeperOfSaturn](https://github.com/SleeperOfSaturn) (iOS app co-lead)
-4. [Lostless1907](https://github.com/Lostless1907) (Contributor and developer)
-5. [suveshmoza](https://github.com/suveshmoza) (Contributor and developer)
-6. [empirea9](https://github.com/empirea9) (Contributor)
+This project is fully Free & Open Source Software (FOSS). Everyone who has helped build it, in code or otherwise, is listed on [about.breatheoss.app](https://about.breatheoss.app/#people). The list lives in [breathe-OSS/.github](https://github.com/breathe-OSS/.github/blob/main/contributors.json).
