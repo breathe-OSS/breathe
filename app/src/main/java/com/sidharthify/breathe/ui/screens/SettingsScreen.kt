@@ -622,6 +622,7 @@ private val TEAM =
         TeamMember("Sidharth \"Siddhi\" Sharma", "Lead Developer", "sidharthify", "https://github.com/sidharthify"),
         TeamMember("Aaditya Gupta", "Lead Developer, DevOps", "FlashWreck", "https://github.com/FlashWreck"),
         TeamMember("Veer P.S Sambyal", "Developer", "Lostless1907", "https://github.com/Lostless1907"),
+        TeamMember("Sannidhya Sharma", "Developer, iOS App Co-dev", "SleeperOfSaturn", "https://github.com/SleeperOfSaturn"),
         TeamMember("Altair Irfan", "Core Team", null, "https://www.linkedin.com/in/altairirfan/"),
         TeamMember("Suvesh Moza", "Developer", "suveshmoza", "https://github.com/suveshmoza"),
         TeamMember("Aditya Choudhary", "Contributor", "empirea9", "https://github.com/empirea9"),
